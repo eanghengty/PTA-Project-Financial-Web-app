@@ -1,0 +1,385 @@
+<template>
+  <div class="space-y-6">
+
+    <!-- Page header -->
+    <div class="flex items-center justify-between pb-2 border-b border-gray-100">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center">
+          <svg class="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-gray-900">Cost to Date</h2>
+          <p class="text-xs text-gray-400 mt-0.5">Labour &amp; third party costs per job</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <!-- Import -->
+        <label class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+          </svg>
+          Import Costs
+          <input type="file" accept=".xlsx,.xls,.csv" class="hidden" @change="handleImport" />
+        </label>
+        <!-- Download template -->
+        <button @click="downloadTemplate"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Download Template
+        </button>
+        <!-- Export -->
+        <button @click="exportToExcel"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-xl text-sm font-semibold hover:bg-violet-700 transition shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Export
+        </button>
+      </div>
+    </div>
+
+    <!-- Import result banner -->
+    <div v-if="importResult" class="flex items-start gap-3 px-4 py-3 rounded-xl border"
+      :class="importResult.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'">
+      <svg class="w-4 h-4 mt-0.5 shrink-0" :class="importResult.type === 'success' ? 'text-green-500' : 'text-red-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path v-if="importResult.type === 'success'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <div class="flex-1 text-sm" :class="importResult.type === 'success' ? 'text-green-700' : 'text-red-700'">
+        <p class="font-semibold">{{ importResult.title }}</p>
+        <p class="text-xs mt-0.5">{{ importResult.message }}</p>
+        <ul v-if="importResult.warnings?.length" class="mt-1 space-y-0.5">
+          <li v-for="(w, i) in importResult.warnings" :key="i" class="text-xs">• {{ w }}</li>
+        </ul>
+      </div>
+      <button @click="importResult = null" class="shrink-0 text-gray-400 hover:text-gray-600 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- KPI cards -->
+    <div class="grid grid-cols-4 gap-4">
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Total Jobs</p>
+        <p class="text-2xl font-bold text-gray-900">{{ jobRows.length }}</p>
+        <p class="text-xs text-gray-400 mt-1">unique job numbers</p>
+      </div>
+      <div class="bg-white rounded-xl border border-violet-200 shadow-sm px-5 py-4">
+        <p class="text-xs font-semibold text-violet-500 uppercase tracking-wider mb-1">Total Labour Cost</p>
+        <p class="text-2xl font-bold text-violet-700">{{ formatCurrency(totals.labour) }}</p>
+        <p class="text-xs text-gray-400 mt-1">across all jobs</p>
+      </div>
+      <div class="bg-white rounded-xl border border-blue-200 shadow-sm px-5 py-4">
+        <p class="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-1">Total Third Party Cost</p>
+        <p class="text-2xl font-bold text-blue-700">{{ formatCurrency(totals.thirdParty) }}</p>
+        <p class="text-xs text-gray-400 mt-1">across all jobs</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Grand Total Cost</p>
+        <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(totals.grand) }}</p>
+        <p class="text-xs text-gray-400 mt-1">labour + third party</p>
+      </div>
+    </div>
+
+    <!-- Table card -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+
+      <!-- Search bar -->
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-4">
+        <input v-model="searchText" type="text" placeholder="Search by job number, site ID or site name…"
+          class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent" />
+        <button v-if="searchText" @click="searchText = ''"
+          class="text-sm text-gray-400 hover:text-gray-600 transition px-2 py-1 rounded">✕ Clear</button>
+        <span class="text-sm text-gray-400 whitespace-nowrap">{{ filteredRows.length }} job{{ filteredRows.length !== 1 ? 's' : '' }}</span>
+      </div>
+
+      <!-- Table -->
+      <div class="overflow-auto" style="max-height: calc(100vh - 380px);">
+        <table class="border-collapse w-full" style="min-width: 700px;">
+          <thead class="sticky top-0 z-10">
+            <tr>
+              <th v-for="col in columns" :key="col.key"
+                @click="toggleSort(col.key)"
+                class="px-5 py-3 bg-violet-700 border-b-2 border-violet-800 text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-violet-600 transition select-none"
+                :class="col.align === 'right' ? 'text-right' : 'text-left'">
+                <span class="inline-flex items-center gap-1">
+                  {{ col.label }}
+                  <svg v-if="sortCol === col.key && sortDir === 'asc'" class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
+                  <svg v-else-if="sortCol === col.key && sortDir === 'desc'" class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                  <svg v-else class="w-3 h-3 text-violet-400" viewBox="0 0 20 20" fill="currentColor"><path d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zM3 6a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm4 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z"/></svg>
+                </span>
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr v-if="filteredRows.length === 0">
+              <td :colspan="columns.length" class="px-5 py-12 text-center text-gray-400 text-sm">
+                {{ searchText ? 'No jobs match your search.' : 'No cost data recorded yet. Edit variation orders to add labour or third party costs.' }}
+              </td>
+            </tr>
+            <tr v-for="row in sortedRows" :key="row.jobKey"
+              class="hover:bg-violet-50 transition-colors">
+              <td class="px-5 py-3.5 text-sm font-semibold text-gray-900 whitespace-nowrap">{{ row.jobNumber || '—' }}</td>
+              <td class="px-5 py-3.5 text-sm text-gray-700 whitespace-nowrap">
+                <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-700">{{ row.siteId }}</span>
+              </td>
+              <td class="px-5 py-3.5 text-sm text-gray-700">{{ row.siteName }}</td>
+              <td class="px-5 py-3.5 text-sm text-right font-semibold whitespace-nowrap"
+                :class="row.labourCost > 0 ? 'text-violet-700' : 'text-gray-300'">
+                {{ row.labourCost > 0 ? formatCurrency(row.labourCost) : '—' }}
+              </td>
+              <td class="px-5 py-3.5 text-sm text-right font-semibold whitespace-nowrap"
+                :class="row.thirdPartyCost > 0 ? 'text-blue-700' : 'text-gray-300'">
+                {{ row.thirdPartyCost > 0 ? formatCurrency(row.thirdPartyCost) : '—' }}
+              </td>
+              <td class="px-5 py-3.5 text-sm text-right font-bold text-gray-900 whitespace-nowrap">
+                {{ (row.labourCost + row.thirdPartyCost) > 0 ? formatCurrency(row.labourCost + row.thirdPartyCost) : '—' }}
+              </td>
+              <td class="px-5 py-3.5 text-xs text-gray-400 text-right whitespace-nowrap">{{ row.voCount }} VO{{ row.voCount !== 1 ? 's' : '' }}</td>
+            </tr>
+          </tbody>
+          <!-- Footer totals -->
+          <tfoot v-if="filteredRows.length > 0" class="sticky bottom-0">
+            <tr class="bg-gray-50 border-t-2 border-gray-200">
+              <td class="px-5 py-3 text-xs font-bold text-gray-600 uppercase tracking-wider" colspan="3">Totals ({{ filteredRows.length }} jobs)</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-violet-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.labour) }}</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-blue-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.thirdParty) }}</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-gray-900 whitespace-nowrap">{{ formatCurrency(filteredTotals.grand) }}</td>
+              <td class="px-5 py-3 text-xs text-right text-gray-400">{{ filteredTotals.voCount }} VOs</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+import * as XLSX from 'xlsx'
+import { useVOStore } from '../stores/voStore'
+import { formatCurrency } from '../utils/formatters'
+
+const store = useVOStore()
+const searchText = ref('')
+const sortCol = ref('jobNumber')
+const sortDir = ref('asc')
+const importResult = ref(null)
+
+const columns = [
+  { key: 'jobNumber',      label: 'Job Number',       align: 'left'  },
+  { key: 'siteId',         label: 'Site ID',           align: 'left'  },
+  { key: 'siteName',       label: 'Site Name',         align: 'left'  },
+  { key: 'labourCost',     label: 'Labour Cost',       align: 'right' },
+  { key: 'thirdPartyCost', label: 'Third Party Cost',  align: 'right' },
+  { key: 'total',          label: 'Total Cost',        align: 'right' },
+  { key: 'voCount',        label: 'VOs',               align: 'right' },
+]
+
+// Aggregate VOs by jobNumber+siteId+siteName
+const jobRows = computed(() => {
+  const map = new Map()
+  for (const vo of store.vos.value || []) {
+    const key = `${vo.jobNumber || ''}|${vo.siteId || ''}|${vo.siteName || ''}`
+    const existing = map.get(key)
+    if (existing) {
+      existing.labourCost     += vo.labourCost     || 0
+      existing.thirdPartyCost += vo.thirdPartyCost || 0
+      existing.voCount++
+    } else {
+      map.set(key, {
+        jobKey:         key,
+        jobNumber:      vo.jobNumber  || '',
+        siteId:         vo.siteId     || '',
+        siteName:       vo.siteName   || '',
+        labourCost:     vo.labourCost     || 0,
+        thirdPartyCost: vo.thirdPartyCost || 0,
+        voCount:        1,
+      })
+    }
+  }
+  return [...map.values()]
+})
+
+const filteredRows = computed(() => {
+  if (!searchText.value.trim()) return jobRows.value
+  const q = searchText.value.toLowerCase()
+  return jobRows.value.filter(r =>
+    r.jobNumber?.toLowerCase().includes(q) ||
+    r.siteId?.toLowerCase().includes(q) ||
+    r.siteName?.toLowerCase().includes(q)
+  )
+})
+
+const sortedRows = computed(() => {
+  const dir = sortDir.value === 'asc' ? 1 : -1
+  return [...filteredRows.value].sort((a, b) => {
+    let av = sortCol.value === 'total' ? a.labourCost + a.thirdPartyCost : a[sortCol.value]
+    let bv = sortCol.value === 'total' ? b.labourCost + b.thirdPartyCost : b[sortCol.value]
+    if (typeof av === 'string') av = av.toLowerCase()
+    if (typeof bv === 'string') bv = bv.toLowerCase()
+    if (av < bv) return -1 * dir
+    if (av > bv) return  1 * dir
+    return 0
+  })
+})
+
+const totals = computed(() => ({
+  labour:     jobRows.value.reduce((s, r) => s + r.labourCost, 0),
+  thirdParty: jobRows.value.reduce((s, r) => s + r.thirdPartyCost, 0),
+  grand:      jobRows.value.reduce((s, r) => s + r.labourCost + r.thirdPartyCost, 0),
+}))
+
+const filteredTotals = computed(() => ({
+  labour:     filteredRows.value.reduce((s, r) => s + r.labourCost, 0),
+  thirdParty: filteredRows.value.reduce((s, r) => s + r.thirdPartyCost, 0),
+  grand:      filteredRows.value.reduce((s, r) => s + r.labourCost + r.thirdPartyCost, 0),
+  voCount:    filteredRows.value.reduce((s, r) => s + r.voCount, 0),
+}))
+
+function toggleSort(key) {
+  if (sortCol.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortCol.value = key
+    sortDir.value = 'asc'
+  }
+}
+
+// ── Download import template ──
+function downloadTemplate() {
+  // Pre-fill with existing job data so user can just fill in costs
+  const rows = jobRows.value.length > 0
+    ? jobRows.value.map(r => ({
+        'Job Number':       r.jobNumber,
+        'Site ID':          r.siteId,
+        'Site Name':        r.siteName,
+        'Labour Cost':      r.labourCost || 0,
+        'Third Party Cost': r.thirdPartyCost || 0,
+      }))
+    : [{ 'Job Number': '', 'Site ID': '', 'Site Name': '', 'Labour Cost': 0, 'Third Party Cost': 0 }]
+
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = [{ wch: 18 }, { wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 18 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Cost Import Template')
+  XLSX.writeFile(wb, 'Cost_Import_Template.xlsx')
+}
+
+// ── Export current view ──
+function exportToExcel() {
+  const rows = sortedRows.value.map(r => ({
+    'Job Number':       r.jobNumber,
+    'Site ID':          r.siteId,
+    'Site Name':        r.siteName,
+    'Labour Cost':      r.labourCost,
+    'Third Party Cost': r.thirdPartyCost,
+    'Total Cost':       r.labourCost + r.thirdPartyCost,
+    'VO Count':         r.voCount,
+  }))
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = [{ wch: 18 }, { wch: 12 }, { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 10 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Cost to Date')
+  const date = new Date().toLocaleDateString('en-AU').replace(/\//g, '-')
+  XLSX.writeFile(wb, `Cost_to_Date_${date}.xlsx`)
+}
+
+// ── Import costs from xlsx ──
+async function handleImport(e) {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+  importResult.value = null
+
+  try {
+    const data = await file.arrayBuffer()
+    const wb = XLSX.read(data, { type: 'array' })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
+
+    if (rows.length === 0) {
+      importResult.value = { type: 'error', title: 'Empty file', message: 'No rows found in the spreadsheet.' }
+      return
+    }
+
+    const headers = Object.keys(rows[0]).map(h => h.trim().toLowerCase())
+    const hasJob   = headers.some(h => h.includes('job'))
+    const hasSite  = headers.some(h => h.includes('site id') || h === 'site_id' || h === 'siteid')
+    if (!hasJob && !hasSite) {
+      importResult.value = { type: 'error', title: 'Invalid template', message: 'File must have a "Job Number" or "Site ID" column to match VOs.' }
+      return
+    }
+
+    const getVal = (row, ...keys) => {
+      for (const k of keys) {
+        const found = Object.keys(row).find(h => h.trim().toLowerCase() === k.toLowerCase())
+        if (found !== undefined) return row[found]
+      }
+      return undefined
+    }
+
+    let updated = 0
+    let skipped = 0
+    const warnings = []
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      const rowNum = i + 2
+
+      const jobNumber      = String(getVal(row, 'Job Number', 'Job No.', 'Job No', 'jobNumber') || '').trim()
+      const siteId         = String(getVal(row, 'Site ID', 'Site Id', 'siteId') || '').trim()
+      const siteName       = String(getVal(row, 'Site Name', 'siteName') || '').trim()
+      const labourRaw      = getVal(row, 'Labour Cost', 'labourCost')
+      const thirdPartyRaw  = getVal(row, 'Third Party Cost', 'thirdPartyCost')
+
+      const labourCost     = parseFloat(String(labourRaw).replace(/[,$]/g, '')) || 0
+      const thirdPartyCost = parseFloat(String(thirdPartyRaw).replace(/[,$]/g, '')) || 0
+
+      // Match VOs: prefer jobNumber, fall back to siteId+siteName
+      let matched = []
+      if (jobNumber) {
+        matched = store.vos.value.filter(vo => vo.jobNumber?.trim() === jobNumber)
+      } else if (siteId || siteName) {
+        matched = store.vos.value.filter(vo =>
+          (siteId   && vo.siteId?.trim().toLowerCase()   === siteId.toLowerCase())   ||
+          (siteName && vo.siteName?.trim().toLowerCase() === siteName.toLowerCase())
+        )
+      }
+
+      if (matched.length === 0) {
+        warnings.push(`Row ${rowNum}: no matching VOs found for "${jobNumber || siteId || siteName}".`)
+        skipped++
+        continue
+      }
+
+      // Distribute costs evenly across matched VOs
+      const perVO = matched.length
+      const labourPer     = labourCost     / perVO
+      const thirdPartyPer = thirdPartyCost / perVO
+
+      for (const vo of matched) {
+        await store.editVO(vo.id, { ...vo, labourCost: labourPer, thirdPartyCost: thirdPartyPer })
+        updated++
+      }
+    }
+
+    importResult.value = {
+      type: updated > 0 ? 'success' : 'error',
+      title: updated > 0 ? `Import complete — ${updated} VO${updated !== 1 ? 's' : ''} updated` : 'No VOs updated',
+      message: skipped > 0 ? `${skipped} row${skipped !== 1 ? 's' : ''} skipped (no matching VOs).` : 'All rows matched successfully.',
+      warnings: warnings.slice(0, 10),
+    }
+  } catch (err) {
+    importResult.value = { type: 'error', title: 'Import failed', message: err.message }
+  }
+}
+</script>
