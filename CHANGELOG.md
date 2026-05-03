@@ -8,6 +8,24 @@ All notable changes to Variation Tracker are recorded here.
 
 ---
 
+## 2026-05-03 — Fix Dashboard timeline metrics logic
+
+### Changed — `src/stores/voStore.js` (`timelineMetrics` computed)
+
+**Avg Days to Approval** — was measuring `emailSentToNokia → emailApprovedFromNokia`. Now correctly measures `emailApprovedFromNokia → ticketApprovalDate`. Only VOs where both dates are present contribute to the average. `Math.max(0, ...)` guards against negative values from out-of-order date entry.
+
+**Approval Rate** — was `approved VOs / total VOs`. Now correctly measures ticket approval rate: `ticketApprovalDate count / (ticketApprovalDate count + ticketNumber-but-no-ticketApprovalDate count)`. Returns 0 when no VOs have a ticket number at all.
+
+### Changed — `CLAUDE.md`
+
+Updated Dashboard section 10 description to reflect the corrected metric logic.
+
+### Changed — `DASHBOARD_LOGIC.md`
+
+Updated Section 10 table with precise field definitions for all three timeline metric cards.
+
+---
+
 ## 2026-05-03 — Site Status: Delete All button & sync loading state
 
 ### Changed — `src/components/SiteStatusView.vue`

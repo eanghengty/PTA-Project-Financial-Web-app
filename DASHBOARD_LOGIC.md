@@ -220,9 +220,9 @@ Three stat cards sourced from `store.timelineMetrics.value` (computed in the sto
 
 | Card | Field | Description |
 |------|-------|-------------|
-| Avg Days to Approval | `averageDaysToApproval` | Average days from `createdAt` to `ticketApprovalDate` for approved VOs |
-| Overdue >30 days | `overduePending` | VOs in submitted/pending-approval with no approval date, >30 days since creation |
-| Approval Rate | `approvalRate` | `approved / (approved + rejected) × 100` — shown with progress bar |
+| Avg Days to Approval | `averageDaysToApproval` | Average days from `emailApprovedFromNokia` to `ticketApprovalDate`. Only VOs where both dates are set contribute. Uses `Math.max(0, ...)` to guard against negative values. |
+| Overdue >30 days | `overduePending` | VOs in `pending-approval` with `emailSentToNokia` set, where days since `emailSentToNokia` > 30 |
+| Approval Rate | `approvalRate` | `withTicketApproval / (withTicketApproval + withTicketNoApproval) × 100`. `withTicketApproval` = VOs with `ticketApprovalDate` set. `withTicketNoApproval` = VOs with `ticketNumber` but no `ticketApprovalDate`. Returns 0 when no tickets exist. Shown with progress bar. |
 
 ---
 

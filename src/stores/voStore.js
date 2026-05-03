@@ -160,19 +160,16 @@ const invoicePrepSummary = computed(() => ({
 }))
 
 const timelineMetrics = computed(() => {
-  const approvedVOs = vos.value.filter(vo => vo.voStatus === 'approved' && vo.emailApprovedFromNokia)
-
+  // Avg days: emailApprovedFromNokia → ticketApprovalDate, only VOs with both dates
+  const vosBothDates = vos.value.filter(vo => vo.emailApprovedFromNokia && vo.ticketApprovalDate)
   let averageDaysToApproval = 0
-  if (approvedVOs.length > 0) {
-    const totalDays = approvedVOs.reduce((sum, vo) => {
-      if (vo.emailSentToNokia && vo.emailApprovedFromNokia) {
-        const sent = new Date(vo.emailSentToNokia)
-        const approved = new Date(vo.emailApprovedFromNokia)
-        return sum + Math.floor((approved - sent) / (1000 * 60 * 60 * 24))
-      }
-      return sum
+  if (vosBothDates.length > 0) {
+    const totalDays = vosBothDates.reduce((sum, vo) => {
+      const emailApproved = new Date(vo.emailApprovedFromNokia)
+      const ticketApproved = new Date(vo.ticketApprovalDate)
+      return sum + Math.max(0, Math.floor((ticketApproved - emailApproved) / (1000 * 60 * 60 * 24)))
     }, 0)
-    averageDaysToApproval = Math.round(totalDays / approvedVOs.length)
+    averageDaysToApproval = Math.round(totalDays / vosBothDates.length)
   }
 
   const pendingVOs = vos.value.filter(vo => vo.voStatus === 'pending-approval')
@@ -184,8 +181,11 @@ const timelineMetrics = computed(() => {
     return daysPending > 30
   }).length
 
-  const approvalRate = vos.value.length > 0
-    ? Math.round((statusSummary.value.approved / vos.value.length) * 100)
+  // Approval rate: has ticketApprovalDate / (has ticketApprovalDate + has ticketNumber but no ticketApprovalDate)
+  const withTicketApproval = vos.value.filter(vo => vo.ticketApprovalDate).length
+  const withTicketNoApproval = vos.value.filter(vo => vo.ticketNumber && !vo.ticketApprovalDate).length
+  const approvalRate = (withTicketApproval + withTicketNoApproval) > 0
+    ? Math.round((withTicketApproval / (withTicketApproval + withTicketNoApproval)) * 100)
     : 0
 
   return {

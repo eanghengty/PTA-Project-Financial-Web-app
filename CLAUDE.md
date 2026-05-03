@@ -164,7 +164,7 @@ All currency in Dashboard uses `formatCompact()` (e.g., $1.23M, $456.7K, $999).
 7. **Monthly Invoiced Amount** — Three-line chart: VO Invoiced (blue) + Base PO Invoiced (amber) + **BOQ Related Invoiced** (green). Breakdown table has columns: Month, VO Amount, VO Count, Base PO Amount, Base PO Count, **BOQ Amount**, **BOQ Count**, Total.
 8. **BOQ Related VO Amount by Scope** — Four-way split per scope: BOQ×Have PO, BOQ×No PO, Non-BOQ×Have PO, Non-BOQ×No PO. VO items only.
 9. **Ticket breakdown** — With Ticket vs Without Ticket per scope (VO items, non-draft only)
-10. **Timeline metrics** — Avg days to approval, overdue >30 days, approval rate
+10. **Timeline metrics** — Avg days from `emailApprovedFromNokia` to `ticketApprovalDate` (VOs with both dates), overdue >30 days, approval rate (`ticketApprovalDate` count / (`ticketApprovalDate` count + `ticketNumber`-but-no-approval count))
 11. **Site breakdown table** — Per-site VO counts and amounts
 12. **Recent activity** — Last 8 updated VOs (VO items only)
 
