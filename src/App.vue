@@ -79,9 +79,10 @@ import InvoiceList       from './components/InvoiceList.vue'
 import ReminderView      from './components/ReminderView.vue'
 import MonthlyInvoicing  from './components/MonthlyInvoicing.vue'
 import CostToDate        from './components/CostToDate.vue'
+import SiteStatusView    from './components/SiteStatusView.vue'
 import { useVOStore } from './stores/voStore'
 
-const VALID_VIEWS = ['dashboard', 'table', 'invoice-list', 'monthly-invoice', 'reminders', 'cost-to-date', 'import-export', 'admin']
+const VALID_VIEWS = ['dashboard', 'table', 'invoice-list', 'monthly-invoice', 'reminders', 'cost-to-date', 'site-status', 'import-export', 'admin']
 const saved = localStorage.getItem('currentView')
 const currentView = ref(VALID_VIEWS.includes(saved) ? saved : 'dashboard')
 
@@ -91,7 +92,7 @@ const store = useVOStore()
 watch(currentView, v => localStorage.setItem('currentView', v))
 
 // Map view key → component (used by <component :is>)
-const viewMap = { dashboard: Dashboard, table: TableView, 'invoice-list': InvoiceList, 'monthly-invoice': MonthlyInvoicing, reminders: ReminderView, 'cost-to-date': CostToDate, 'import-export': ImportExport, admin: AdminView }
+const viewMap = { dashboard: Dashboard, table: TableView, 'invoice-list': InvoiceList, 'monthly-invoice': MonthlyInvoicing, reminders: ReminderView, 'cost-to-date': CostToDate, 'site-status': SiteStatusView, 'import-export': ImportExport, admin: AdminView }
 const currentComponent = computed(() => viewMap[currentView.value] ?? Dashboard)
 
 const voCount = computed(() => store.vos.value?.length || 0)
@@ -166,14 +167,23 @@ const IconCost = {
   ])
 }
 
+const IconSiteStatus = {
+  render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+    h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2',
+      d: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z' }),
+    h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M15 11a3 3 0 11-6 0 3 3 0 016 0z' })
+  ])
+}
+
 const navItems = [
   { key: 'dashboard',       label: 'Dashboard',      icon: IconDashboard },
   { key: 'table',           label: 'Variations',     icon: IconTable     },
   { key: 'invoice-list',    label: 'Invoice Prep',   icon: IconInvoice   },
   { key: 'monthly-invoice', label: 'Monthly',        icon: IconMonthly   },
   { key: 'reminders',       label: 'Reminders',      icon: IconReminder  },
-  { key: 'cost-to-date',    label: 'Cost to Date',   icon: IconCost      },
-  { key: 'import-export',   label: 'Import/Export',  icon: IconImport    },
+  { key: 'cost-to-date',    label: 'Cost to Date',   icon: IconCost        },
+  { key: 'site-status',     label: 'Site Status',    icon: IconSiteStatus  },
+  { key: 'import-export',   label: 'Import/Export',  icon: IconImport      },
   { key: 'admin',           label: 'Admin',           icon: IconAdmin     },
 ]
 

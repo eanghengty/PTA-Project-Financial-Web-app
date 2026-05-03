@@ -14,13 +14,13 @@ No test runner or linter is configured.
 
 ## Architecture
 
-**Vue 3 SPA — no Vue Router.** Views are swapped via `<component :is="currentComponent">` in `App.vue`, with the active view persisted to `localStorage` as `currentView`. Available views: `dashboard`, `table`, `invoice-list`, `monthly-invoice`, `reminders`, `cost-to-date`, `import-export`, `admin`.
+**Vue 3 SPA — no Vue Router.** Views are swapped via `<component :is="currentComponent">` in `App.vue`, with the active view persisted to `localStorage` as `currentView`. Available views: `dashboard`, `table`, `invoice-list`, `monthly-invoice`, `reminders`, `cost-to-date`, `site-status`, `import-export`, `admin`.
 
 **State:** A single composable store in `src/stores/voStore.js` (`useVOStore()`) holds all reactive state — no Pinia or Vuex. Key refs: `vos`, `loading`, `error`, `invoicePrepIds` (a `Set`), `selectedFilters`. Key computed: `filteredVOs`, `statusSummary`, `financialSummary`, `categoryDistribution`, `timelineMetrics`, `invoicePrepItems`. All components import this composable directly.
 
 **Persistence split:**
 - `src/db/indexdb.js` — IndexedDB ("VariationTrackerDB" v3, store "variations") for all VO records. All operations return Promises.
-- `localStorage` — UI state (active view/tab), invoice prep IDs, flagged VO IDs (`flaggedVOIds`), flagged VO notes (`flaggedVONotes`), activity log (no cap — all entries preserved), global admin data (sites, categories, scopes, settings).
+- `localStorage` — UI state (active view/tab), invoice prep IDs, flagged VO IDs (`flaggedVOIds`), flagged VO notes (`flaggedVONotes`), activity log (no cap — all entries preserved), global admin data (sites, categories, scopes, settings), site status data (`siteStatusData`).
 
 **VO data model** (key fields): `id` (UUID), `siteId`, `siteName`, `jobNumber`, `voDescription`, `voAmount`, `voCategory`, `scope`, `boqRelated` (boolean `true`/`false`), `voStatus` (`draft|submitted|pending-approval|approved|rejected|cancelled`), invoice fields (`poNumber`, `invoiceStatus`, `invoiceDate`, `invoiceLog`, `poLog`), tracking fields (`emailSentToNokia`, `emailApprovedFromNokia`, `ticketNumber`, `ticketSubmissionDate`, `ticketApprovalDate`), cost fields (`labourCost`, `thirdPartyCost` — both numeric, default `0`), `comment`, and `createdAt`/`updatedAt`.
 
@@ -229,6 +229,30 @@ Dedicated view (`cost-to-date`, violet-themed) for tracking labour and third par
 **Download template:** Pre-fills with current job data (job number, site ID, site name, existing costs) so user can fill in updated costs and re-import.
 
 **Export:** Downloads current (filtered + sorted) view as `Cost_to_Date_DD-MM-YYYY.xlsx`.
+
+## Site Status View (`src/components/SiteStatusView.vue`)
+
+Dedicated view (`site-status`, emerald-themed) for tracking construction progress per site. Data persists entirely in `localStorage` under `siteStatusData` — a plain object keyed by `"siteId|jobNumber"`.
+
+**Data model per entry:** `siteId`, `siteName`, `jobNumber`, `status` (`'started'|'not-started'`, default `'not-started'`), `costToComplete` (numeric, default `0`), `comment` (string).
+
+**Sync from Variations** button — async with a 3-second loading delay. Button disables and shows a spinning icon + `"Syncing…"` label while running. Scans all VOs for unique `siteId + jobNumber` combos and adds any that don't yet exist. Existing entries are updated (site name / job number refreshed) but their `status`, `costToComplete`, and `comment` are preserved. Two categories of VOs are always excluded from sync:
+- `voCategory` is `"Detail Site Survey"` (case-insensitive)
+- `siteId` or `jobNumber` is blank, `"NA"`, or `"N/A"` (checked via `isNA()` helper, case-insensitive)
+
+**Delete All** button — red-bordered, disabled when no sites exist. Opens a confirmation modal showing the count of entries to be removed. Confirming wipes all entries from `siteStatusData` in localStorage immediately.
+
+**Status toggle** — clicking the Started / Not Started pill on a row flips `status` immediately and persists. Emerald = started, amber = not started. Left border accent follows the same color.
+
+**Inline editing** — clicking any cost or comment cell (or the edit pencil) puts that row into edit mode. Enter saves, Escape cancels. Cost input strips formatting on focus and reformats as AUD on blur.
+
+**KPI cards (4):** Total Sites · Started (count + total cost to complete) · Not Started (count + total cost to complete) · Total Cost to Complete.
+
+**Filter bar:** Text search (site ID / name / job) + All / Started / Not Started toggle buttons.
+
+**Export:** Downloads filtered view as `Site_Status_YYYY-MM-DD.xlsx` with columns: Site ID, Site Name, Job Number, Status, Cost to Complete, Comment.
+
+**Dashboard integration (planned):** `siteStatusData` in localStorage is the source of truth for a future dashboard toggle to split VO values by started vs not-started sites.
 
 ## Admin View Features
 
