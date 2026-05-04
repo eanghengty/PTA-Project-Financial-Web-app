@@ -484,6 +484,44 @@
           <h3 class="text-sm font-semibold text-gray-700">PO &amp; Invoice Summary by Scope</h3>
           <p class="text-xs text-gray-400">Have PO breakdown (VO · BOQ · Base PO), outstanding PO, and invoice progress per scope</p>
         </div>
+        <!-- Site status filter toggle + month filter -->
+        <div class="flex items-center gap-2 mx-2 shrink-0" @click.stop>
+          <div class="flex items-center gap-1 bg-white border border-gray-200 rounded-xl p-1">
+            <button @click="poInvoiceSiteFilter = 'all'"
+              class="px-3 py-1 rounded-lg text-xs font-semibold transition"
+              :class="poInvoiceSiteFilter === 'all' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-100'">
+              All Sites
+            </button>
+            <button @click="poInvoiceSiteFilter = 'started'"
+              class="px-3 py-1 rounded-lg text-xs font-semibold transition"
+              :class="poInvoiceSiteFilter === 'started' ? 'bg-emerald-600 text-white' : 'text-gray-500 hover:bg-gray-100'">
+              Started
+            </button>
+            <button @click="poInvoiceSiteFilter = 'not-started'"
+              class="px-3 py-1 rounded-lg text-xs font-semibold transition"
+              :class="poInvoiceSiteFilter === 'not-started' ? 'bg-amber-500 text-white' : 'text-gray-500 hover:bg-gray-100'">
+              Not Started
+            </button>
+          </div>
+          <!-- Month filter for Cost to Complete -->
+          <div class="relative inline-flex items-center">
+            <svg class="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none"
+              :class="ctcMonth ? 'text-emerald-500' : 'text-gray-400'"
+              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <select v-model="ctcMonth"
+              class="pl-6 pr-6 py-1.5 text-[10px] font-semibold border rounded-full appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-400 transition"
+              :class="ctcMonth ? 'text-emerald-700 border-emerald-400 bg-emerald-100' : 'text-gray-500 border-gray-300 bg-white'">
+              <option value="">All Months</option>
+              <option v-for="m in ctcAllMonths" :key="m.value" :value="m.value">{{ m.label }}</option>
+            </select>
+            <svg class="w-3 h-3 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </div>
+        </div>
         <!-- Summary pills -->
         <div class="flex items-center gap-2 flex-wrap justify-end">
           <div class="flex flex-col items-end px-3 py-1.5 bg-teal-50 border border-teal-100 rounded-lg">
@@ -514,6 +552,13 @@
             <span class="text-sm font-bold text-gray-700">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.totalCost,0)) }}</span>
             <span class="text-[10px] text-gray-400 uppercase tracking-wider">Total Cost</span>
           </div>
+          <!-- Cost to Complete pill -->
+          <div class="flex flex-col items-end px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+            <span class="text-sm font-bold text-emerald-700">
+              {{ formatCompact(Object.values(costToCompleteByScope).reduce((s,v)=>s+v,0)) || '—' }}
+            </span>
+            <span class="text-[10px] text-emerald-400 uppercase tracking-wider">Cost to Complete</span>
+          </div>
           <!-- Chevron -->
           <svg class="w-4 h-4 text-gray-400 transition-transform ml-1 shrink-0"
             :class="poInvoiceOpen ? 'rotate-180' : ''"
@@ -529,7 +574,7 @@
           <!-- Grouped column headers -->
           <thead>
             <tr>
-              <th rowspan="2" class="pb-3 text-left font-semibold text-gray-500 uppercase tracking-wider pr-4 w-20 align-bottom">Scope</th>
+              <th rowspan="2" class="pb-3 text-left font-semibold text-gray-500 uppercase tracking-wider pr-4 w-20 align-bottom sticky left-0 z-20 bg-white" style="box-shadow: 2px 0 4px -2px rgba(0,0,0,0.08)">Scope</th>
               <!-- Have PO group -->
               <th colspan="4" class="pb-1 text-center font-semibold text-teal-600 uppercase tracking-wider border-b border-teal-200 px-1">
                 Have PO
@@ -540,13 +585,17 @@
               </th>
               <!-- Grand Total -->
               <th rowspan="2" class="pb-3 text-right font-semibold text-gray-600 uppercase tracking-wider px-3 align-bottom">Total</th>
-              <!-- Invoice group: Invoiced + 6 Not Yet Inv. sub-cols + Total Service Not Inv. + Total 3rd Party Not Inv. + progress -->
-              <th colspan="11" class="pb-1 text-center font-semibold text-blue-600 uppercase tracking-wider border-b border-blue-100 px-1">
+              <!-- Invoice group: Invoiced + 5 Not Yet Inv. sub-cols + Total Service Not Inv. + Total 3rd Party Not Inv. + Inv. Progress = 9 -->
+              <th colspan="9" class="pb-1 text-center font-semibold text-blue-600 uppercase tracking-wider border-b border-blue-100 px-1">
                 Invoice
               </th>
               <!-- Cost group -->
               <th colspan="3" class="pb-1 text-center font-semibold text-violet-600 uppercase tracking-wider border-b border-violet-200 px-1">
                 Cost to Date
+              </th>
+              <!-- Cost to Complete group header -->
+              <th class="pb-1 text-right font-semibold text-emerald-600 uppercase tracking-wider border-b border-emerald-200 px-3 whitespace-nowrap border-l border-l-emerald-100">
+                Cost to Complete
               </th>
             </tr>
             <tr class="border-b-2 border-gray-100">
@@ -575,11 +624,18 @@
               <th class="pt-1 pb-2 text-right font-semibold text-violet-600 px-2 whitespace-nowrap">Labour</th>
               <th class="pt-1 pb-2 text-right font-semibold text-blue-500 px-2 whitespace-nowrap">3rd Party</th>
               <th class="pt-1 pb-2 text-right font-bold text-gray-600 px-2 whitespace-nowrap">Total Cost</th>
+              <!-- Cost to Complete sub-header -->
+              <th class="pt-1 pb-2 px-3 text-right font-semibold text-emerald-600 border-l border-emerald-100 whitespace-nowrap">
+                <span v-if="ctcMonth" class="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full">
+                  {{ ctcAllMonths.find(m => m.value === ctcMonth)?.label || ctcMonth }}
+                </span>
+                <span v-else class="text-[10px] text-emerald-400">All Months</span>
+              </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50">
             <tr v-for="row in poInvoiceSummary" :key="row.scope" class="hover:bg-blue-50/30 transition">
-              <td class="py-2.5 pr-4 font-medium text-gray-700 truncate max-w-[80px]" :title="row.scope">{{ row.scope }}</td>
+              <td class="py-2.5 pr-4 font-medium text-gray-700 truncate max-w-[80px] sticky left-0 z-10 bg-white" style="box-shadow: 2px 0 4px -2px rgba(0,0,0,0.08)" :title="row.scope">{{ row.scope }}</td>
               <!-- Have PO breakdown -->
               <td class="py-2.5 text-right text-blue-600 px-2">{{ row.voPO ? formatCompact(row.voPO) : '—' }}</td>
               <td class="py-2.5 text-right text-emerald-600 px-2">{{ row.boqPO ? formatCompact(row.boqPO) : '—' }}</td>
@@ -665,11 +721,16 @@
               <td class="py-2.5 text-right font-semibold text-violet-700 px-2 whitespace-nowrap">{{ row.labourCost ? formatCompact(row.labourCost) : '—' }}</td>
               <td class="py-2.5 text-right font-semibold text-blue-600 px-2 whitespace-nowrap">{{ row.thirdPartyCost ? formatCompact(row.thirdPartyCost) : '—' }}</td>
               <td class="py-2.5 text-right font-bold text-gray-800 px-2 whitespace-nowrap">{{ row.totalCost ? formatCompact(row.totalCost) : '—' }}</td>
+              <!-- Cost to Complete -->
+              <td class="py-2.5 text-right font-bold px-2 whitespace-nowrap border-l border-emerald-100"
+                :class="costToCompleteByScope[row.scope] ? 'text-emerald-700' : 'text-gray-300'">
+                {{ costToCompleteByScope[row.scope] ? formatCompact(costToCompleteByScope[row.scope]) : '—' }}
+              </td>
             </tr>
           </tbody>
           <tfoot class="border-t-2 border-blue-100">
             <tr class="font-semibold">
-              <td class="pt-2.5 pb-1 text-gray-600 uppercase text-[10px] tracking-wider pr-4">Total</td>
+              <td class="pt-2.5 pb-1 text-gray-600 uppercase text-[10px] tracking-wider pr-4 sticky left-0 z-10 bg-white" style="box-shadow: 2px 0 4px -2px rgba(0,0,0,0.08)">Total</td>
               <!-- Have PO totals -->
               <td class="pt-2.5 text-right text-blue-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.voPO,0)) }}</td>
               <td class="pt-2.5 text-right text-emerald-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.boqPO,0)) }}</td>
@@ -707,6 +768,10 @@
               <td class="pt-2.5 text-right font-bold text-violet-700 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.labourCost,0)) }}</td>
               <td class="pt-2.5 text-right font-bold text-blue-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.thirdPartyCost,0)) }}</td>
               <td class="pt-2.5 text-right font-bold text-gray-800 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.totalCost,0)) }}</td>
+              <!-- Cost to Complete total -->
+              <td class="pt-2.5 text-right font-bold text-emerald-700 px-2 border-l border-emerald-100">
+                {{ formatCompact(Object.values(costToCompleteByScope).reduce((s,v)=>s+v,0)) }}
+              </td>
             </tr>
           </tfoot>
         </table>
@@ -791,6 +856,107 @@
         </svg>
         <p class="text-sm">No SIT Completed invoices yet</p>
         <p class="text-xs text-gray-300">Data will appear once VOs or Base PO items are marked as SIT Completed with an invoice date</p>
+      </div>
+    </div>
+
+    <!-- ── Monthly Cost to Complete ── -->
+    <div class="bg-white rounded-xl border border-emerald-100 p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-sm font-semibold text-gray-700">Monthly Cost to Complete</h3>
+          <p class="text-xs text-gray-400">Cost entries from Site Status view, grouped by entry date and site status</p>
+        </div>
+        <div v-if="monthlyCostToCompleteData.length > 0" class="flex items-center gap-6 text-right">
+          <div>
+            <div class="text-sm font-bold text-emerald-700">
+              {{ formatCompact(monthlyCostToCompleteData.reduce((s,r)=>s+r.startedCost,0)) }}
+            </div>
+            <div class="text-xs text-gray-400">
+              {{ monthlyCostToCompleteData.reduce((s,r)=>s+r.startedCount,0) }} entries · Started sites
+            </div>
+          </div>
+          <div>
+            <div class="text-sm font-bold text-amber-600">
+              {{ formatCompact(monthlyCostToCompleteData.reduce((s,r)=>s+r.notStartedCost,0)) }}
+            </div>
+            <div class="text-xs text-gray-400">
+              {{ monthlyCostToCompleteData.reduce((s,r)=>s+r.notStartedCount,0) }} entries · Not Started
+            </div>
+          </div>
+          <div>
+            <div class="text-sm font-bold text-gray-700">
+              {{ formatCompact(monthlyCostToCompleteData.reduce((s,r)=>s+r.startedCost+r.notStartedCost,0)) }}
+            </div>
+            <div class="text-xs text-gray-400">Total cost to complete</div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="monthlyCostToCompleteData.length > 0">
+        <div class="h-56">
+          <Line :data="monthlyCostChartData" :options="monthlyCostChartOptions" />
+        </div>
+
+        <!-- Monthly breakdown table -->
+        <div class="mt-4 rounded-xl border border-gray-200 overflow-hidden">
+          <table class="min-w-full text-xs">
+            <thead class="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th class="px-4 py-2.5 text-left font-semibold text-gray-500 uppercase tracking-wider">Month</th>
+                <th class="px-4 py-2.5 text-right font-semibold text-emerald-600 uppercase tracking-wider">Started Amount</th>
+                <th class="px-4 py-2.5 text-right font-semibold text-emerald-400 uppercase tracking-wider">Started Entries</th>
+                <th class="px-4 py-2.5 text-right font-semibold text-amber-600 uppercase tracking-wider">Not Started Amount</th>
+                <th class="px-4 py-2.5 text-right font-semibold text-amber-400 uppercase tracking-wider">Not Started Entries</th>
+                <th class="px-4 py-2.5 text-right font-semibold text-gray-500 uppercase tracking-wider">Total</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr v-for="row in monthlyCostToCompleteData" :key="row.key" class="hover:bg-emerald-50/30">
+                <td class="px-4 py-2.5 font-medium text-gray-700">{{ row.label }}</td>
+                <td class="px-4 py-2.5 text-right font-semibold text-emerald-700">
+                  {{ row.startedCost ? formatCompact(row.startedCost) : '—' }}
+                </td>
+                <td class="px-4 py-2.5 text-right text-emerald-400">{{ row.startedCount || '—' }}</td>
+                <td class="px-4 py-2.5 text-right font-semibold text-amber-600">
+                  {{ row.notStartedCost ? formatCompact(row.notStartedCost) : '—' }}
+                </td>
+                <td class="px-4 py-2.5 text-right text-amber-400">{{ row.notStartedCount || '—' }}</td>
+                <td class="px-4 py-2.5 text-right font-semibold text-gray-800">
+                  {{ formatCompact(row.startedCost + row.notStartedCost) }}
+                </td>
+              </tr>
+            </tbody>
+            <tfoot class="border-t-2 border-gray-200 bg-gray-50">
+              <tr>
+                <td class="px-4 py-2.5 font-bold text-gray-600 uppercase text-xs">Total</td>
+                <td class="px-4 py-2.5 text-right font-bold text-emerald-700">
+                  {{ formatCompact(monthlyCostToCompleteData.reduce((s,r)=>s+r.startedCost,0)) }}
+                </td>
+                <td class="px-4 py-2.5 text-right font-bold text-emerald-400">
+                  {{ monthlyCostToCompleteData.reduce((s,r)=>s+r.startedCount,0) }}
+                </td>
+                <td class="px-4 py-2.5 text-right font-bold text-amber-600">
+                  {{ formatCompact(monthlyCostToCompleteData.reduce((s,r)=>s+r.notStartedCost,0)) }}
+                </td>
+                <td class="px-4 py-2.5 text-right font-bold text-amber-400">
+                  {{ monthlyCostToCompleteData.reduce((s,r)=>s+r.notStartedCount,0) }}
+                </td>
+                <td class="px-4 py-2.5 text-right font-bold text-gray-800">
+                  {{ formatCompact(monthlyCostToCompleteData.reduce((s,r)=>s+r.startedCost+r.notStartedCost,0)) }}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div v-else class="flex flex-col items-center justify-center h-40 gap-2 text-gray-400">
+        <svg class="w-8 h-8 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+        <p class="text-sm">No cost entries with dates yet</p>
+        <p class="text-xs text-gray-300">Add cost entries with a date in the Site Status view to see the monthly breakdown here</p>
       </div>
     </div>
 
@@ -1993,7 +2159,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Doughnut, Bar, Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -2015,6 +2181,84 @@ ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarEle
 
 const store = useVOStore()
 const now = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+
+// ── PO & Invoice Cost to Complete column ──
+const ctcMonth = ref('')   // '' = all months, 'YYYY-MM' = one month
+
+// Bumped whenever SiteStatusView saves, so computeds that read localStorage re-run.
+const siteStatusRevision = ref(0)
+function onSiteStatusUpdated() { siteStatusRevision.value++ }
+onMounted(() => window.addEventListener('siteStatusUpdated', onSiteStatusUpdated))
+onUnmounted(() => window.removeEventListener('siteStatusUpdated', onSiteStatusUpdated))
+
+const ctcAllMonths = computed(() => {
+  void siteStatusRevision.value  // reactive dependency
+  let raw
+  try { raw = JSON.parse(localStorage.getItem('siteStatusData') || '{}') } catch { raw = {} }
+  const map = {}
+  for (const d of Object.values(raw)) {
+    for (const e of (d.costEntries || [])) {
+      if (!e.date) continue
+      const dt = new Date(e.date)
+      if (isNaN(dt)) continue
+      const key   = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
+      const label = dt.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })
+      map[key] = label
+    }
+  }
+  return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([value, label]) => ({ value, label }))
+})
+
+// Cost to complete per scope from Site Status, optionally filtered to one month.
+// Sites with multiple scopes have their cost split evenly across each scope.
+const costToCompleteByScope = computed(() => {
+  void siteStatusRevision.value  // reactive dependency
+  let raw
+  try { raw = JSON.parse(localStorage.getItem('siteStatusData') || '{}') } catch { raw = {} }
+  const scopeMap = {}
+  for (const d of Object.values(raw)) {
+    const entries = Array.isArray(d.costEntries) ? d.costEntries : []
+    const scopes  = Array.isArray(d.scopes) && d.scopes.length > 0 ? d.scopes : ['(No Scope)']
+    const filtered = ctcMonth.value
+      ? entries.filter(e => {
+          if (!e.date) return false
+          const dt = new Date(e.date)
+          if (isNaN(dt)) return false
+          return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` === ctcMonth.value
+        })
+      : entries
+    const siteCost = filtered.reduce((s, e) => s + calcEntryCostDash(e), 0)
+    if (!siteCost) continue
+    const costPerScope = siteCost / scopes.length
+    for (const scope of scopes) scopeMap[scope] = (scopeMap[scope] || 0) + costPerScope
+  }
+  return scopeMap  // { scope: totalCost }
+})
+
+// ── PO & Invoice site-status filter ──
+const poInvoiceSiteFilter = ref('all')  // 'all' | 'started' | 'not-started'
+
+function getSiteStatusMap() {
+  try { return JSON.parse(localStorage.getItem('siteStatusData') || '{}') } catch { return {} }
+}
+
+// Set of "siteId|jobNumber" keys that match the current site filter
+const filteredSiteKeys = computed(() => {
+  void siteStatusRevision.value  // reactive dependency
+  if (poInvoiceSiteFilter.value === 'all') return null
+  const data = getSiteStatusMap()
+  const keys = new Set()
+  for (const [key, entry] of Object.entries(data)) {
+    if (entry.status === poInvoiceSiteFilter.value) keys.add(key)
+  }
+  return keys
+})
+
+function voMatchesSiteFilter(vo) {
+  if (!filteredSiteKeys.value) return true
+  const key = `${vo.siteId || ''}|${vo.jobNumber || ''}`
+  return filteredSiteKeys.value.has(key)
+}
 
 // ── Collapsible section state ──
 const poInvoiceOpen  = ref(false)  // PO & Invoice Summary collapsed by default
@@ -2351,7 +2595,7 @@ const poInvoiceSummary = computed(() => {
   }
 
   // Standard VOs and BOQ VOs (both are in voItems)
-  for (const vo of voItems.value) {
+  for (const vo of voItems.value.filter(voMatchesSiteFilter)) {
     const isBoq = vo.boqRelated === true || vo.boqRelated === 'yes'
     const scope  = vo.scope?.trim() || '(No Scope)'
     ensure(scope)
@@ -2384,7 +2628,7 @@ const poInvoiceSummary = computed(() => {
   }
 
   // Base PO items
-  for (const vo of basePOItems.value) {
+  for (const vo of basePOItems.value.filter(voMatchesSiteFilter)) {
     const scope  = vo.scope?.trim() || '(No Scope)'
     ensure(scope)
     const amt        = vo.voAmount || 0
@@ -2519,6 +2763,103 @@ const monthlyInvoiceChartOptions = computed(() => ({
     },
   },
 }))
+
+// ── Monthly Cost to Complete ──
+function calcEntryCostDash(e) {
+  return (parseFloat(e.qtyDays) || 0) * (parseFloat(e.qtyHours) || 0) *
+         (parseFloat(e.qtyPeople) || 0) * (parseFloat(e.rate) || 0)
+}
+
+const monthlyCostToCompleteData = computed(() => {
+  void siteStatusRevision.value  // reactive dependency
+  let raw
+  try { raw = JSON.parse(localStorage.getItem('siteStatusData') || '{}') } catch { raw = {} }
+
+  const startedMap = {}
+  const notStartedMap = {}
+
+  for (const d of Object.values(raw)) {
+    const entries = Array.isArray(d.costEntries) ? d.costEntries : []
+    const isStarted = (d.status || 'not-started') === 'started'
+    for (const e of entries) {
+      if (!e.date) continue
+      const dt = new Date(e.date)
+      if (isNaN(dt)) continue
+      const key   = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
+      const label = dt.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })
+      const cost  = calcEntryCostDash(e)
+      const map   = isStarted ? startedMap : notStartedMap
+      if (!map[key]) map[key] = { key, label, cost: 0, count: 0 }
+      map[key].cost  += cost
+      map[key].count += 1
+    }
+  }
+
+  const allKeys = [...new Set([...Object.keys(startedMap), ...Object.keys(notStartedMap)])].sort()
+  return allKeys.map(key => {
+    const s  = startedMap[key]    || { cost: 0, count: 0 }
+    const ns = notStartedMap[key] || { cost: 0, count: 0 }
+    const label = (s.label || ns.label) ?? key
+    return { key, label, startedCost: s.cost, startedCount: s.count, notStartedCost: ns.cost, notStartedCount: ns.count }
+  })
+})
+
+const monthlyCostChartData = computed(() => ({
+  labels: monthlyCostToCompleteData.value.map(r => r.label),
+  datasets: [
+    {
+      label: 'Started Sites',
+      data: monthlyCostToCompleteData.value.map(r => r.startedCost),
+      borderColor: '#10b981',
+      backgroundColor: 'rgba(16,185,129,0.10)',
+      borderWidth: 2,
+      pointBackgroundColor: '#10b981',
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      fill: true,
+      tension: 0.35,
+    },
+    {
+      label: 'Not Started Sites',
+      data: monthlyCostToCompleteData.value.map(r => r.notStartedCost),
+      borderColor: '#f59e0b',
+      backgroundColor: 'rgba(245,158,11,0.08)',
+      borderWidth: 2,
+      pointBackgroundColor: '#f59e0b',
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      fill: true,
+      tension: 0.35,
+    },
+  ],
+}))
+
+const monthlyCostChartOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+    tooltip: {
+      callbacks: {
+        label: (ctx) => ` ${ctx.dataset.label}: ${formatCompact(ctx.parsed.y)}`,
+      },
+    },
+  },
+  scales: {
+    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+    y: {
+      grid: { color: '#f3f4f6' },
+      ticks: {
+        font: { size: 10 },
+        callback: (val) => {
+          if (val >= 1_000_000) return '$' + (val / 1_000_000).toFixed(1) + 'M'
+          if (val >= 1_000)     return '$' + (val / 1_000).toFixed(0) + 'k'
+          return '$' + val
+        },
+      },
+    },
+  },
+}
 
 // ── BOQ by Scope ──
 const boqByScope = computed(() => {

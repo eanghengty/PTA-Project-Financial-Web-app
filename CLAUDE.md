@@ -157,16 +157,19 @@ All currency in Dashboard uses `formatCompact()` (e.g., $1.23M, $456.7K, $999).
 3. **Base PO Summary** (amber card) — total amount + Has PO / No PO pills + scope × category breakdown table
 4. **Invoice Prep banner** — shown when prep list is non-empty
 5. **Status doughnut + Amount by status bar** — visual VO-only status breakdown
-6. **PO & Invoice Summary by Scope** — **collapsible** (collapsed by default, `poInvoiceOpen = ref(false)`). Full-width table combining PO status, invoice progress, and cost-to-date in one view. Computed: `poInvoiceSummary`.
+6. **PO & Invoice Summary by Scope** — **collapsible** (collapsed by default, `poInvoiceOpen = ref(false)`). Full-width table combining PO status, invoice progress, cost-to-date, and cost-to-complete in one view. Computed: `poInvoiceSummary`.
+   - **Site status filter** — three toggle buttons in the card header ("All Sites" / "Started" / "Not Started", `poInvoiceSiteFilter = ref('all')`). Filters both VO and Base PO items by matching `siteId|jobNumber` against `siteStatusData` in localStorage before `poInvoiceSummary` is computed. All amounts and summary pills update accordingly. Buttons use `@click.stop` so they don't collapse the accordion.
    - **Have PO** group (teal): VO · BOQ · Base PO · Total. **No PO** group (gray): VO · BOQ · Base PO · Total — all three No PO cells are clickable, opening a `noPOScope`/`noPOType` slide-over (refs + `noPOItems` computed) showing items without a PO number, split by type (VO/BOQ/Base PO). **Total** column. **Cost to Date**: Labour (violet) · 3rd Party (blue) · Total.
    - **Invoice group** has **10 sub-columns** in this order: Invoiced (green) · **Not Inv. 3rd Party** · **Not Inv. BOQ 3rd** · **Not Inv. Service** · **Not Inv. BOQ Svc** · **Not Inv. Base** · **Total Not Inv.** (bold orange) · Inv. Progress bar. The "VO" not-yet-invoiced is split by `voCategory`: `'Service'` → Not Inv. Service, `'Third Party'` → Not Inv. 3rd Party. The "BOQ" not-yet-invoiced is split the same way: `'Service'` → Not Inv. BOQ Svc, `'Third Party'` → Not Inv. BOQ 3rd. **Total Not Inv.** = Not Inv. Service + Not Inv. BOQ Svc + Not Inv. Base (excludes both 3rd Party columns). All six clickable Not Inv. cells open the `notYetInvItems` drill-down slide-over (`notYetInvScope` / `notYetInvType` refs). Supported types: `'vo'` · `'service'` · `'3rdParty'` · `'boqService'` · `'boq3rdParty'` · `'boq'` · `'basePO'` · `null` (all). `poInvoiceSummary` accumulates `voServicePO`, `vo3rdPartyPO`, `boqServicePO`, `boq3rdPartyPO` (and their invoiced counterparts) per scope.
-   - Four summary pills in the header: Total Have PO (teal) · No PO (gray) · Invoiced (green) · Not Yet Inv. (orange); plus Labour Cost (violet) and 3rd Party (blue) pills. Table scrolls horizontally (`overflow-x-auto`).
+   - **Cost to Complete column** (emerald, last column) — reads `siteStatusData` from localStorage, distributes each site's cost evenly across its scopes (site cost ÷ number of scopes), and sums per scope row. Controlled by `ctcMonth = ref('')` — a month dropdown (`ctcAllMonths` computed from entry dates) lives in the column sub-header; selecting a month filters to only cost entries with that date, updating this column only without affecting any other column. Computed: `costToCompleteByScope` (object keyed by scope name).
+   - **Summary pills in the header (8):** Total Have PO (teal) · No PO (gray) · Invoiced (green) · Not Yet Inv. (orange) · Labour Cost (violet) · 3rd Party (blue) · Total Cost (gray) · **Cost to Complete (emerald)** — the Cost to Complete pill embeds the same month dropdown inline so changing it updates both the pill total and the column simultaneously. Table scrolls horizontally (`overflow-x-auto`).
 7. **Monthly Invoiced Amount** — Three-line chart: VO Invoiced (blue) + Base PO Invoiced (amber) + **BOQ Related Invoiced** (green). Breakdown table has columns: Month, VO Amount, VO Count, Base PO Amount, Base PO Count, **BOQ Amount**, **BOQ Count**, Total.
-8. **BOQ Related VO Amount by Scope** — Four-way split per scope: BOQ×Have PO, BOQ×No PO, Non-BOQ×Have PO, Non-BOQ×No PO. VO items only.
-9. **Ticket breakdown** — With Ticket vs Without Ticket per scope (VO items, non-draft only)
-10. **Timeline metrics** — Avg days from `emailApprovedFromNokia` to `ticketApprovalDate` (VOs with both dates), overdue >30 days, approval rate (`ticketApprovalDate` count / (`ticketApprovalDate` count + `ticketNumber`-but-no-approval count))
-11. **Site breakdown table** — Per-site VO counts and amounts
-12. **Recent activity** — Last 8 updated VOs (VO items only)
+8. **Monthly Cost to Complete** — Two-line chart reading `siteStatusData` from localStorage: **Started Sites** (emerald) + **Not Started Sites** (amber), aggregated by cost entry date month. Only entries with a `date` field appear. Breakdown table: Month · Started Amount · Started Entries · Not Started Amount · Not Started Entries · Total. Empty state shown when no dated cost entries exist. Computed: `monthlyCostToCompleteData`. Helper: `calcEntryCostDash(e)` (function declaration, hoisted).
+9. **BOQ Related VO Amount by Scope** — Four-way split per scope: BOQ×Have PO, BOQ×No PO, Non-BOQ×Have PO, Non-BOQ×No PO. VO items only.
+10. **Ticket breakdown** — With Ticket vs Without Ticket per scope (VO items, non-draft only)
+11. **Timeline metrics** — Avg days from `emailApprovedFromNokia` to `ticketApprovalDate` (VOs with both dates), overdue >30 days, approval rate (`ticketApprovalDate` count / (`ticketApprovalDate` count + `ticketNumber`-but-no-approval count))
+12. **Site breakdown table** — Per-site VO counts and amounts
+13. **Recent activity** — Last 8 updated VOs (VO items only)
 
 ## Monthly Invoicing View (`src/components/MonthlyInvoicing.vue`)
 
@@ -190,11 +193,11 @@ The primary UI chrome uses `blue-600/700` for action buttons and table headers, 
 - `teal` — PO status indicators, PO Change Log in VOForm, Reminders Section 3 header, "Have PO" group in Dashboard PO & Invoice Summary
 - `indigo` — site ID badges in activity logs and empty-state illustrations; **"To Be Sent to Nokia"** invoice status badge
 - `green/yellow/red` — VO status indicators (approved / pending / rejected)
-- `green/emerald` — BOQ Related indicators and chart lines; Invoiced amounts in PO & Invoice Summary
+- `green/emerald` — BOQ Related indicators and chart lines; Invoiced amounts in PO & Invoice Summary; **Cost to Complete** column and pill in PO & Invoice Summary; Site Status view chrome (header, table header, KPI cards, edit modal); Monthly Cost to Complete chart (Started Sites line)
 - `orange` — Reminders nav badge and Section 1 accent; carry-over items in Monthly Invoicing; "Not Yet Invoiced" in PO & Invoice Summary
 - `purple` — Reminders Section 2 header and accent
 - `slate` — Cancelled status indicators, cancelled notice banner in VOForm
-- `violet` — Cost to Date view chrome (header, table header `bg-violet-700`, export button, Labour Cost values in Dashboard and Cost to Date)
+- `violet` — Cost to Date view chrome (header, table header `bg-violet-700`, export button, Labour Cost values in Dashboard and Cost to Date); **Month filter** in Site Status view (dropdown, active banner, filter chip)
 - Do not use these colors for generic new UI chrome outside their established semantic roles.
 
 ## TableView Features
@@ -234,28 +237,37 @@ Dedicated view (`cost-to-date`, violet-themed) for tracking labour and third par
 
 Dedicated view (`site-status`, emerald-themed) for tracking construction progress per site. Data persists entirely in `localStorage` under `siteStatusData` — a plain object keyed by `"siteId|jobNumber"`.
 
-**Data model per entry:** `siteId`, `siteName`, `jobNumber`, `status` (`'started'|'not-started'`, default `'not-started'`), `scopes` (string array — synced from VOs, never manually edited), `qtyDays`, `qtyHours`, `qtyPeople`, `rate` (all numeric, default `0`, manually entered), `comment` (string). `costToComplete` is **not stored** — computed at runtime as `qtyDays × qtyHours × qtyPeople × rate`.
+**Data model per entry:** `siteId`, `siteName`, `jobNumber`, `status` (`'started'|'not-started'`, default `'not-started'`), `scopes` (string array — synced from VOs, never manually edited), `costEntries` (array — see below), `comment` (string). `costToComplete` is **not stored** — computed at runtime as the sum of all cost entries.
+
+**Cost entries model** — each entry in `costEntries`: `{ id` (timestamp), `label` (string, optional), `date` (ISO date string, optional), `qtyDays`, `qtyHours`, `qtyPeople`, `rate` (all numeric) `}`. Cost per entry = `qtyDays × qtyHours × qtyPeople × rate`. Total `costToComplete` for a site = sum of all entries. Multiple entries allow non-uniform manhour calculations to be accumulated. **Migration:** on first load, existing single-field records (`qtyDays/qtyHours/qtyPeople/rate`) are auto-converted to a one-item `costEntries` array via `migrate()` — old fields are then removed.
+
+**Edit modal** — clicking the pencil icon or the Entries badge opens a centred modal (not inline row editing). The modal shows:
+- **Existing entries list** — numbered cards with label, date (if set), formula display (`days × hrs × people × rate = cost`), and a delete button per entry
+- **Running total** bar showing accumulated cost across all entries
+- **Add Entry form** — Label (optional) + Date (optional) side by side, then Days / Hours / People / Rate in a 2-col grid, live entry cost preview, disabled "Add Entry" button until at least one non-zero value; clicking adds to the list without saving yet
+- **Comment** field
+- Cancel / Save buttons (Save commits all changes at once)
 
 **Sync from Variations** button — async with a 3-second loading delay. Button disables and shows a spinning icon + `"Syncing…"` label while running. Rules:
 - `voCategory` is `"Detail Site Survey"` (case-insensitive) → excluded
 - `siteId` or `jobNumber` is blank, `"NA"`, or `"N/A"` (via `isNA()` helper) → excluded, **except** Downtime
 - **Downtime special case:** all VOs where `siteId === 'Downtime'` are consolidated into a single row with key `"Downtime|"` (empty `jobNumber`). On re-sync the row is preserved; only `scopes` is refreshed.
-- **All other VOs:** one row per unique `siteId + jobNumber`. New rows initialised with zeroed numeric fields; existing rows refresh `siteName`, `jobNumber`, and `scopes` only — `status`, `qtyDays`, `qtyHours`, `qtyPeople`, `rate`, and `comment` are always preserved.
+- **All other VOs:** one row per unique `siteId + jobNumber`. New rows initialised with empty `costEntries`; existing rows refresh `siteName`, `jobNumber`, and `scopes` only — `status`, `costEntries`, and `comment` are always preserved.
 - `scopes` is always re-derived from VOs on every sync; it is read-only in the table.
 
 **Delete All** button — red-bordered, disabled when no sites exist. Opens a confirmation modal showing the count of entries to be removed. Confirming wipes all entries from `siteStatusData` in localStorage immediately.
 
 **Status toggle** — clicking the Started / Not Started pill flips `status` immediately and persists. Emerald = started, amber = not started. Left border accent matches.
 
-**Inline editing** — clicking any editable cell (Days, Hours, People, Rate, Comment) or the pencil button puts that row into edit mode. Enter saves, Escape cancels. Rate formats as AUD on blur. Cost to Complete cell is read-only (calculated).
+**Table columns (10):** Site ID · Site Name · Job # · Status · Scope · **Entries** (badge showing count of cost entries, click opens edit modal) · VO Qty · Cost to Complete · Comment · Actions.
 
-**Table columns (13):** Site ID · Site Name · Job # · Status · Scope · Days · Hours · People · Rate · VO Qty · Cost to Complete · Comment · Actions.
+**KPI cards (4):** Total Sites · Started (count + cost to complete) · Not Started (count + cost to complete) · Total Cost to Complete. All KPI values respect the active month filter.
 
-**KPI cards (4):** Total Sites · Started (count + cost to complete) · Not Started (count + cost to complete) · Total Cost to Complete.
+**Filter bar:** Text search (site ID / name / job) + All / Started / Not Started status toggle group + **Scope dropdown** (emerald when active) + **Month dropdown** (violet, calendar icon — shows only months that have cost entries with dates; turns violet when active).
 
-**Filter bar:** Text search (site ID / name / job) + All / Started / Not Started status toggle group + **Scope dropdown** (all unique scopes from synced data, sorted A→Z; turns emerald when active).
+**Month filter** (`monthFilter = ref('')`) — when a month is selected, `filteredRows` remaps each row's `costEntries` and `costToComplete` to only entries whose `date` falls in that month. All sites remain visible (those with no entries for that month show 0 cost). KPI cards, footer total, and Entries badge all reflect the filtered cost. A violet info banner appears above the filter bar explaining the active month. The month chip appears in the active-filter summary row and "Clear all" resets it.
 
-**Filter summary row** — when any filter is active (status, scope, or search) a summary row appears **above the column-header row** inside `<thead>`. Left side: active filter chips (each dismissible, plus "Clear all" link). Right side: `N of M sites`, started count (emerald dot), not-started count (amber dot), total cost to complete for the filtered set.
+**Filter summary row** — when any filter is active (status, scope, search, or month) a summary row appears **above the column-header row** inside `<thead>`. Left side: active filter chips (each dismissible, plus "Clear all" link). Right side: `N of M sites`, started count (emerald dot), not-started count (amber dot), total cost to complete for the filtered set.
 
 **VO Qty column** — blue badge showing the count of VOs matching the site row. Click opens a **VO detail slide-over** (right-side drawer, `<transition name="drawer">`):
 - Header: site ID badge, site name, VO count, job number
@@ -271,9 +283,7 @@ Dedicated view (`site-status`, emerald-themed) for tracking construction progres
   - Shows old status struck through → new status for updated rows; raw unrecognised value in monospace for skipped rows
   - Summary pills: X updated · Y not found · Z skipped; each entry shows original file row number
 
-**Export:** Downloads filtered view as `Site_Status_YYYY-MM-DD.xlsx` with columns: Site ID, Site Name, Job Number, Status, Days, Hours, People, Rate, Cost to Complete, Comment.
-
-**Dashboard integration (planned):** `siteStatusData` in localStorage is the source of truth for a future dashboard toggle to split VO values by started vs not-started sites.
+**Export:** Downloads filtered view as `Site_Status_YYYY-MM-DD.xlsx` with columns: Site ID, Site Name, Job Number, Status, Cost Entries (count), Cost to Complete, Comment.
 
 ## Admin View Features
 

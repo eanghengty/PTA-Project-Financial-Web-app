@@ -62,6 +62,160 @@
       </div>
     </div>
 
+    <!-- Edit Site modal -->
+    <teleport to="body">
+      <div v-if="editingKey" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" @mousedown.self="cancelEdit">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
+          <!-- Header -->
+          <div class="flex items-center gap-3 px-5 py-4 border-b border-gray-100 bg-emerald-700 rounded-t-2xl">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-white/20 text-white">
+                  {{ editingRow?.siteId }}
+                </span>
+                <span class="text-white font-semibold text-sm truncate">{{ editingRow?.siteName }}</span>
+              </div>
+              <p class="text-emerald-200 text-xs mt-0.5">Edit site cost to complete</p>
+            </div>
+            <button @click="cancelEdit" class="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <!-- Body -->
+          <div class="px-5 py-4 space-y-4 max-h-[75vh] overflow-y-auto">
+
+            <!-- Existing cost entries -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cost Entries</span>
+                <span class="text-xs text-gray-400">{{ editEntries.length }} entr{{ editEntries.length === 1 ? 'y' : 'ies' }}</span>
+              </div>
+
+              <div v-if="editEntries.length === 0" class="py-4 text-center text-xs text-gray-400 border border-dashed border-gray-200 rounded-xl">
+                No entries yet — add one below
+              </div>
+
+              <div v-else class="space-y-2">
+                <div v-for="(entry, idx) in editEntries" :key="entry.id"
+                  class="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                  <div class="flex-1 min-w-0">
+                    <!-- Label + date -->
+                    <div class="flex items-center gap-2 mb-1.5">
+                      <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-bold shrink-0">{{ idx + 1 }}</span>
+                      <span v-if="entry.label" class="text-xs font-semibold text-emerald-800 truncate">{{ entry.label }}</span>
+                      <span v-else class="text-xs text-gray-400 italic">No label</span>
+                      <span v-if="entry.date" class="ml-auto text-[10px] text-gray-400 shrink-0">{{ formatDate(entry.date) }}</span>
+                    </div>
+                    <!-- Fields row -->
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 ml-7">
+                      <span><span class="font-medium text-gray-800">{{ entry.qtyDays }}</span> days</span>
+                      <span class="text-gray-300">×</span>
+                      <span><span class="font-medium text-gray-800">{{ entry.qtyHours }}</span> hrs</span>
+                      <span class="text-gray-300">×</span>
+                      <span><span class="font-medium text-gray-800">{{ entry.qtyPeople }}</span> people</span>
+                      <span class="text-gray-300">×</span>
+                      <span><span class="font-medium text-gray-800">{{ formatCurrency(entry.rate) }}</span>/hr</span>
+                      <span class="text-gray-300">=</span>
+                      <span class="font-bold text-emerald-700">{{ formatCurrency(calcEntryCost(entry)) }}</span>
+                    </div>
+                  </div>
+                  <button @click="removeCostEntry(entry.id)"
+                    class="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition shrink-0 mt-0.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Total bar -->
+            <div class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200">
+              <span class="text-xs font-semibold text-gray-600">Total Cost to Complete</span>
+              <span class="text-sm font-bold text-emerald-700">{{ formatCurrency(editTotalCost) }}</span>
+            </div>
+
+            <!-- Add new entry form -->
+            <div class="border border-dashed border-emerald-300 rounded-xl p-3 space-y-3 bg-white">
+              <p class="text-xs font-semibold text-emerald-700">Add Entry</p>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-gray-500 mb-1">Label <span class="text-gray-300 font-normal">(optional)</span></label>
+                  <input v-model="newEntry.label" type="text" placeholder="e.g. Civil works…"
+                    class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"/>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-500 mb-1">Date <span class="text-gray-300 font-normal">(optional)</span></label>
+                  <input v-model="newEntry.date" type="date"
+                    class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"/>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-semibold text-gray-500 mb-1">Days</label>
+                  <input v-model="newEntry.qtyDays" type="number" min="0" placeholder="0"
+                    class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"/>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-500 mb-1">Hours / Day</label>
+                  <input v-model="newEntry.qtyHours" type="number" min="0" placeholder="0"
+                    class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"/>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-500 mb-1">People</label>
+                  <input v-model="newEntry.qtyPeople" type="number" min="0" placeholder="0"
+                    class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"/>
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-500 mb-1">Rate (AUD / hr)</label>
+                  <input v-model="newEntry.rate" type="text" placeholder="0.00"
+                    class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    @blur="formatRateInput" @focus="rawRateInput"/>
+                </div>
+              </div>
+              <!-- New entry cost preview + Add button -->
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 text-xs text-gray-500">
+                  <span>Entry cost:</span>
+                  <span class="font-bold text-emerald-700">{{ formatCurrency(newEntryCost) }}</span>
+                </div>
+                <button @click="addCostEntry"
+                  :disabled="!newEntryCost"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                  </svg>
+                  Add Entry
+                </button>
+              </div>
+            </div>
+
+            <!-- Comment -->
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1.5">Comment</label>
+              <input v-model="editComment" type="text" placeholder="Add a comment…"
+                class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                @keydown.enter="saveEditModal"/>
+            </div>
+          </div>
+          <!-- Footer -->
+          <div class="flex gap-2 justify-end px-5 py-4 border-t border-gray-100">
+            <button @click="cancelEdit"
+              class="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200 transition">
+              Cancel
+            </button>
+            <button @click="saveEditModal"
+              class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition">
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </teleport>
+
     <!-- Delete All confirm modal -->
     <teleport to="body">
       <div v-if="showDeleteConfirm" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -300,6 +454,22 @@
       </div>
     </div>
 
+    <!-- Month active banner -->
+    <div v-if="monthFilter" class="flex items-center gap-3 px-4 py-2.5 rounded-xl border bg-violet-50 border-violet-200">
+      <svg class="w-4 h-4 text-violet-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+      <p class="text-sm text-violet-700 font-medium flex-1">
+        Showing cost entries for <strong>{{ allEntryMonths.find(m => m.value === monthFilter)?.label ?? monthFilter }}</strong> only. All amounts and KPI cards reflect this month's accumulation.
+      </p>
+      <button @click="monthFilter = ''" class="text-violet-400 hover:text-violet-600 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
     <!-- Filter / search bar -->
     <div class="flex items-center gap-3 flex-wrap">
       <div class="relative flex-1 min-w-48">
@@ -342,6 +512,22 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
         </svg>
       </div>
+      <!-- Month filter -->
+      <div class="relative">
+        <svg class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" :class="monthFilter ? 'text-violet-500' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <select v-model="monthFilter"
+          class="pl-8 pr-8 py-2 text-xs font-semibold border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-violet-400 appearance-none cursor-pointer"
+          :class="monthFilter ? 'text-violet-700 border-violet-300 bg-violet-50' : 'text-gray-600 border-gray-200'">
+          <option value="">All Months</option>
+          <option v-for="m in allEntryMonths" :key="m.value" :value="m.value">{{ m.label }}</option>
+        </select>
+        <svg class="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </div>
       <p class="text-xs text-gray-400">{{ filteredRows.length }} of {{ rows.length }} sites</p>
     </div>
 
@@ -362,7 +548,7 @@
         <thead>
           <!-- Filter summary row — shown whenever any filter is active -->
           <tr v-if="isFiltered" class="bg-emerald-50 border-b border-emerald-100">
-            <td colspan="13" class="px-4 py-2.5">
+            <td colspan="10" class="px-4 py-2.5">
               <div class="flex items-center justify-between gap-4 flex-wrap">
                 <!-- Active filter chips -->
                 <div class="flex items-center gap-1.5 flex-wrap">
@@ -398,7 +584,19 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                   </button>
-                  <button @click="statusFilter = 'all'; scopeFilter = 'all'; search = ''"
+                  <button v-if="monthFilter"
+                    @click="monthFilter = ''"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-700 hover:bg-violet-200 transition">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    {{ allEntryMonths.find(m => m.value === monthFilter)?.label ?? monthFilter }}
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                  <button @click="statusFilter = 'all'; scopeFilter = 'all'; search = ''; monthFilter = ''"
                     class="text-xs text-gray-400 hover:text-gray-600 underline transition ml-1">
                     Clear all
                   </button>
@@ -432,10 +630,7 @@
             <th class="px-4 py-3 text-left font-semibold">Job #</th>
             <th class="px-4 py-3 text-center font-semibold">Status</th>
             <th class="px-4 py-3 text-left font-semibold">Scope</th>
-            <th class="px-4 py-3 text-right font-semibold">Days</th>
-            <th class="px-4 py-3 text-right font-semibold">Hours</th>
-            <th class="px-4 py-3 text-right font-semibold">People</th>
-            <th class="px-4 py-3 text-right font-semibold">Rate</th>
+            <th class="px-4 py-3 text-center font-semibold">Entries</th>
             <th class="px-4 py-3 text-center font-semibold">VO Qty</th>
             <th class="px-4 py-3 text-right font-semibold">Cost to Complete</th>
             <th class="px-4 py-3 text-left font-semibold">Comment</th>
@@ -444,7 +639,7 @@
         </thead>
         <tbody>
           <tr v-if="filteredRows.length === 0">
-            <td colspan="13" class="px-4 py-8 text-center text-sm text-gray-400">No sites match your filter.</td>
+            <td colspan="10" class="px-4 py-8 text-center text-sm text-gray-400">No sites match your filter.</td>
           </tr>
           <tr v-for="row in filteredRows" :key="row.key"
             class="border-t border-gray-100 hover:bg-gray-50 transition"
@@ -476,56 +671,18 @@
               </div>
               <span v-else class="text-gray-300 text-xs">—</span>
             </td>
-            <td class="px-4 py-3 text-right">
-              <span v-if="editingKey !== row.key" class="text-gray-800 font-medium cursor-pointer hover:text-emerald-700"
-                @click="startEdit(row)">
-                {{ row.qtyDays || '—' }}
-              </span>
-              <input v-else
-                v-model="editForm.qtyDays"
-                type="number"
-                class="w-20 text-right border border-emerald-400 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                @keydown.enter="saveEdit(row)"
-                @keydown.escape="cancelEdit" />
-            </td>
-            <td class="px-4 py-3 text-right">
-              <span v-if="editingKey !== row.key" class="text-gray-800 font-medium cursor-pointer hover:text-emerald-700"
-                @click="startEdit(row)">
-                {{ row.qtyHours || '—' }}
-              </span>
-              <input v-else
-                v-model="editForm.qtyHours"
-                type="number"
-                class="w-20 text-right border border-emerald-400 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                @keydown.enter="saveEdit(row)"
-                @keydown.escape="cancelEdit" />
-            </td>
-            <td class="px-4 py-3 text-right">
-              <span v-if="editingKey !== row.key" class="text-gray-800 font-medium cursor-pointer hover:text-emerald-700"
-                @click="startEdit(row)">
-                {{ row.qtyPeople || '—' }}
-              </span>
-              <input v-else
-                v-model="editForm.qtyPeople"
-                type="number"
-                class="w-20 text-right border border-emerald-400 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                @keydown.enter="saveEdit(row)"
-                @keydown.escape="cancelEdit" />
-            </td>
-            <td class="px-4 py-3 text-right">
-              <span v-if="editingKey !== row.key" class="text-gray-800 font-medium cursor-pointer hover:text-emerald-700"
-                @click="startEdit(row)">
-                {{ row.rate ? formatCurrency(row.rate) : '—' }}
-              </span>
-              <input v-else
-                v-model="editForm.rate"
-                type="text"
-                placeholder="0.00"
-                class="w-24 text-right border border-emerald-400 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                @blur="formatRateInput"
-                @focus="rawRateInput"
-                @keydown.enter="saveEdit(row)"
-                @keydown.escape="cancelEdit" />
+            <td class="px-4 py-3 text-center">
+              <button @click="startEdit(row)"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition"
+                :class="row.costEntries.length > 0
+                  ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                  : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
+                {{ row.costEntries.length }}
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+              </button>
             </td>
             <td class="px-4 py-3 text-center">
               <button @click="openVODrawer(row)"
@@ -545,22 +702,9 @@
                 {{ row.costToComplete ? formatCurrency(row.costToComplete) : '—' }}
               </span>
             </td>
-            <td class="px-4 py-3">
-              <span v-if="editingKey !== row.key"
-                class="text-gray-600 text-xs cursor-pointer hover:text-emerald-700 line-clamp-2 max-w-xs"
-                @click="startEdit(row)">
-                {{ row.comment || '—' }}
-              </span>
-              <input v-else
-                v-model="editForm.comment"
-                type="text"
-                placeholder="Add a comment…"
-                class="w-full border border-emerald-400 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                @keydown.enter="saveEdit(row)"
-                @keydown.escape="cancelEdit" />
-            </td>
+            <td class="px-4 py-3 text-gray-600 text-xs line-clamp-2 max-w-xs">{{ row.comment || '—' }}</td>
             <td class="px-4 py-3 text-center">
-              <div v-if="editingKey !== row.key" class="flex items-center justify-center gap-1">
+              <div class="flex items-center justify-center gap-1">
                 <button @click="startEdit(row)" title="Edit"
                   class="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -576,23 +720,13 @@
                   </svg>
                 </button>
               </div>
-              <div v-else class="flex items-center justify-center gap-1">
-                <button @click="saveEdit(row)"
-                  class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition">
-                  Save
-                </button>
-                <button @click="cancelEdit"
-                  class="px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600 text-xs font-semibold hover:bg-gray-200 transition">
-                  Cancel
-                </button>
-              </div>
             </td>
           </tr>
         </tbody>
         <!-- Footer totals -->
         <tfoot>
           <tr class="bg-gray-50 border-t-2 border-gray-200 text-xs font-semibold text-gray-600">
-            <td colspan="10" class="px-4 py-3">
+            <td colspan="7" class="px-4 py-3">
               {{ filteredRows.length }} site{{ filteredRows.length !== 1 ? 's' : '' }}
               <span v-if="statusFilter !== 'all' || scopeFilter !== 'all'" class="text-gray-400 font-normal"> (filtered)</span>
             </td>
@@ -624,18 +758,60 @@ function load() {
 }
 function save(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  window.dispatchEvent(new Event('siteStatusUpdated'))
+}
+
+// Migrate old single-field records to costEntries array
+function migrate(data) {
+  for (const d of Object.values(data)) {
+    if (!Array.isArray(d.costEntries)) {
+      const days    = parseFloat(d.qtyDays)   || 0
+      const hours   = parseFloat(d.qtyHours)  || 0
+      const people  = parseFloat(d.qtyPeople) || 0
+      const rate    = parseFloat(d.rate)       || 0
+      d.costEntries = (days || hours || people || rate)
+        ? [{ id: Date.now(), label: '', qtyDays: days, qtyHours: hours, qtyPeople: people, rate }]
+        : []
+      delete d.qtyDays; delete d.qtyHours; delete d.qtyPeople; delete d.rate
+    }
+  }
+  return data
+}
+
+function calcEntryCost(e) {
+  return (parseFloat(e.qtyDays) || 0) * (parseFloat(e.qtyHours) || 0) *
+         (parseFloat(e.qtyPeople) || 0) * (parseFloat(e.rate) || 0)
 }
 
 // ── State ────────────────────────────────────────────────────────────────────
-const siteData = ref(load())   // keyed by "siteId|jobNumber"
+const siteData = ref(migrate(load()))
 const search = ref('')
 const statusFilter = ref('all')
 const scopeFilter  = ref('all')
+const monthFilter  = ref('')   // 'YYYY-MM' or '' for all
 const syncMessage = ref('')
 const syncing = ref(false)
 const showDeleteConfirm = ref(false)
-const editingKey = ref(null)
-const editForm = ref({ qtyDays: '', qtyHours: '', qtyPeople: '', rate: '', comment: '' })
+
+// ── Edit modal state ─────────────────────────────────────────────────────────
+const editingKey  = ref(null)
+const editingRow  = ref(null)
+const editEntries = ref([])   // working copy of costEntries
+const editComment = ref('')
+const newEntry    = ref({ label: '', date: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' })
+
+const newEntryCost = computed(() => {
+  const d = parseFloat(newEntry.value.qtyDays)  || 0
+  const h = parseFloat(newEntry.value.qtyHours) || 0
+  const p = parseFloat(newEntry.value.qtyPeople)|| 0
+  const r = parseFloat(String(newEntry.value.rate).replace(/[^0-9.]/g, '')) || 0
+  return d * h * p * r
+})
+
+const editTotalCost = computed(() =>
+  editEntries.value.reduce((s, e) => s + calcEntryCost(e), 0)
+)
+
 const voDrawerOpen = ref(false)
 const voDrawerRow  = ref(null)
 const importFileInput = ref(null)
@@ -648,11 +824,8 @@ const importSkipped  = computed(() => importLog.value.filter(e => e.result === '
 // ── Rows ─────────────────────────────────────────────────────────────────────
 const rows = computed(() => {
   return Object.entries(siteData.value).map(([key, d]) => {
-    const qtyDays = parseFloat(d.qtyDays) || 0
-    const qtyHours = parseFloat(d.qtyHours) || 0
-    const qtyPeople = parseFloat(d.qtyPeople) || 0
-    const rate = parseFloat(d.rate) || 0
-    const costToComplete = qtyDays * qtyHours * qtyPeople * rate
+    const entries = Array.isArray(d.costEntries) ? d.costEntries : []
+    const costToComplete = entries.reduce((s, e) => s + calcEntryCost(e), 0)
     return {
       key,
       siteId:        d.siteId,
@@ -660,10 +833,7 @@ const rows = computed(() => {
       jobNumber:     d.jobNumber,
       status:        d.status || 'not-started',
       scopes:        Array.isArray(d.scopes) ? d.scopes : [],
-      qtyDays:       d.qtyDays || 0,
-      qtyHours:      d.qtyHours || 0,
-      qtyPeople:     d.qtyPeople || 0,
-      rate:          d.rate || 0,
+      costEntries:   entries,
       costToComplete,
       comment:       d.comment || '',
     }
@@ -676,8 +846,40 @@ const allScopes = computed(() => {
   return [...set].sort()
 })
 
+// All months that appear in any cost entry (with a date), sorted chronologically
+const allEntryMonths = computed(() => {
+  const map = {}
+  for (const d of Object.values(siteData.value)) {
+    for (const e of (d.costEntries || [])) {
+      if (!e.date) continue
+      const dt = new Date(e.date)
+      if (isNaN(dt)) continue
+      const key   = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
+      const label = dt.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })
+      map[key] = label
+    }
+  }
+  return Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([value, label]) => ({ value, label }))
+})
+
+// Helper: filter entries to the selected month, or return all if no month selected
+function entriesForMonth(entries) {
+  if (!monthFilter.value) return entries
+  return entries.filter(e => {
+    if (!e.date) return false
+    const dt = new Date(e.date)
+    if (isNaN(dt)) return false
+    const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
+    return key === monthFilter.value
+  })
+}
+
 const filteredRows = computed(() => {
   let list = rows.value
+
+  // Apply site-level filters first
   if (statusFilter.value !== 'all') list = list.filter(r => r.status === statusFilter.value)
   if (scopeFilter.value  !== 'all') list = list.filter(r => r.scopes.includes(scopeFilter.value))
   if (search.value.trim()) {
@@ -688,11 +890,19 @@ const filteredRows = computed(() => {
       r.jobNumber?.toLowerCase().includes(q)
     )
   }
-  return list
+
+  // If a month is selected, remap costEntries and costToComplete to that month only
+  if (!monthFilter.value) return list
+  return list.map(r => {
+    const monthEntries = entriesForMonth(r.costEntries)
+    const costToComplete = monthEntries.reduce((s, e) => s + calcEntryCost(e), 0)
+    return { ...r, costEntries: monthEntries, costToComplete }
+  })
 })
 
 const isFiltered = computed(() =>
-  statusFilter.value !== 'all' || scopeFilter.value !== 'all' || search.value.trim() !== ''
+  statusFilter.value !== 'all' || scopeFilter.value !== 'all' ||
+  search.value.trim() !== '' || monthFilter.value !== ''
 )
 
 const filterSummary = computed(() => {
@@ -706,8 +916,9 @@ const filterSummary = computed(() => {
   }
 })
 
-const startedRows    = computed(() => rows.value.filter(r => r.status === 'started'))
-const notStartedRows = computed(() => rows.value.filter(r => r.status === 'not-started'))
+// For KPI cards use filteredRows so month filter applies
+const startedRows    = computed(() => filteredRows.value.filter(r => r.status === 'started'))
+const notStartedRows = computed(() => filteredRows.value.filter(r => r.status === 'not-started'))
 const startedCostToComplete    = computed(() => startedRows.value.reduce((s, r) => s + (r.costToComplete || 0), 0))
 const notStartedCostToComplete = computed(() => notStartedRows.value.reduce((s, r) => s + (r.costToComplete || 0), 0))
 const totalCostToComplete      = computed(() => rows.value.reduce((s, r) => s + (r.costToComplete || 0), 0))
@@ -794,16 +1005,13 @@ async function syncFromVOs() {
     const downtimeScopes = [...new Set(downtimeVOs.map(v => v.scope).filter(Boolean))].sort()
     if (!siteData.value[downtimeKey]) {
       siteData.value[downtimeKey] = {
-        siteId:    'Downtime',
-        siteName:  'Downtime',
-        jobNumber: '',
-        status:    'not-started',
-        scopes:    downtimeScopes,
-        qtyDays:   0,
-        qtyHours:  0,
-        qtyPeople: 0,
-        rate:      0,
-        comment:   '',
+        siteId:       'Downtime',
+        siteName:     'Downtime',
+        jobNumber:    '',
+        status:       'not-started',
+        scopes:       downtimeScopes,
+        costEntries:  [],
+        comment:      '',
       }
       added++
     } else {
@@ -820,16 +1028,13 @@ async function syncFromVOs() {
     const scopes = scopeMap[key] ? [...scopeMap[key]].sort() : []
     if (!siteData.value[key]) {
       siteData.value[key] = {
-        siteId:    vo.siteId,
-        siteName:  vo.siteName,
-        jobNumber: vo.jobNumber,
-        status:    'not-started',
+        siteId:      vo.siteId,
+        siteName:    vo.siteName,
+        jobNumber:   vo.jobNumber,
+        status:      'not-started',
         scopes,
-        qtyDays:   0,
-        qtyHours:  0,
-        qtyPeople: 0,
-        rate:      0,
-        comment:   '',
+        costEntries: [],
+        comment:     '',
       }
       added++
     } else {
@@ -867,31 +1072,49 @@ function toggleStatus(row) {
 }
 
 function startEdit(row) {
-  editingKey.value = row.key
-  editForm.value = {
-    qtyDays:   row.qtyDays ? String(row.qtyDays) : '',
-    qtyHours:  row.qtyHours ? String(row.qtyHours) : '',
-    qtyPeople: row.qtyPeople ? String(row.qtyPeople) : '',
-    rate:      row.rate ? String(row.rate) : '',
-    comment:   row.comment || '',
-  }
+  editingKey.value  = row.key
+  editingRow.value  = row
+  editEntries.value = row.costEntries.map(e => ({ ...e }))  // deep copy
+  editComment.value = row.comment || ''
+  newEntry.value    = { label: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' }
 }
 
 function cancelEdit() {
   editingKey.value = null
+  editingRow.value = null
 }
 
-function saveEdit(row) {
-  const d = siteData.value[row.key]
+function addCostEntry() {
+  const d = parseFloat(newEntry.value.qtyDays)  || 0
+  const h = parseFloat(newEntry.value.qtyHours) || 0
+  const p = parseFloat(newEntry.value.qtyPeople)|| 0
+  const r = parseFloat(String(newEntry.value.rate).replace(/[^0-9.]/g, '')) || 0
+  if (!d && !h && !p && !r) return
+  editEntries.value.push({ id: Date.now(), label: newEntry.value.label.trim(), date: newEntry.value.date || '', qtyDays: d, qtyHours: h, qtyPeople: p, rate: r })
+  newEntry.value = { label: '', date: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' }
+}
+
+function removeCostEntry(id) {
+  editEntries.value = editEntries.value.filter(e => e.id !== id)
+}
+
+function saveEditModal() {
+  const key = editingKey.value
+  if (!key) return
+  const d = siteData.value[key]
   if (!d) return
-  d.qtyDays   = parseFloat(editForm.value.qtyDays) || 0
-  d.qtyHours  = parseFloat(editForm.value.qtyHours) || 0
-  d.qtyPeople = parseFloat(editForm.value.qtyPeople) || 0
-  const rateRaw = String(editForm.value.rate).replace(/[^0-9.]/g, '')
-  d.rate      = parseFloat(rateRaw) || 0
-  d.comment   = editForm.value.comment.trim()
+  d.costEntries = editEntries.value.map(e => ({
+    id: e.id,
+    label: e.label || '',
+    date:  e.date  || '',
+    qtyDays:   parseFloat(e.qtyDays)  || 0,
+    qtyHours:  parseFloat(e.qtyHours) || 0,
+    qtyPeople: parseFloat(e.qtyPeople)|| 0,
+    rate:      parseFloat(String(e.rate).replace(/[^0-9.]/g, '')) || 0,
+  }))
+  d.comment = editComment.value.trim()
   save(siteData.value)
-  editingKey.value = null
+  cancelEdit()
 }
 
 function deleteRow(row) {
@@ -902,12 +1125,12 @@ function deleteRow(row) {
 function formatRateInput(e) {
   const raw = String(e.target.value).replace(/[^0-9.]/g, '')
   const num = parseFloat(raw) || 0
-  editForm.value.rate = num ? num.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''
+  newEntry.value.rate = num ? num.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''
 }
 
 function rawRateInput(e) {
-  const raw = String(editForm.value.rate).replace(/[^0-9.]/g, '')
-  editForm.value.rate = raw
+  const raw = String(newEntry.value.rate).replace(/[^0-9.]/g, '')
+  newEntry.value.rate = raw
   e.target.select()
 }
 
@@ -994,10 +1217,7 @@ function exportToExcel() {
     'Site Name':        r.siteName,
     'Job Number':       r.jobNumber || '',
     'Status':           r.status === 'started' ? 'Started' : 'Not Started',
-    'Days':             r.qtyDays || 0,
-    'Hours':            r.qtyHours || 0,
-    'People':           r.qtyPeople || 0,
-    'Rate':             r.rate || 0,
+    'Cost Entries':     r.costEntries.length,
     'Cost to Complete': r.costToComplete || 0,
     'Comment':          r.comment || '',
   }))
