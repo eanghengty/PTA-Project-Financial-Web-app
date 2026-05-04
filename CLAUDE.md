@@ -234,27 +234,50 @@ Dedicated view (`cost-to-date`, violet-themed) for tracking labour and third par
 
 Dedicated view (`site-status`, emerald-themed) for tracking construction progress per site. Data persists entirely in `localStorage` under `siteStatusData` — a plain object keyed by `"siteId|jobNumber"`.
 
-**Data model per entry:** `siteId`, `siteName`, `jobNumber`, `status` (`'started'|'not-started'`, default `'not-started'`), `costToComplete` (numeric, default `0`), `comment` (string).
+**Data model per entry:** `siteId`, `siteName`, `jobNumber`, `status` (`'started'|'not-started'`, default `'not-started'`), `scopes` (string array — synced from VOs, never manually edited), `qtyDays`, `qtyHours`, `qtyPeople`, `rate` (all numeric, default `0`, manually entered), `comment` (string). `costToComplete` is **not stored** — computed at runtime as `qtyDays × qtyHours × qtyPeople × rate`.
 
-**Sync from Variations** button — async with a 3-second loading delay. Button disables and shows a spinning icon + `"Syncing…"` label while running. Scans all VOs for unique `siteId + jobNumber` combos and adds any that don't yet exist. Existing entries are updated (site name / job number refreshed) but their `status`, `costToComplete`, and `comment` are preserved. Two categories of VOs are always excluded from sync:
-- `voCategory` is `"Detail Site Survey"` (case-insensitive)
-- `siteId` or `jobNumber` is blank, `"NA"`, or `"N/A"` (checked via `isNA()` helper, case-insensitive)
+**Sync from Variations** button — async with a 3-second loading delay. Button disables and shows a spinning icon + `"Syncing…"` label while running. Rules:
+- `voCategory` is `"Detail Site Survey"` (case-insensitive) → excluded
+- `siteId` or `jobNumber` is blank, `"NA"`, or `"N/A"` (via `isNA()` helper) → excluded, **except** Downtime
+- **Downtime special case:** all VOs where `siteId === 'Downtime'` are consolidated into a single row with key `"Downtime|"` (empty `jobNumber`). On re-sync the row is preserved; only `scopes` is refreshed.
+- **All other VOs:** one row per unique `siteId + jobNumber`. New rows initialised with zeroed numeric fields; existing rows refresh `siteName`, `jobNumber`, and `scopes` only — `status`, `qtyDays`, `qtyHours`, `qtyPeople`, `rate`, and `comment` are always preserved.
+- `scopes` is always re-derived from VOs on every sync; it is read-only in the table.
 
 **Delete All** button — red-bordered, disabled when no sites exist. Opens a confirmation modal showing the count of entries to be removed. Confirming wipes all entries from `siteStatusData` in localStorage immediately.
 
-**Status toggle** — clicking the Started / Not Started pill on a row flips `status` immediately and persists. Emerald = started, amber = not started. Left border accent follows the same color.
+**Status toggle** — clicking the Started / Not Started pill flips `status` immediately and persists. Emerald = started, amber = not started. Left border accent matches.
 
-**Inline editing** — clicking any cost or comment cell (or the edit pencil) puts that row into edit mode. Enter saves, Escape cancels. Cost input strips formatting on focus and reformats as AUD on blur.
+**Inline editing** — clicking any editable cell (Days, Hours, People, Rate, Comment) or the pencil button puts that row into edit mode. Enter saves, Escape cancels. Rate formats as AUD on blur. Cost to Complete cell is read-only (calculated).
 
-**KPI cards (4):** Total Sites · Started (count + total cost to complete) · Not Started (count + total cost to complete) · Total Cost to Complete.
+**Table columns (13):** Site ID · Site Name · Job # · Status · Scope · Days · Hours · People · Rate · VO Qty · Cost to Complete · Comment · Actions.
 
-**Filter bar:** Text search (site ID / name / job) + All / Started / Not Started toggle buttons.
+**KPI cards (4):** Total Sites · Started (count + cost to complete) · Not Started (count + cost to complete) · Total Cost to Complete.
 
-**Export:** Downloads filtered view as `Site_Status_YYYY-MM-DD.xlsx` with columns: Site ID, Site Name, Job Number, Status, Cost to Complete, Comment.
+**Filter bar:** Text search (site ID / name / job) + All / Started / Not Started status toggle group + **Scope dropdown** (all unique scopes from synced data, sorted A→Z; turns emerald when active).
+
+**Filter summary row** — when any filter is active (status, scope, or search) a summary row appears **above the column-header row** inside `<thead>`. Left side: active filter chips (each dismissible, plus "Clear all" link). Right side: `N of M sites`, started count (emerald dot), not-started count (amber dot), total cost to complete for the filtered set.
+
+**VO Qty column** — blue badge showing the count of VOs matching the site row. Click opens a **VO detail slide-over** (right-side drawer, `<transition name="drawer">`):
+- Header: site ID badge, site name, VO count, job number
+- Summary pills: total VO amount + per-status count badges
+- Scrollable VO list: description, category, scope, PO number, ticket number, amount, status badge, invoice status/date if set
+- Downtime row matches all VOs where `siteId === 'Downtime'`; all other rows match by `siteId + jobNumber`
+- `voCountFor(row)` / `voItemsFor(row)` helpers compute counts without caching to avoid stale data
+
+**Import Status** — two header buttons:
+- **Template** — downloads `Site_Status_Import_Template.xlsx` pre-filled with all current site IDs and current status text (`Started` / `Not Started`). Includes two example rows when no sites exist.
+- **Import Status** — file picker (xlsx/xls/csv). Columns: `Site ID` (required), `Status` (required). Accepted status values: `Started / Yes / 1 / True / start` → `started`; `Not Started / Not-Started / No / 0 / False` → `not-started`. Blank rows silently skipped. After import, a dismissible **result log panel** appears above the KPI cards:
+  - Per-row results with colour-coded backgrounds: **updated** (emerald) · **not found** (red) · **skipped — invalid value** (amber)
+  - Shows old status struck through → new status for updated rows; raw unrecognised value in monospace for skipped rows
+  - Summary pills: X updated · Y not found · Z skipped; each entry shows original file row number
+
+**Export:** Downloads filtered view as `Site_Status_YYYY-MM-DD.xlsx` with columns: Site ID, Site Name, Job Number, Status, Days, Hours, People, Rate, Cost to Complete, Comment.
 
 **Dashboard integration (planned):** `siteStatusData` in localStorage is the source of truth for a future dashboard toggle to split VO values by started vs not-started sites.
 
 ## Admin View Features
+
+**Tab icons** — all five tab navigation buttons use inline Material Design SVG icons (`fill="currentColor"`, `viewBox="0 0 24 24"`). The `icon` field in the `tabs` array holds the raw SVG `<path d="…">` string; the template renders it as `<svg><path :d="tab.icon"/></svg>`. No emoji characters anywhere in AdminView. The log comment line uses a Material `chat_bubble` icon instead of 💬.
 
 **Sync from VOs:** (Indigo button, Sites tab) Pulls site/job data from all existing VOs and offers to add or override duplicates.
 - **New sites:** Added immediately

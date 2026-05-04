@@ -8,6 +8,143 @@ All notable changes to Variation Tracker are recorded here.
 
 ---
 
+## 2026-05-04 — Admin View: replace emoji tab icons with Material Design SVG
+
+### Changed — `src/components/AdminView.vue`
+
+- **Tab icons** — removed all emoji characters (`📍 📂 🎯 🕓 ⚙️`) from the `tabs` array. Each tab's `icon` field now holds a raw Material Design SVG `<path d="…">` string. Template renders `<svg fill="currentColor" viewBox="0 0 24 24"><path :d="tab.icon"/></svg>` so icons inherit the button's active/inactive colour automatically.
+  - Sites → `place` (location pin)
+  - Categories → `folder`
+  - Scopes → `my_location` (crosshair)
+  - Activity Log → `history` (clock with arrow)
+  - Settings → `settings` (gear)
+- **Log comment** — replaced `💬` emoji prefix with an inline Material `chat_bubble` SVG icon aligned to the first text line.
+
+### Changed — `CLAUDE.md`
+
+Added **Tab icons** paragraph to Admin View Features section documenting the Material Design icon approach and the absence of emoji.
+
+---
+
+## 2026-05-04 — Site Status: filter summary row above table header
+
+### Added — `src/components/SiteStatusView.vue`
+
+- **`isFiltered` computed** — `true` when any of the three filters (status, scope, search) is active.
+- **`filterSummary` computed** — aggregates `filteredRows` into `{ count, total, started, notStarted, costToComplete }`.
+- **Filter summary row** — conditional `<tr v-if="isFiltered">` inserted as the first row inside `<thead>`, appearing above the green column-header row whenever any filter is active.
+  - **Left side:** active filter chips (status, scope, search text) each with an `×` dismiss button, plus a "Clear all" link that resets all three at once.
+  - **Right side:** `N of M sites` · emerald dot + started count · amber dot + not-started count · blue total cost to complete — all scoped to the current filtered set.
+  - Row disappears automatically when all filters are cleared.
+
+### Changed — `CLAUDE.md`
+
+Added **Filter summary row** paragraph to Site Status View section.
+
+---
+
+## 2026-05-04 — Site Status: scope sync, scope column, scope filter
+
+### Added — `src/components/SiteStatusView.vue`
+
+- **`scopes` field in data model** — string array stored per site entry. Always refreshed from VOs on sync; never manually editable. Existing entries that pre-date this change default to `[]`.
+- **Scope sync in `syncFromVOs`** — before iterating sites, builds a `scopeMap` (`key → Set<scope>`) from all non-Downtime VOs. For new rows `scopes` is set at creation; for existing rows `scopes` is always overwritten with the latest VO data. Downtime row collects all unique scopes from Downtime VOs.
+- **Scope column** — new read-only column after Status. Displays scopes as small emerald-tinted badges (`bg-emerald-50 text-emerald-700 border-emerald-200`); `—` when empty. Column count: 12 → 13.
+- **`scopeFilter` ref** — `'all'` by default.
+- **`allScopes` computed** — sorted unique scopes across all rows.
+- **Scope filter dropdown** — placed after the status toggle group in the filter bar. Lists `All Scopes` plus each value from `allScopes`. Turns emerald (`border-emerald-300 bg-emerald-50 text-emerald-700`) when a scope is selected. Combinable with status filter and search.
+- Footer "(filtered)" label now also triggers when scope filter is active.
+
+### Changed — `CLAUDE.md`
+
+Updated Site Status View data model, sync rules, filter bar, and table columns description.
+
+---
+
+## 2026-05-04 — Site Status: Import Status feature
+
+### Added — `src/components/SiteStatusView.vue`
+
+Two new header toolbar buttons:
+
+- **Template button** — calls `downloadImportTemplate()`. Downloads `Site_Status_Import_Template.xlsx` with columns `Site ID` and `Status`, pre-filled from all current rows. If no rows exist, ships two labelled example rows.
+- **Import Status button** — triggers a hidden `<input type="file" accept=".xlsx,.xls,.csv">`. On file select, `handleImportFile()` runs:
+  - Parses file via SheetJS.
+  - Builds a case-insensitive `siteIndex` map from `siteData` (`siteId → storage key`).
+  - For each data row: normalises the Status cell (`Started/Yes/1/True/start` → `started`; `Not Started/Not-Started/No/0/False` → `not-started`). Rows with blank Site ID are skipped silently; unrecognised status values are marked `skipped`.
+  - Calls `save()` after all valid updates.
+  - File input value is reset so the same file can be re-imported.
+
+**Import result log panel** — appears above KPI cards after import, dismissed with ✕:
+- Summary pills: **X updated** (emerald) · **Y not found** (red) · **Z skipped — invalid status** (amber).
+- Per-row entries: green bg = updated (struck-through old → new status); red bg = not found; amber bg = skipped (raw value in monospace). Each entry shows the original file row number.
+- Computed: `importUpdated`, `importNotFound`, `importSkipped` from `importLog` array.
+
+### Changed — `CLAUDE.md`
+
+Added **Import Status** section to Site Status View.
+
+---
+
+## 2026-05-04 — Site Status: VO Qty column and detail slide-over
+
+### Added — `src/components/SiteStatusView.vue`
+
+- **VO Qty column** — new column between Rate and Cost to Complete. Shows a blue pill badge (`bg-blue-100 text-blue-700`) with the count of VOs linked to the row. Disabled/gray when count is 0. Clicking calls `openVODrawer(row)`.
+- **`voItemsFor(row)`** — returns VOs matching the row: all VOs where `siteId === 'Downtime'` for the Downtime row; `siteId + jobNumber` match for all others.
+- **`voCountFor(row)`** — returns `voItemsFor(row).length`.
+- **`voDrawerItems`** computed — `voItemsFor(voDrawerRow.value)`.
+- **`voDrawerStatusCounts`** computed — `{ [status]: count }` map for the current drawer.
+- **`openVODrawer(row)`** — sets `voDrawerRow` and opens the drawer.
+- **VO detail slide-over** (`<teleport to="body">`, `<transition name="drawer">`):
+  - Emerald header: site ID badge, site name, VO count, job number.
+  - Summary bar: total VO amount (emerald pill) + per-status count badges with semantic colours.
+  - Scrollable VO list: description, category badge, scope, PO (teal), ticket number, amount (struck-through if cancelled), status badge, invoice status + date if set.
+  - Backdrop click or ✕ button closes.
+- Added `<style scoped>` CSS transition: `drawer-enter/leave` slides the panel from the right and fades the backdrop.
+- Imports `formatStatus`, `formatDate` from `../utils/formatters`.
+
+### Changed — `CLAUDE.md`
+
+Added **VO Qty column** section to Site Status View.
+
+---
+
+## 2026-05-04 — Site Status: Downtime VO consolidation in sync
+
+### Changed — `src/components/SiteStatusView.vue` (`syncFromVOs`)
+
+- VOs are now split into `downtimeVOs` (where `siteId === 'Downtime'`) and `otherVOs` before processing.
+- **Downtime VOs** — regardless of jobNumber or blank-field rules, all Downtime VOs produce exactly **one** site row with key `"Downtime|"`, `siteId = 'Downtime'`, `siteName = 'Downtime'`, `jobNumber = ''`. On first sync the row is created; on subsequent syncs the existing row is preserved (manually entered values kept), only `scopes` is refreshed.
+- **Other VOs** — unchanged one-row-per-`siteId+jobNumber` logic, but now iterated from `otherVOs` instead of the full array.
+
+### Changed — `CLAUDE.md`
+
+Added Downtime special case to Site Status View sync rules.
+
+---
+
+## 2026-05-04 — Site Status: cost-to-complete calculation fields
+
+### Changed — `src/components/SiteStatusView.vue`
+
+Replaced the single manually-entered `costToComplete` field with four input fields whose product is the computed cost:
+
+- **New fields stored per entry:** `qtyDays`, `qtyHours`, `qtyPeople`, `rate` (all numeric, default `0`).
+- **`costToComplete` is now derived** (`qtyDays × qtyHours × qtyPeople × rate`) inside the `rows` computed; it is no longer stored in `siteStatusData`.
+- **Table columns added:** Days · Hours · People · Rate (all right-aligned, editable inline via `type="number"` or currency-formatted text input). Cost to Complete cell is now read-only.
+- **`editForm`** updated to `{ qtyDays, qtyHours, qtyPeople, rate, comment }`. `startEdit` and `saveEdit` updated accordingly.
+- **`syncFromVOs`** initialises all four new fields to `0` for newly created rows.
+- **`formatRateInput` / `rawRateInput`** — blur/focus handlers for the Rate input (AUD comma-format on blur, raw number on focus).
+- **Export** — updated column list: Days · Hours · People · Rate · Cost to Complete (calculated value).
+- Old `formatCostInput` / `rawCostInput` removed (replaced by rate equivalents).
+
+### Changed — `CLAUDE.md`
+
+Updated Site Status View data model and inline editing description.
+
+---
+
 ## 2026-05-03 — Fix Dashboard timeline metrics logic
 
 ### Changed — `src/stores/voStore.js` (`timelineMetrics` computed)
