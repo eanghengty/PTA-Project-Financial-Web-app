@@ -124,7 +124,14 @@ Shows: count of VOs ready for invoicing + total amount (blue-themed, read-only).
 
 **Collapsed by default** (`poInvoiceOpen = ref(false)`).
 
-**Header pills (always visible):** Total Have PO (teal) · No PO (gray) · Invoiced (green) · Not Yet Inv. (orange) · Labour Cost (violet) · 3rd Party (blue) · Total Cost (gray).
+**Card header (always visible):**
+- Left: title + description text
+- Centre: **filter bar** — All Sites / Started / Not Started toggle group + **month filter** `<select>` (calendar icon, "All Months" default, turns emerald when a month is selected). Both wrapped in `@click.stop` to prevent accordion collapse.
+- Right: 8 summary pills — Total Have PO (teal) · No PO (gray) · Invoiced (green) · Not Yet Inv. (orange) · Labour Cost (violet) · 3rd Party (blue) · Total Cost (gray) · **Cost to Complete** (emerald, read-only total, no embedded dropdown).
+
+**Site status filter** (`poInvoiceSiteFilter = ref('all')`) — filters the entire table to "started" or "not-started" sites (matched via `siteStatusData` in localStorage). Uses `filteredSiteKeys` computed (a `Set` of `"siteId|jobNumber"` strings, or `null` for "all").
+
+**Month filter** (`ctcMonth = ref('')`) — controls `costToCompleteByScope` only. When a month is selected, only cost entries whose `date` falls in that month are included. Does not affect any other column. The Cost to Complete column sub-header shows the active month as a read-only emerald chip (or "All Months" in gray).
 
 **Computed: `poInvoiceSummary`** — one row per unique `scope`, aggregating across VO items, BOQ items, and Base PO items.
 
@@ -154,9 +161,26 @@ Per row fields:
 
 **Invoice Progress bar** per row = `invoiced / totalHavePO × 100%`.
 
+**Cost to Complete column** (emerald, last column, separated by a left border)
+- Computed by `costToCompleteByScope` — reads `siteStatusData` from localStorage, distributes each site's cost evenly across its scopes (site cost ÷ number of scopes), sums per scope row.
+- Filtered by `ctcMonth` when a month is selected.
+- The column sub-header is a read-only chip showing the active month label (or "All Months").
+- The column header row uses `text-right` to match the data cells.
+
+**Sticky Scope column** — the Scope `<th>` (rowspan=2) and every Scope `<td>` in tbody and tfoot are `position: sticky; left: 0` with `z-index` and a subtle right-side box-shadow, so the column remains visible during horizontal scroll.
+
+**Column group colspans (correct values):**
+- Have PO: `colspan=4` (VO · BOQ · Base PO · Total)
+- No PO: `colspan=4` (VO · BOQ · Base PO · Total)
+- Invoice: `colspan=9` (Invoiced · Not Inv. 3rd Party · Not Inv. BOQ 3rd · Not Inv. Service · Not Inv. BOQ Svc · Not Inv. Base · Total Service Not Inv. · Total 3rd Party Not Inv. · Inv. Progress)
+- Cost to Date: `colspan=3` (Labour · 3rd Party · Total Cost)
+- Cost to Complete: single column
+
 **Clickable cells (open slide-over drill-downs):**
 - No PO cells (VO / BOQ / Base PO) → `openNoPODetail(row, type)` → `noPOItems` computed shows matching VOs in a slide-over
 - Not Yet Invoiced cells → `openNotYetInvDetail(row, type)` → `notYetInvItems` computed. Supported `type` values: `'vo'`, `'service'`, `'3rdParty'`, `'boqService'`, `'boq3rdParty'`, `'boq'`, `'basePO'`, `null` (all)
+
+**Live reactivity for Cost to Complete** — `siteStatusRevision = ref(0)` is a reactive counter incremented by a `siteStatusUpdated` window event listener (registered in `onMounted`, cleaned up in `onUnmounted`). `SiteStatusView.save()` dispatches this event after every write. `ctcAllMonths`, `costToCompleteByScope`, `filteredSiteKeys`, and `monthlyCostToCompleteData` all declare `void siteStatusRevision.value` as a dependency, so they re-run automatically without a page reload.
 
 ---
 
@@ -322,6 +346,17 @@ Each row: site ID badge · site name · job number · VO description (truncated)
 | `snagCiOpen` | `false` | Snag Closure & C&I Not Yet Invoiced body |
 | `poInvoiceOpen` | `false` | PO & Invoice Summary body |
 
+## Filter / Reactivity Refs (Section 6)
+
+| Ref | Type | Default | Description |
+|-----|------|---------|-------------|
+| `poInvoiceSiteFilter` | `ref` | `'all'` | Site status filter: `'all'` \| `'started'` \| `'not-started'` |
+| `ctcMonth` | `ref` | `''` | Month filter for Cost to Complete column (`'YYYY-MM'` or `''` for all) |
+| `siteStatusRevision` | `ref` | `0` | Reactive counter bumped by `siteStatusUpdated` window event — forces localStorage-reading computeds to re-evaluate |
+| `filteredSiteKeys` | `computed` | — | `Set<"siteId\|jobNumber">` matching the active site filter, or `null` when "all" |
+| `ctcAllMonths` | `computed` | — | Sorted unique months (`{ value: 'YYYY-MM', label: 'Mon YYYY' }[]`) from all dated cost entries |
+| `costToCompleteByScope` | `computed` | — | `{ [scope]: number }` — site cost split evenly across scopes, filtered by `ctcMonth` |
+
 ---
 
 ## Drill-down Slide-overs
@@ -346,4 +381,11 @@ Both slide-overs close when the backing ref is cleared (`noPOScope = null` / `no
 
 - Does not write to IndexedDB or localStorage
 - Does not open VOForm or allow editing
-- Does not read `siteStatusData` (Site Status feature is not yet wired into Dashboard — planned toggle for started/not-started filtering)
+
+## What Dashboard READS from localStorage
+
+| Key | Used by |
+|-----|---------|
+| `siteStatusData` | `costToCompleteByScope`, `ctcAllMonths`, `filteredSiteKeys`, `monthlyCostToCompleteData` |
+
+Changes to `siteStatusData` are detected via the `siteStatusUpdated` custom window event (dispatched by `SiteStatusView.save()`), which increments `siteStatusRevision` and triggers reactive re-evaluation of all four computeds above.

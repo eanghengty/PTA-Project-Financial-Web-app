@@ -8,6 +8,40 @@ All notable changes to Variation Tracker are recorded here.
 
 ---
 
+## 2026-05-04 — Dashboard: fix stale Cost to Complete (live reactivity without reload)
+
+### Changed — `src/components/SiteStatusView.vue`
+
+- `save()` now dispatches `window.dispatchEvent(new Event('siteStatusUpdated'))` after every `localStorage.setItem`. This fires on status toggle, modal save, sync, import, and delete-all.
+
+### Changed — `src/components/Dashboard.vue`
+
+- **`siteStatusRevision = ref(0)`** — reactive counter. `onMounted` registers a `siteStatusUpdated` listener that increments it; `onUnmounted` removes the listener.
+- `ctcAllMonths`, `costToCompleteByScope`, `filteredSiteKeys`, and `monthlyCostToCompleteData` all begin with `void siteStatusRevision.value` to declare a reactive dependency on the counter. Vue re-runs these computeds immediately whenever Site Status saves data — no page reload required.
+- Added `onMounted` and `onUnmounted` to the `vue` import.
+
+---
+
+## 2026-05-04 — Dashboard: sticky Scope column + fix Invoice colspan + single month toggle
+
+### Changed — `src/components/Dashboard.vue`
+
+**Sticky Scope column**
+- `<th rowspan="2">Scope</th>` now has `sticky left-0 z-20 bg-white` + a subtle right-side `box-shadow` separator.
+- Every Scope `<td>` in `<tbody>` and the "Total" `<td>` in `<tfoot>` have `sticky left-0 z-10 bg-white` + the same shadow, so the column stays visible during horizontal scroll.
+
+**Invoice colspan bug fix**
+- Invoice group header had `colspan=11` but contains exactly 9 sub-columns (Invoiced · Not Inv. 3rd Party · Not Inv. BOQ 3rd · Not Inv. Service · Not Inv. BOQ Svc · Not Inv. Base · Total Service Not Inv. · Total 3rd Party Not Inv. · Inv. Progress). The 2-column over-count caused Labour and 3rd Party to render under the Invoice banner, and the "All Months" chip to appear under Cost to Date instead of Cost to Complete. Fixed to `colspan=9`.
+
+**Single month toggle — moved to filter bar**
+- Removed the month `<select>` that was embedded inside the Cost to Complete header pill.
+- Removed the month `<select>` that was inside the Cost to Complete column sub-header.
+- Added one month `<select>` (calendar icon, "All Months" default, emerald when active) directly to the right of the All Sites / Started / Not Started toggle group in the card header. Both controls are wrapped in the same `@click.stop` zone so they don't collapse the accordion.
+- The Cost to Complete column sub-header now shows a **read-only chip** reflecting the active selection (`All Months` in gray when unset, month label in an emerald pill when set).
+- The Cost to Complete header pill shows only the total value — no embedded dropdown.
+
+---
+
 ## 2026-05-04 — Admin View: replace emoji tab icons with Material Design SVG
 
 ### Changed — `src/components/AdminView.vue`
