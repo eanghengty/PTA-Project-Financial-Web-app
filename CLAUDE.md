@@ -253,6 +253,8 @@ Dedicated view (`site-status`, emerald-themed) for tracking construction progres
 - **Comment** field
 - Cancel / Save buttons (Save commits all changes at once)
 
+**Copy-from-last-site banner** — when opening a different site's modal, a blue banner appears at the top (if the previous site was just saved with entries). Banner shows: site ID badge, entry formula preview (days x hours x people x rate = cost), and two buttons. Copy button appends the entry to the current site's list (with a new ID and cleared date); Dismiss button hides the banner for this session. State refs: `lastSavedInfo = ref(null)` (tracks site key, ID, name, and the last entry from the previously saved site); `copyBannerDismissed = ref(false)` (reset each time a modal opens). Computed: `showCopyBanner` — true when another site was saved, the current site is different, and the banner hasn't been dismissed yet.
+
 **Sync from Variations** button — async with a 3-second loading delay. Button disables and shows a spinning icon + `"Syncing…"` label while running. Rules:
 - `voCategory` is `"Detail Site Survey"` (case-insensitive) → excluded
 - `siteId` or `jobNumber` is blank, `"NA"`, or `"N/A"` (via `isNA()` helper) → excluded, **except** Downtime

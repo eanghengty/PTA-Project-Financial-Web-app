@@ -8,6 +8,31 @@ All notable changes to Variation Tracker are recorded here.
 
 ---
 
+## 2026-05-05 — Site Status: copy-from-last-site suggestion banner
+
+### Added — `src/components/SiteStatusView.vue`
+
+**Script**
+- `lastSavedInfo = ref(null)` — stores `{ siteKey, siteId, siteName, entry }` after saving a site with entries. Persists in memory during the page session (resets on full page reload).
+- `copyBannerDismissed = ref(false)` — tracks whether the banner was dismissed for the current modal session; reset to false each time `startEdit()` opens a new site.
+- `showCopyBanner` computed — true when `lastSavedInfo` is set, the current editing site is different from the last saved site, and the banner hasn't been dismissed.
+- **`saveEditModal()`** updated — after saving a site's entries, sets `lastSavedInfo` to the last entry from the saved site (entry at `d.costEntries[d.costEntries.length - 1]`).
+- **`startEdit(row)`** updated — resets `copyBannerDismissed` to false on each modal open.
+- **`copySuggestedEntry()`** — appends the last saved entry to `editEntries` with a new ID and cleared date (date is site-specific, left for user to fill in). Marks banner as dismissed.
+
+**Template**
+- Blue suggestion banner at the top of the modal body (above cost entries section). Shows:
+  - Copy source: "Copy latest entry from [Site ID]?"
+  - Entry formula preview: days × hours × people × rate/hr = total cost
+  - Two buttons: "Copy" (blue) and dismiss (X)
+- Dismiss button immediately hides the banner; Copy button adds the entry and then dismisses.
+
+### Changed — `CLAUDE.md`
+
+Added **Copy-from-last-site banner** paragraph to Site Status View section.
+
+---
+
 ## 2026-05-04 — Site Status: inline edit for existing cost entries
 
 ### Changed — `src/components/SiteStatusView.vue`

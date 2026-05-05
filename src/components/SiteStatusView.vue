@@ -86,6 +86,37 @@
           <!-- Body -->
           <div class="px-5 py-4 space-y-4 max-h-[75vh] overflow-y-auto">
 
+            <!-- Copy-from-last-site banner -->
+            <div v-if="showCopyBanner" class="flex items-start gap-3 px-3 py-2.5 rounded-xl bg-blue-50 border border-blue-200">
+              <svg class="w-4 h-4 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+              </svg>
+              <div class="flex-1 min-w-0">
+                <p class="text-xs font-semibold text-blue-700 mb-1">
+                  Copy latest entry from
+                  <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-blue-100 text-blue-800 mx-0.5">{{ lastSavedInfo.siteId }}</span>?
+                </p>
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-blue-600">
+                  <span v-if="lastSavedInfo.entry.label" class="font-medium">{{ lastSavedInfo.entry.label }} ·</span>
+                  <span>{{ lastSavedInfo.entry.qtyDays }}d × {{ lastSavedInfo.entry.qtyHours }}h × {{ lastSavedInfo.entry.qtyPeople }}p × {{ formatCurrency(lastSavedInfo.entry.rate) }}/hr</span>
+                  <span class="font-bold text-blue-700">= {{ formatCurrency(calcEntryCost(lastSavedInfo.entry)) }}</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button @click="copySuggestedEntry"
+                  class="px-2.5 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition">
+                  Copy
+                </button>
+                <button @click="copyBannerDismissed = true"
+                  class="p-1 rounded text-blue-400 hover:text-blue-600 transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
             <!-- Existing cost entries -->
             <div>
               <div class="flex items-center justify-between mb-2">
@@ -835,6 +866,17 @@ const editComment    = ref('')
 const editingEntryId = ref(null) // id of the entry currently being edited (null = add mode)
 const newEntry       = ref({ label: '', date: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' })
 
+// ── Copy-from-last-site suggestion ───────────────────────────────────────────
+const lastSavedInfo       = ref(null) // { siteKey, siteId, siteName, entry } — set on save
+const copyBannerDismissed = ref(false)
+
+const showCopyBanner = computed(() =>
+  lastSavedInfo.value !== null &&
+  editingKey.value !== null &&
+  editingKey.value !== lastSavedInfo.value.siteKey &&
+  !copyBannerDismissed.value
+)
+
 const newEntryCost = computed(() => {
   const d = parseFloat(newEntry.value.qtyDays)  || 0
   const h = parseFloat(newEntry.value.qtyHours) || 0
@@ -1107,12 +1149,13 @@ function toggleStatus(row) {
 }
 
 function startEdit(row) {
-  editingKey.value  = row.key
-  editingRow.value  = row
+  editingKey.value     = row.key
+  editingRow.value     = row
   editEntries.value    = row.costEntries.map(e => ({ ...e }))  // deep copy
   editComment.value    = row.comment || ''
   editingEntryId.value = null
   newEntry.value       = { label: '', date: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' }
+  copyBannerDismissed.value = false
 }
 
 function cancelEdit() {
@@ -1187,7 +1230,27 @@ function saveEditModal() {
   }))
   d.comment = editComment.value.trim()
   save(siteData.value)
+  // Track last saved entry so the next site modal can offer a copy
+  if (d.costEntries.length > 0) {
+    lastSavedInfo.value = {
+      siteKey:  key,
+      siteId:   d.siteId,
+      siteName: d.siteName,
+      entry:    { ...d.costEntries[d.costEntries.length - 1] },
+    }
+  }
   cancelEdit()
+}
+
+function copySuggestedEntry() {
+  const e = lastSavedInfo.value?.entry
+  if (!e) return
+  editEntries.value.push({
+    ...e,
+    id:   Date.now(),
+    date: '',  // date is site-specific — let the user fill it in
+  })
+  copyBannerDismissed.value = true
 }
 
 function deleteRow(row) {
