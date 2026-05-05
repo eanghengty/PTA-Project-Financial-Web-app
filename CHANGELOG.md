@@ -8,6 +8,33 @@ All notable changes to Variation Tracker are recorded here.
 
 ---
 
+## 2026-05-04 — Site Status: inline edit for existing cost entries
+
+### Changed — `src/components/SiteStatusView.vue`
+
+**Script**
+- `editingEntryId = ref(null)` — tracks the `id` of the entry currently being edited in the modal (`null` = add mode).
+- `startEdit()` now resets `editingEntryId` to `null` when the modal opens.
+- **`startEditEntry(entry)`** — enters edit mode: sets `editingEntryId` to the entry's id and populates `newEntry` with the entry's label, date, days, hours, people, and rate (rate formatted as AUD with 2 dp).
+- **`cancelEntryEdit()`** — clears `editingEntryId` and resets `newEntry` to blank; returns form to add mode.
+- **`updateCostEntry()`** — parses the form fields, finds the entry by `editingEntryId` in `editEntries`, replaces it in-place preserving the original `id`, then calls `cancelEntryEdit()`.
+- `removeCostEntry(id)` — now also calls `cancelEntryEdit()` if the deleted entry is the one currently being edited.
+
+**Template**
+- Each existing entry card now has a **pencil (edit) icon** button alongside the existing trash button.
+  - Active (editing) state: amber border + `ring-1 ring-amber-300`, numbered badge turns amber, "editing" pill badge appears, pencil button highlighted amber.
+  - Idle state: emerald styling unchanged; pencil button is a dimmed gray that turns amber on hover.
+- The Add Entry form panel is now a dual-mode panel:
+  - **Add mode** — emerald dashed border, title "Add Entry", green "+ Add Entry" button (disabled when cost = 0).
+  - **Edit mode** — amber solid border + ring, title "Edit Entry", "Cancel edit" link top-right, amber "✓ Update Entry" button (always enabled in edit mode).
+  - Mode switches reactively on `editingEntryId`.
+
+### Changed — `CLAUDE.md`
+
+Updated **Edit modal** paragraph in Site Status View to document the pencil edit button, dual-mode Add/Edit form, amber highlight behaviour, `editingEntryId` ref, `startEditEntry`, `cancelEntryEdit`, and `updateCostEntry`.
+
+---
+
 ## 2026-05-04 — Dashboard: fix stale Cost to Complete (live reactivity without reload)
 
 ### Changed — `src/components/SiteStatusView.vue`

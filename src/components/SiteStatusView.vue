@@ -99,13 +99,19 @@
 
               <div v-else class="space-y-2">
                 <div v-for="(entry, idx) in editEntries" :key="entry.id"
-                  class="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+                  class="flex items-start gap-2 p-3 rounded-xl border transition"
+                  :class="editingEntryId === entry.id
+                    ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-300'
+                    : 'bg-emerald-50 border-emerald-100'">
                   <div class="flex-1 min-w-0">
                     <!-- Label + date -->
                     <div class="flex items-center gap-2 mb-1.5">
-                      <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-bold shrink-0">{{ idx + 1 }}</span>
-                      <span v-if="entry.label" class="text-xs font-semibold text-emerald-800 truncate">{{ entry.label }}</span>
+                      <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-[10px] font-bold shrink-0 transition"
+                        :class="editingEntryId === entry.id ? 'bg-amber-500' : 'bg-emerald-600'">{{ idx + 1 }}</span>
+                      <span v-if="entry.label" class="text-xs font-semibold truncate"
+                        :class="editingEntryId === entry.id ? 'text-amber-800' : 'text-emerald-800'">{{ entry.label }}</span>
                       <span v-else class="text-xs text-gray-400 italic">No label</span>
+                      <span v-if="editingEntryId === entry.id" class="ml-1 text-[10px] font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">editing</span>
                       <span v-if="entry.date" class="ml-auto text-[10px] text-gray-400 shrink-0">{{ formatDate(entry.date) }}</span>
                     </div>
                     <!-- Fields row -->
@@ -121,8 +127,20 @@
                       <span class="font-bold text-emerald-700">{{ formatCurrency(calcEntryCost(entry)) }}</span>
                     </div>
                   </div>
+                  <!-- Edit button -->
+                  <button @click="startEditEntry(entry)"
+                    class="p-1 rounded-lg transition shrink-0 mt-0.5"
+                    :class="editingEntryId === entry.id ? 'text-amber-500 bg-amber-100' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'"
+                    title="Edit this entry">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                  <!-- Delete button -->
                   <button @click="removeCostEntry(entry.id)"
-                    class="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition shrink-0 mt-0.5">
+                    class="p-1 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition shrink-0 mt-0.5"
+                    title="Delete this entry">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -138,9 +156,18 @@
               <span class="text-sm font-bold text-emerald-700">{{ formatCurrency(editTotalCost) }}</span>
             </div>
 
-            <!-- Add new entry form -->
-            <div class="border border-dashed border-emerald-300 rounded-xl p-3 space-y-3 bg-white">
-              <p class="text-xs font-semibold text-emerald-700">Add Entry</p>
+            <!-- Add / Edit entry form -->
+            <div class="rounded-xl p-3 space-y-3 bg-white transition"
+              :class="editingEntryId ? 'border border-amber-300 ring-1 ring-amber-200' : 'border border-dashed border-emerald-300'">
+              <div class="flex items-center justify-between">
+                <p class="text-xs font-semibold" :class="editingEntryId ? 'text-amber-600' : 'text-emerald-700'">
+                  {{ editingEntryId ? 'Edit Entry' : 'Add Entry' }}
+                </p>
+                <button v-if="editingEntryId" @click="cancelEntryEdit"
+                  class="text-[10px] text-gray-400 hover:text-gray-600 underline transition">
+                  Cancel edit
+                </button>
+              </div>
               <div class="grid grid-cols-2 gap-3">
                 <div>
                   <label class="block text-xs font-semibold text-gray-500 mb-1">Label <span class="text-gray-300 font-normal">(optional)</span></label>
@@ -176,19 +203,26 @@
                     @blur="formatRateInput" @focus="rawRateInput"/>
                 </div>
               </div>
-              <!-- New entry cost preview + Add button -->
+              <!-- Entry cost preview + Add / Update button -->
               <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-2 text-xs text-gray-500">
                   <span>Entry cost:</span>
                   <span class="font-bold text-emerald-700">{{ formatCurrency(newEntryCost) }}</span>
                 </div>
-                <button @click="addCostEntry"
+                <button v-if="!editingEntryId" @click="addCostEntry"
                   :disabled="!newEntryCost"
                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                   </svg>
                   Add Entry
+                </button>
+                <button v-else @click="updateCostEntry"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 text-white text-xs font-semibold hover:bg-amber-600 transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                  </svg>
+                  Update Entry
                 </button>
               </div>
             </div>
@@ -794,11 +828,12 @@ const syncing = ref(false)
 const showDeleteConfirm = ref(false)
 
 // ── Edit modal state ─────────────────────────────────────────────────────────
-const editingKey  = ref(null)
-const editingRow  = ref(null)
-const editEntries = ref([])   // working copy of costEntries
-const editComment = ref('')
-const newEntry    = ref({ label: '', date: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' })
+const editingKey     = ref(null)
+const editingRow     = ref(null)
+const editEntries    = ref([])   // working copy of costEntries
+const editComment    = ref('')
+const editingEntryId = ref(null) // id of the entry currently being edited (null = add mode)
+const newEntry       = ref({ label: '', date: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' })
 
 const newEntryCost = computed(() => {
   const d = parseFloat(newEntry.value.qtyDays)  || 0
@@ -1074,9 +1109,10 @@ function toggleStatus(row) {
 function startEdit(row) {
   editingKey.value  = row.key
   editingRow.value  = row
-  editEntries.value = row.costEntries.map(e => ({ ...e }))  // deep copy
-  editComment.value = row.comment || ''
-  newEntry.value    = { label: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' }
+  editEntries.value    = row.costEntries.map(e => ({ ...e }))  // deep copy
+  editComment.value    = row.comment || ''
+  editingEntryId.value = null
+  newEntry.value       = { label: '', date: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' }
 }
 
 function cancelEdit() {
@@ -1096,6 +1132,43 @@ function addCostEntry() {
 
 function removeCostEntry(id) {
   editEntries.value = editEntries.value.filter(e => e.id !== id)
+  if (editingEntryId.value === id) cancelEntryEdit()
+}
+
+function startEditEntry(entry) {
+  editingEntryId.value = entry.id
+  newEntry.value = {
+    label:     entry.label || '',
+    date:      entry.date  || '',
+    qtyDays:   entry.qtyDays   !== undefined ? String(entry.qtyDays)   : '',
+    qtyHours:  entry.qtyHours  !== undefined ? String(entry.qtyHours)  : '',
+    qtyPeople: entry.qtyPeople !== undefined ? String(entry.qtyPeople) : '',
+    rate:      entry.rate ? entry.rate.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '',
+  }
+}
+
+function cancelEntryEdit() {
+  editingEntryId.value = null
+  newEntry.value = { label: '', date: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' }
+}
+
+function updateCostEntry() {
+  const d = parseFloat(newEntry.value.qtyDays)   || 0
+  const h = parseFloat(newEntry.value.qtyHours)  || 0
+  const p = parseFloat(newEntry.value.qtyPeople) || 0
+  const r = parseFloat(String(newEntry.value.rate).replace(/[^0-9.]/g, '')) || 0
+  const idx = editEntries.value.findIndex(e => e.id === editingEntryId.value)
+  if (idx === -1) return
+  editEntries.value[idx] = {
+    id:        editingEntryId.value,
+    label:     newEntry.value.label.trim(),
+    date:      newEntry.value.date || '',
+    qtyDays:   d,
+    qtyHours:  h,
+    qtyPeople: p,
+    rate:      r,
+  }
+  cancelEntryEdit()
 }
 
 function saveEditModal() {

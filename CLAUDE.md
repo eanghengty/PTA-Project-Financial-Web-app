@@ -245,9 +245,11 @@ Dedicated view (`site-status`, emerald-themed) for tracking construction progres
 **Cost entries model** — each entry in `costEntries`: `{ id` (timestamp), `label` (string, optional), `date` (ISO date string, optional), `qtyDays`, `qtyHours`, `qtyPeople`, `rate` (all numeric) `}`. Cost per entry = `qtyDays × qtyHours × qtyPeople × rate`. Total `costToComplete` for a site = sum of all entries. Multiple entries allow non-uniform manhour calculations to be accumulated. **Migration:** on first load, existing single-field records (`qtyDays/qtyHours/qtyPeople/rate`) are auto-converted to a one-item `costEntries` array via `migrate()` — old fields are then removed.
 
 **Edit modal** — clicking the pencil icon or the Entries badge opens a centred modal (not inline row editing). The modal shows:
-- **Existing entries list** — numbered cards with label, date (if set), formula display (`days × hrs × people × rate = cost`), and a delete button per entry
+- **Existing entries list** — numbered cards with label, date (if set), formula display (`days × hrs × people × rate = cost`), and two action buttons per card: a **pencil (edit)** button and a **trash (delete)** button. Clicking the pencil button enters edit mode for that entry: the card highlights amber (border + ring + numbered badge turns amber + "editing" pill), and the form below is populated with the entry's values. Deleting the entry being edited automatically resets the form to add mode.
 - **Running total** bar showing accumulated cost across all entries
-- **Add Entry form** — Label (optional) + Date (optional) side by side, then Days / Hours / People / Rate in a 2-col grid, live entry cost preview, disabled "Add Entry" button until at least one non-zero value; clicking adds to the list without saving yet
+- **Add / Edit Entry form** — dual-mode panel below the entries list:
+  - **Add mode** (default, emerald dashed border) — title "Add Entry". Label (optional) + Date (optional) side by side, then Days / Hours / People / Rate in a 2-col grid, live entry cost preview. "Add Entry" button (disabled when cost is 0) appends a new entry without saving.
+  - **Edit mode** (amber solid border, triggered by clicking a card's pencil icon) — title "Edit Entry" + "Cancel edit" link top-right. Same fields pre-filled with the selected entry's values (rate formatted as AUD). "Update Entry" button (amber) replaces the entry in-place and returns to add mode. `editingEntryId = ref(null)` tracks which entry is being edited.
 - **Comment** field
 - Cancel / Save buttons (Save commits all changes at once)
 
