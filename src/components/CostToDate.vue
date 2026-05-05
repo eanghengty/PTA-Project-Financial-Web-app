@@ -43,6 +43,72 @@
       </div>
     </div>
 
+    <!-- Import History -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+      <button @click="historyOpen = !historyOpen"
+        class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 transition rounded-xl">
+        <div class="flex items-center gap-3">
+          <svg class="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="text-sm font-semibold text-gray-700">Import History</span>
+          <span v-if="importHistory.length" class="px-2 py-0.5 rounded-full text-xs font-bold bg-violet-100 text-violet-700">{{ importHistory.length }}</span>
+          <span v-else class="text-xs text-gray-400">no imports yet</span>
+        </div>
+        <svg class="w-4 h-4 text-gray-400 transition-transform" :class="historyOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+
+      <div v-show="historyOpen" class="border-t border-gray-100">
+        <div v-if="importHistory.length === 0" class="px-6 py-8 text-center text-sm text-gray-400">
+          No import records yet. Each successful cost import will be logged here.
+        </div>
+        <div v-else>
+          <div class="overflow-auto">
+            <table class="w-full border-collapse" style="min-width: 700px;">
+              <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                  <th class="px-5 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
+                  <th class="px-5 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date &amp; Time</th>
+                  <th class="px-5 py-2.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">File</th>
+                  <th class="px-5 py-2.5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Labour</th>
+                  <th class="px-5 py-2.5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">3rd Party</th>
+                  <th class="px-5 py-2.5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Grand Total</th>
+                  <th class="px-5 py-2.5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Delta</th>
+                  <th class="px-5 py-2.5 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">VOs Updated</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr v-for="(entry, idx) in importHistory" :key="entry.importedAt"
+                  class="hover:bg-violet-50 transition-colors">
+                  <td class="px-5 py-3 text-xs text-gray-400 font-mono">{{ importHistory.length - idx }}</td>
+                  <td class="px-5 py-3 text-sm text-gray-700 whitespace-nowrap">{{ formatImportDate(entry.importedAt) }}</td>
+                  <td class="px-5 py-3 text-xs text-gray-500 max-w-[180px] truncate" :title="entry.filename">{{ entry.filename || '—' }}</td>
+                  <td class="px-5 py-3 text-sm text-right font-semibold text-violet-700 whitespace-nowrap">{{ formatCurrency(entry.labour) }}</td>
+                  <td class="px-5 py-3 text-sm text-right font-semibold text-blue-700 whitespace-nowrap">{{ formatCurrency(entry.thirdParty) }}</td>
+                  <td class="px-5 py-3 text-sm text-right font-bold text-gray-900 whitespace-nowrap">{{ formatCurrency(entry.grand) }}</td>
+                  <td class="px-5 py-3 text-sm text-right font-semibold whitespace-nowrap">
+                    <span v-if="idx === importHistory.length - 1" class="text-gray-300 text-xs">baseline</span>
+                    <span v-else :class="getDelta(idx) > 0 ? 'text-emerald-600' : getDelta(idx) < 0 ? 'text-red-500' : 'text-gray-400'">
+                      {{ getDelta(idx) > 0 ? '+' : '' }}{{ formatCurrency(getDelta(idx)) }}
+                    </span>
+                  </td>
+                  <td class="px-5 py-3 text-xs text-right text-gray-500">{{ entry.updatedCount }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="px-6 py-3 border-t border-gray-100 flex justify-end">
+            <button @click="clearHistory"
+              class="text-xs text-red-400 hover:text-red-600 transition font-medium">
+              Clear history
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Import result banner -->
     <div v-if="importResult" class="flex items-start gap-3 px-4 py-3 rounded-xl border"
       :class="importResult.type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'">
@@ -173,6 +239,36 @@ const searchText = ref('')
 const sortCol = ref('jobNumber')
 const sortDir = ref('asc')
 const importResult = ref(null)
+const historyOpen = ref(false)
+
+const HISTORY_KEY = 'ctdImportHistory'
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') } catch { return [] }
+}
+function saveHistory(arr) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(arr))
+}
+
+const importHistory = ref(loadHistory())  // newest first
+
+function getDelta(idx) {
+  // idx=0 is newest; delta = this entry grand minus previous (older) entry grand
+  const prev = importHistory.value[idx + 1]
+  if (!prev) return 0
+  return importHistory.value[idx].grand - prev.grand
+}
+
+function formatImportDate(iso) {
+  const d = new Date(iso)
+  return d.toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function clearHistory() {
+  if (!confirm('Clear all import history records?')) return
+  importHistory.value = []
+  saveHistory([])
+}
 
 const columns = [
   { key: 'jobNumber',      label: 'Job Number',       align: 'left'  },
@@ -377,6 +473,21 @@ async function handleImport(e) {
       title: updated > 0 ? `Import complete — ${updated} VO${updated !== 1 ? 's' : ''} updated` : 'No VOs updated',
       message: skipped > 0 ? `${skipped} row${skipped !== 1 ? 's' : ''} skipped (no matching VOs).` : 'All rows matched successfully.',
       warnings: warnings.slice(0, 10),
+    }
+
+    if (updated > 0) {
+      const allVOs = store.vos.value || []
+      const snap = {
+        importedAt:   new Date().toISOString(),
+        filename:     file.name,
+        labour:       allVOs.reduce((s, v) => s + (v.labourCost || 0), 0),
+        thirdParty:   allVOs.reduce((s, v) => s + (v.thirdPartyCost || 0), 0),
+        grand:        allVOs.reduce((s, v) => s + (v.labourCost || 0) + (v.thirdPartyCost || 0), 0),
+        updatedCount: updated,
+      }
+      importHistory.value = [snap, ...importHistory.value]
+      saveHistory(importHistory.value)
+      historyOpen.value = true
     }
   } catch (err) {
     importResult.value = { type: 'error', title: 'Import failed', message: err.message }

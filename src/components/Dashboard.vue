@@ -2216,7 +2216,8 @@ const costToCompleteByScope = computed(() => {
   let raw
   try { raw = JSON.parse(localStorage.getItem('siteStatusData') || '{}') } catch { raw = {} }
   const scopeMap = {}
-  for (const d of Object.values(raw)) {
+  for (const [key, d] of Object.entries(raw)) {
+    if (filteredSiteKeys.value && !filteredSiteKeys.value.has(key)) continue
     const entries = Array.isArray(d.costEntries) ? d.costEntries : []
     const scopes  = Array.isArray(d.scopes) && d.scopes.length > 0 ? d.scopes : ['(No Scope)']
     const filtered = ctcMonth.value
@@ -2323,7 +2324,7 @@ const notYetInvItems = computed(() => {
   const allInScope = [
     ...voItems.value.filter(scopeMatch),
     ...basePOItems.value.filter(scopeMatch),
-  ].filter(isNotYetInv)
+  ].filter(v => isNotYetInv(v) && voMatchesSiteFilter(v))
 
   const vo       = sortBySiteId(allInScope.filter(v => !isBasePO(v) && !(v.boqRelated === true || v.boqRelated === 'yes')))
   const boq      = sortBySiteId(allInScope.filter(v => !isBasePO(v) && (v.boqRelated === true || v.boqRelated === 'yes')))
@@ -2355,7 +2356,7 @@ const noPOItems = computed(() => {
   const allInScope = [
     ...voItems.value.filter(scopeMatch),
     ...basePOItems.value.filter(scopeMatch),
-  ].filter(hasNoPO)
+  ].filter(v => hasNoPO(v) && voMatchesSiteFilter(v))
 
   const vo     = sortBySiteId(allInScope.filter(v => !isBasePO(v) && !(v.boqRelated === true || v.boqRelated === 'yes')))
   const boq    = sortBySiteId(allInScope.filter(v => !isBasePO(v) && (v.boqRelated === true || v.boqRelated === 'yes')))
