@@ -11,6 +11,9 @@ Format: `## YYYY-MM-DD — <summary>` with sub-sections for **Added**, **Fixed**
 - **P&L view** (`PLView.vue`): new site/job-level table synced from Variation records. Groups by Site ID, Site Name, and Job; shows total VO quantity, total VO amount, SIT Completed invoice amount, not-yet-invoiced amount, Cost to Date, and P&L calculated as `Total PO - Cost to Date`.
 - Added the **P&L** tab to the main navigation and persisted view list in `App.vue`.
 
+### Changed
+- **Dashboard › Invoice by Site detail modal** (`Dashboard.vue`): clicking a site now shows grouped detail sections with category totals for VO - Service (non-BOQ), VO - Third Party (non-BOQ), BOQ Related, and Base PO.
+
 ---
 
 ## 2026-05-05 — Dashboard site filter propagation & Cost to Date import history

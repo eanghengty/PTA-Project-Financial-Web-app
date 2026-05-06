@@ -1377,8 +1377,88 @@
               <span class="text-sm font-bold text-white">{{ formatCompact(invoiceSiteModal.totalAmt) }}</span>
             </div>
           </div>
-          <!-- Table -->
-          <div class="flex-1 overflow-auto">
+          <!-- Grouped detail -->
+          <div class="flex-1 overflow-auto bg-gray-50/70 p-4 space-y-4">
+            <div v-for="group in invoiceSiteModalGroups" :key="group.key"
+              class="bg-white rounded-xl border overflow-hidden"
+              :class="group.borderClass">
+              <div class="px-5 py-3 flex items-center justify-between gap-4"
+                :class="group.headerClass">
+                <div>
+                  <h4 class="text-sm font-bold" :class="group.titleClass">{{ group.label }}</h4>
+                  <p class="text-xs text-gray-400 mt-0.5">{{ group.description }}</p>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap justify-end">
+                  <span class="px-2.5 py-1 bg-white border border-gray-100 rounded-lg text-xs font-semibold text-gray-600">
+                    {{ group.items.length }} item{{ group.items.length !== 1 ? 's' : '' }}
+                  </span>
+                  <span class="px-2.5 py-1 bg-white border border-gray-100 rounded-lg text-xs font-bold" :class="group.titleClass">
+                    {{ formatCurrency(group.total) }}
+                  </span>
+                </div>
+              </div>
+
+              <div v-if="group.items.length === 0" class="px-5 py-5 text-sm text-gray-400 text-center">
+                No items in this category.
+              </div>
+              <table v-else class="w-full text-sm border-collapse">
+                <thead>
+                  <tr>
+                    <th class="px-5 py-2.5 bg-gray-50 border-b border-gray-200 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
+                    <th class="px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Category</th>
+                    <th class="px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Scope</th>
+                    <th class="px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">VO Status</th>
+                    <th class="px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-right text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Amount</th>
+                    <th class="px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">PO Number</th>
+                    <th class="px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Invoice Status</th>
+                    <th class="px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-left text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Invoice Date</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <tr v-for="vo in group.items" :key="vo.id"
+                    :class="vo.invoiceStatus === 'SIT Completed' && vo.invoiceDate ? 'bg-green-50' : 'hover:bg-gray-50'"
+                    class="transition">
+                    <td class="px-5 py-3">
+                      <div class="max-w-xs truncate text-gray-800 font-medium" :title="vo.voDescription">{{ vo.voDescription }}</div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.voCategory || '-' }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.scope || '-' }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <span :class="['inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold', modalStatusBadge(vo.voStatus)]">
+                        {{ formatStatus(vo.voStatus) }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-right font-semibold text-gray-800 whitespace-nowrap">{{ formatCurrency(vo.voAmount) }}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <span v-if="vo.poNumber" class="font-mono text-xs text-teal-700 bg-teal-50 px-2 py-0.5 rounded">{{ vo.poNumber }}</span>
+                      <span v-else class="text-gray-300 text-xs">-</span>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                      <span v-if="vo.invoiceStatus"
+                        :class="vo.invoiceStatus === 'To Be Sent to Nokia' ? 'bg-indigo-100 text-indigo-700'
+                          : vo.invoiceStatus === 'SIT Completed' ? 'bg-green-100 text-green-700'
+                          : vo.invoiceStatus === 'SIT Approved' ? 'bg-yellow-100 text-yellow-700'
+                          : 'bg-blue-100 text-blue-700'"
+                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                        {{ vo.invoiceStatus }}
+                      </span>
+                      <span v-else class="text-gray-300 text-xs">-</span>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.invoiceDate ? new Date(vo.invoiceDate).toLocaleDateString('en-AU') : '-' }}</td>
+                  </tr>
+                </tbody>
+                <tfoot class="border-t border-gray-200 bg-gray-50">
+                  <tr>
+                    <td colspan="4" class="px-5 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Category Total</td>
+                    <td class="px-4 py-2.5 text-right text-sm font-bold text-gray-900 whitespace-nowrap">{{ formatCurrency(group.total) }}</td>
+                    <td colspan="3"></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+          <!-- Original flat table hidden -->
+          <div v-if="false" class="flex-1 overflow-auto">
             <table class="w-full text-sm border-collapse">
               <thead class="sticky top-0 z-10">
                 <tr>
@@ -3012,6 +3092,75 @@ const pagedInvoiceBySite     = computed(() => {
 })
 
 const openInvoiceSiteModal = (row) => { invoiceSiteModal.value = row }
+
+const invoiceSiteModalGroups = computed(() => {
+  const groups = [
+    {
+      key: 'service',
+      label: 'VO - Service',
+      description: 'Non-BOQ variation orders with Service category',
+      headerClass: 'bg-blue-50',
+      borderClass: 'border-blue-100',
+      titleClass: 'text-blue-700',
+      items: [],
+      total: 0,
+    },
+    {
+      key: 'thirdParty',
+      label: 'VO - Third Party',
+      description: 'Non-BOQ variation orders with Third Party category',
+      headerClass: 'bg-sky-50',
+      borderClass: 'border-sky-100',
+      titleClass: 'text-sky-700',
+      items: [],
+      total: 0,
+    },
+    {
+      key: 'boq',
+      label: 'BOQ Related',
+      description: 'All records where BOQ Related is Yes',
+      headerClass: 'bg-emerald-50',
+      borderClass: 'border-emerald-100',
+      titleClass: 'text-emerald-700',
+      items: [],
+      total: 0,
+    },
+    {
+      key: 'basePO',
+      label: 'Base PO',
+      description: 'Site Survey, WOP, SAT&SIT, C&I, and Snag Closure',
+      headerClass: 'bg-amber-50',
+      borderClass: 'border-amber-100',
+      titleClass: 'text-amber-700',
+      items: [],
+      total: 0,
+    },
+  ]
+  const byKey = Object.fromEntries(groups.map(group => [group.key, group]))
+
+  for (const vo of invoiceSiteModal.value?.vos || []) {
+    const category = vo.voCategory?.trim() || ''
+    const isBasePO = BASE_PO_CATEGORIES.has(category)
+    const isBOQ = !isBasePO && (vo.boqRelated === true || vo.boqRelated === 'yes')
+    const group =
+      isBasePO ? byKey.basePO :
+      isBOQ ? byKey.boq :
+      category === 'Third Party' ? byKey.thirdParty :
+      byKey.service
+
+    group.items.push(vo)
+    group.total += vo.voAmount || 0
+  }
+
+  for (const group of groups) {
+    group.items.sort((a, b) => {
+      const rank = v => v.invoiceStatus === 'SIT Completed' && v.invoiceDate ? 0 : v.poNumber?.trim() ? 1 : 2
+      return rank(a) - rank(b) || (b.voAmount || 0) - (a.voAmount || 0)
+    })
+  }
+
+  return groups
+})
 
 watch(invoiceSiteSearch, () => { invoiceSitePage.value = 1 })
 

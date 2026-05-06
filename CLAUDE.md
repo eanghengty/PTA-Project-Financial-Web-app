@@ -169,10 +169,11 @@ All currency in Dashboard uses `formatCompact()` (e.g., $1.23M, $456.7K, $999).
 7. **Monthly Invoiced Amount** — Three-line chart: VO Invoiced (blue) + Base PO Invoiced (amber) + **BOQ Related Invoiced** (green). Breakdown table has columns: Month, VO Amount, VO Count, Base PO Amount, Base PO Count, **BOQ Amount**, **BOQ Count**, Total.
 8. **Monthly Cost to Complete** — Two-line chart reading `siteStatusData` from localStorage: **Started Sites** (emerald) + **Not Started Sites** (amber), aggregated by cost entry date month. Only entries with a `date` field appear. Breakdown table: Month · Started Amount · Started Entries · Not Started Amount · Not Started Entries · Total. Empty state shown when no dated cost entries exist. Computed: `monthlyCostToCompleteData`. Helper: `calcEntryCostDash(e)` (function declaration, hoisted).
 9. **BOQ Related VO Amount by Scope** — Four-way split per scope: BOQ×Have PO, BOQ×No PO, Non-BOQ×Have PO, Non-BOQ×No PO. VO items only.
-10. **Ticket breakdown** — With Ticket vs Without Ticket per scope (VO items, non-draft only)
-11. **Timeline metrics** — Avg days from `emailApprovedFromNokia` to `ticketApprovalDate` (VOs with both dates), overdue >30 days, approval rate (`ticketApprovalDate` count / (`ticketApprovalDate` count + `ticketNumber`-but-no-approval count))
-12. **Site breakdown table** — Per-site VO counts and amounts
-13. **Recent activity** — Last 8 updated VOs (VO items only)
+10. **Invoice by Site** — Per-site/job invoice table with click-to-view modal. Detail modal groups the selected row's records into four sections with count and total value: VO - Service (non-BOQ), VO - Third Party (non-BOQ), BOQ Related (`boqRelated === true` or `'yes'`), and Base PO (`Site Survey`, `WOP`, `SAT&SIT`, `C&I`, `Snag Closure`). Each section lists Description, Category, Scope, VO Status, Amount, PO Number, Invoice Status, and Invoice Date.
+11. **Ticket breakdown** — With Ticket vs Without Ticket per scope (VO items, non-draft only)
+12. **Timeline metrics** — Avg days from `emailApprovedFromNokia` to `ticketApprovalDate` (VOs with both dates), overdue >30 days, approval rate (`ticketApprovalDate` count / (`ticketApprovalDate` count + `ticketNumber`-but-no-approval count))
+13. **Site breakdown table** — Per-site VO counts and amounts
+14. **Recent activity** — Last 8 updated VOs (VO items only)
 
 ## Monthly Invoicing View (`src/components/MonthlyInvoicing.vue`)
 
