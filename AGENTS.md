@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
 ## Commands
 
@@ -14,7 +14,7 @@ No test runner or linter is configured.
 
 ## Architecture
 
-**Vue 3 SPA — no Vue Router.** Views are swapped via `<component :is="currentComponent">` in `App.vue`, with the active view persisted to `localStorage` as `currentView`. Available views: `dashboard`, `table`, `invoice-list`, `monthly-invoice`, `reminders`, `cost-to-date`, `pl`, `site-status`, `import-export`, `admin`.
+**Vue 3 SPA — no Vue Router.** Views are swapped via `<component :is="currentComponent">` in `App.vue`, with the active view persisted to `localStorage` as `currentView`. Available views: `dashboard`, `table`, `invoice-list`, `monthly-invoice`, `reminders`, `cost-to-date`, `site-status`, `import-export`, `admin`.
 
 **State:** A single composable store in `src/stores/voStore.js` (`useVOStore()`) holds all reactive state — no Pinia or Vuex. Key refs: `vos`, `loading`, `error`, `invoicePrepIds` (a `Set`), `selectedFilters`. Key computed: `filteredVOs`, `statusSummary`, `financialSummary`, `categoryDistribution`, `timelineMetrics`, `invoicePrepItems`. All components import this composable directly.
 
@@ -103,7 +103,7 @@ Setting `voStatus` to `cancelled` triggers special behaviour:
 
 ## VOForm Cost Fields
 
-The VO edit/create modal includes **Labour Cost** and **Third Party Cost** inputs (side by side, in the left panel). Both are numeric fields stored as numbers on the VO record (`labourCost`, `thirdPartyCost`, default `0`). These feed the Cost to Date view, the P&L view, and the Dashboard PO & Invoice Summary by Scope. The inputs format on blur (comma-separated AUD) and strip formatting on focus for raw numeric entry.
+The VO edit/create modal includes **Labour Cost** and **Third Party Cost** inputs (side by side, in the left panel). Both are numeric fields stored as numbers on the VO record (`labourCost`, `thirdPartyCost`, default `0`). These feed the Cost to Date view and the Dashboard PO & Invoice Summary by Scope. The inputs format on blur (comma-separated AUD) and strip formatting on focus for raw numeric entry.
 
 ## VOForm Activity History
 
@@ -196,7 +196,7 @@ The primary UI chrome uses `blue-600/700` for action buttons and table headers, 
 - `teal` — PO status indicators, PO Change Log in VOForm, Reminders Section 3 header, "Have PO" group in Dashboard PO & Invoice Summary
 - `indigo` — site ID badges in activity logs and empty-state illustrations; **"To Be Sent to Nokia"** invoice status badge
 - `green/yellow/red` — VO status indicators (approved / pending / rejected)
-- `green/emerald` — BOQ Related indicators and chart lines; Invoiced amounts in PO & Invoice Summary; **Cost to Complete** column and pill in PO & Invoice Summary; Site Status view chrome (header, table header, KPI cards, edit modal); Monthly Cost to Complete chart (Started Sites line); P&L view chrome and positive P&L values
+- `green/emerald` — BOQ Related indicators and chart lines; Invoiced amounts in PO & Invoice Summary; **Cost to Complete** column and pill in PO & Invoice Summary; Site Status view chrome (header, table header, KPI cards, edit modal); Monthly Cost to Complete chart (Started Sites line)
 - `orange` — Reminders nav badge and Section 1 accent; carry-over items in Monthly Invoicing; "Not Yet Invoiced" in PO & Invoice Summary
 - `purple` — Reminders Section 2 header and accent
 - `slate` — Cancelled status indicators, cancelled notice banner in VOForm
@@ -237,21 +237,6 @@ Dedicated view (`cost-to-date`, violet-themed) for tracking labour and third par
 **Download template:** Pre-fills with current job data (job number, site ID, site name, existing costs) so user can fill in updated costs and re-import.
 
 **Export:** Downloads current (filtered + sorted) view as `Cost_to_Date_DD-MM-YYYY.xlsx`.
-
-## P&L View (`src/components/PLView.vue`)
-
-Dedicated view (`pl`, emerald-themed) for site/job-level profit and loss. It reads directly from `store.vos.value` and groups records by `siteId + jobNumber + siteName`, matching the Cost to Date grouping shape.
-
-**Table columns:** Site ID · Site Name · Job · Total VO Qty · Total VO Amount · Total Invoice Amount · Not Yet Invoice Amount · Cost to Date · P&L.
-
-**Metric logic:**
-- `totalVOAmount` = sum of `voAmount` for the grouped records; this is the Total PO value used by P&L.
-- `invoiceAmount` = sum of `voAmount` only where `invoiceStatus === 'SIT Completed'` and `invoiceDate` is set.
-- `notYetInvoiceAmount` = `totalVOAmount - invoiceAmount`.
-- `costToDate` = sum of `labourCost + thirdPartyCost`, using the same VO cost fields as Cost to Date.
-- `profitLoss` = `totalVOAmount - costToDate`.
-
-**KPI cards (5):** Sites, Total PO, SIT Completed, Cost to Date, P&L. Includes search by site ID / site name / job number, sortable columns, sticky totals footer, and Excel export as `P&L_DD-MM-YYYY.xlsx`.
 
 ## Site Status View (`src/components/SiteStatusView.vue`)
 
