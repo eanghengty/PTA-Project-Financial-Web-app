@@ -521,6 +521,31 @@
               <option value="approved">Approved</option>
             </select>
           </div>
+
+          <!-- Routine backup export -->
+          <div class="flex items-center justify-between pt-4 border-t border-gray-50">
+            <div>
+              <p class="text-sm font-semibold text-gray-900">Routine JSON Backup</p>
+              <p class="text-xs text-gray-400 mt-0.5">Automatically export a full restore backup once per day while the app is open</p>
+              <p class="text-xs font-semibold mt-1"
+                :class="routineBackupStatusClass">
+                {{ routineBackupStatusText }}
+              </p>
+            </div>
+            <div class="flex items-center gap-3">
+              <input v-model="globalData.settings.routineBackupTime" type="time"
+                :disabled="!globalData.settings.routineBackupEnabled"
+                @focus="routineBackupPreviousTime = globalData.settings.routineBackupTime"
+                @change="handleRoutineBackupTimeChange"
+                class="px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed" />
+              <button @click="toggleRoutineBackup"
+                class="relative inline-flex h-6 w-11 items-center rounded-full transition shrink-0"
+                :class="globalData.settings.routineBackupEnabled ? 'bg-blue-600' : 'bg-gray-200'">
+                <span class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition"
+                  :class="globalData.settings.routineBackupEnabled ? 'translate-x-6' : 'translate-x-1'"></span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -759,16 +784,61 @@
       </div>
     </Teleport>
 
+    <!-- Routine backup reschedule modal -->
+    <Teleport to="body">
+      <div v-if="routineBackupResetModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          <div class="flex items-center gap-3 px-6 py-4 bg-blue-700">
+            <div class="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="font-bold text-white text-base">Reset Routine Backup?</p>
+              <p class="text-blue-100 text-xs mt-0.5">Today already has a completed or cancelled backup.</p>
+            </div>
+          </div>
+          <div class="p-6 space-y-4">
+            <p class="text-sm text-gray-600 leading-relaxed">
+              You changed the routine backup time to
+              <span class="font-bold text-blue-700">{{ globalData.settings.routineBackupTime || 'not set' }}</span>.
+              Reset today if you want the new schedule to run today.
+            </p>
+            <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+              <p class="text-xs font-bold text-blue-700 uppercase tracking-wider">What reset means</p>
+              <p class="text-xs text-blue-600 mt-1">It clears today’s run marker. If the new time arrives while the app is open, the 15-second backup popup will show again.</p>
+            </div>
+            <div class="flex justify-end gap-2 pt-1">
+              <button @click="finishRoutineBackupTimeChange(false)"
+                class="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-200 transition">
+                Wait Until Next Day
+              </button>
+              <button @click="finishRoutineBackupTimeChange(true)"
+                class="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow-sm">
+                Reset Today
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import * as XLSX from 'xlsx'
 import { getLogs, clearLogs, addLog, diffVOs } from '../utils/logger'
 import { useVOStore } from '../stores/voStore'
 
 const voStore = useVOStore()
+const routineBackupNow = ref(new Date())
+const routineBackupPreviousTime = ref('')
+const routineBackupResetModal = ref(false)
+let routineBackupTick = null
 
 // ── Tabs ──
 // Material Design icon path data for each tab
@@ -795,8 +865,76 @@ const globalData = ref({
   sites: [],
   voCategories: [],
   scopes: [],
-  settings: { autoSaveEnabled: true, notificationsEnabled: true, defaultVOStatus: 'draft' }
+  settings: { autoSaveEnabled: true, notificationsEnabled: true, defaultVOStatus: 'draft', routineBackupEnabled: false, routineBackupTime: '' }
 })
+
+function localDateKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function scheduledDateFor(time, baseDate = routineBackupNow.value) {
+  const [hours, minutes] = String(time || '').split(':').map(Number)
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null
+  const dt = new Date(baseDate)
+  dt.setHours(hours, minutes, 0, 0)
+  const alreadyDoneToday = localStorage.getItem('routineBackupLastRunDate') === localDateKey(baseDate)
+  if (alreadyDoneToday || dt <= baseDate) dt.setDate(dt.getDate() + 1)
+  return dt
+}
+
+function formatDuration(ms) {
+  const totalMinutes = Math.max(0, Math.ceil(ms / 60000))
+  const days = Math.floor(totalMinutes / 1440)
+  const hours = Math.floor((totalMinutes % 1440) / 60)
+  const minutes = totalMinutes % 60
+  const parts = []
+  if (days) parts.push(`${days}d`)
+  if (hours) parts.push(`${hours}h`)
+  parts.push(`${minutes}m`)
+  return parts.join(' ')
+}
+
+const routineBackupStatusText = computed(() => {
+  const settings = globalData.value.settings
+  if (!settings.routineBackupEnabled) return 'Routine backup is off.'
+  if (!settings.routineBackupTime) return 'Choose a backup time.'
+  const next = scheduledDateFor(settings.routineBackupTime)
+  if (!next) return 'Choose a backup time.'
+  return `Next export in ${formatDuration(next - routineBackupNow.value)} (${next.toLocaleString('en-AU', { weekday: 'short', hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })})`
+})
+
+const routineBackupStatusClass = computed(() => {
+  if (!globalData.value.settings.routineBackupEnabled) return 'text-gray-400'
+  if (!globalData.value.settings.routineBackupTime) return 'text-amber-600'
+  return 'text-blue-600'
+})
+
+function clearRoutineBackupRunMarker() {
+  localStorage.removeItem('routineBackupLastRunDate')
+}
+
+function toggleRoutineBackup() {
+  globalData.value.settings.routineBackupEnabled = !globalData.value.settings.routineBackupEnabled
+  if (globalData.value.settings.routineBackupEnabled) clearRoutineBackupRunMarker()
+  saveGlobalData()
+}
+
+function handleRoutineBackupTimeChange() {
+  const alreadyDoneToday = localStorage.getItem('routineBackupLastRunDate') === localDateKey()
+  if (alreadyDoneToday) {
+    routineBackupResetModal.value = true
+    return
+  }
+  routineBackupPreviousTime.value = globalData.value.settings.routineBackupTime
+  saveGlobalData()
+}
+
+function finishRoutineBackupTimeChange(resetToday) {
+  if (resetToday) clearRoutineBackupRunMarker()
+  routineBackupPreviousTime.value = globalData.value.settings.routineBackupTime
+  saveGlobalData()
+  routineBackupResetModal.value = false
+}
 
 const loadGlobalData = () => {
   try {
@@ -821,7 +959,7 @@ const loadGlobalData = () => {
       sites:        dedupedSites,
       voCategories: data.voCategories || [],
       scopes:       data.scopes       || [],
-      settings:     { autoSaveEnabled: true, notificationsEnabled: true, defaultVOStatus: 'draft', ...(data.settings || {}) }
+      settings:     { autoSaveEnabled: true, notificationsEnabled: true, defaultVOStatus: 'draft', routineBackupEnabled: false, routineBackupTime: '', ...(data.settings || {}) }
     }
 
     // Persist cleaned data back if duplicates were removed
@@ -984,7 +1122,15 @@ const formatRelativeTime = (iso) => {
 // Reload logs when switching to the logs tab
 watch(activeTab, v => { if (v === 'logs') loadLogs() })
 
-onMounted(() => { loadGlobalData(); loadLogs() })
+onMounted(() => {
+  loadGlobalData()
+  loadLogs()
+  routineBackupTick = setInterval(() => { routineBackupNow.value = new Date() }, 30000)
+})
+
+onUnmounted(() => {
+  clearInterval(routineBackupTick)
+})
 
 // ══════════════════════════════════
 // SHARED MODAL

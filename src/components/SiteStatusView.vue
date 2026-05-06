@@ -613,7 +613,7 @@
         <thead>
           <!-- Filter summary row — shown whenever any filter is active -->
           <tr v-if="isFiltered" class="bg-emerald-50 border-b border-emerald-100">
-            <td colspan="10" class="px-4 py-2.5">
+            <td colspan="11" class="px-4 py-2.5">
               <div class="flex items-center justify-between gap-4 flex-wrap">
                 <!-- Active filter chips -->
                 <div class="flex items-center gap-1.5 flex-wrap">
@@ -696,6 +696,7 @@
             <th class="px-4 py-3 text-center font-semibold">Status</th>
             <th class="px-4 py-3 text-left font-semibold">Scope</th>
             <th class="px-4 py-3 text-center font-semibold">Entries</th>
+            <th class="px-4 py-3 text-right font-semibold">Total Hours</th>
             <th class="px-4 py-3 text-center font-semibold">VO Qty</th>
             <th class="px-4 py-3 text-right font-semibold">Cost to Complete</th>
             <th class="px-4 py-3 text-left font-semibold">Comment</th>
@@ -704,7 +705,7 @@
         </thead>
         <tbody>
           <tr v-if="filteredRows.length === 0">
-            <td colspan="10" class="px-4 py-8 text-center text-sm text-gray-400">No sites match your filter.</td>
+            <td colspan="11" class="px-4 py-8 text-center text-sm text-gray-400">No sites match your filter.</td>
           </tr>
           <tr v-for="row in filteredRows" :key="row.key"
             class="border-t border-gray-100 hover:bg-gray-50 transition"
@@ -748,6 +749,11 @@
                     d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                 </svg>
               </button>
+            </td>
+            <td class="px-4 py-3 text-right">
+              <span class="text-gray-800 font-medium">
+                {{ row.totalHours ? formatHours(row.totalHours) : '—' }}
+              </span>
             </td>
             <td class="px-4 py-3 text-center">
               <button @click="openVODrawer(row)"
@@ -848,6 +854,15 @@ function calcEntryCost(e) {
          (parseFloat(e.qtyPeople) || 0) * (parseFloat(e.rate) || 0)
 }
 
+function calcEntryHours(e) {
+  return (parseFloat(e.qtyDays) || 0) * (parseFloat(e.qtyHours) || 0) *
+         (parseFloat(e.qtyPeople) || 0)
+}
+
+function formatHours(value) {
+  return `${(Number(value) || 0).toLocaleString('en-AU', { maximumFractionDigits: 2 })}h`
+}
+
 // ── State ────────────────────────────────────────────────────────────────────
 const siteData = ref(migrate(load()))
 const search = ref('')
@@ -903,6 +918,7 @@ const rows = computed(() => {
   return Object.entries(siteData.value).map(([key, d]) => {
     const entries = Array.isArray(d.costEntries) ? d.costEntries : []
     const costToComplete = entries.reduce((s, e) => s + calcEntryCost(e), 0)
+    const totalHours = entries.reduce((s, e) => s + calcEntryHours(e), 0)
     return {
       key,
       siteId:        d.siteId,
@@ -911,6 +927,7 @@ const rows = computed(() => {
       status:        d.status || 'not-started',
       scopes:        Array.isArray(d.scopes) ? d.scopes : [],
       costEntries:   entries,
+      totalHours,
       costToComplete,
       comment:       d.comment || '',
     }
@@ -973,7 +990,8 @@ const filteredRows = computed(() => {
   return list.map(r => {
     const monthEntries = entriesForMonth(r.costEntries)
     const costToComplete = monthEntries.reduce((s, e) => s + calcEntryCost(e), 0)
-    return { ...r, costEntries: monthEntries, costToComplete }
+    const totalHours = monthEntries.reduce((s, e) => s + calcEntryHours(e), 0)
+    return { ...r, costEntries: monthEntries, totalHours, costToComplete }
   })
 })
 
@@ -1353,11 +1371,26 @@ function exportToExcel() {
     'Site Name':        r.siteName,
     'Job Number':       r.jobNumber || '',
     'Status':           r.status === 'started' ? 'Started' : 'Not Started',
+    'Scope':            r.scopes.length ? r.scopes.join(', ') : '',
     'Cost Entries':     r.costEntries.length,
+    'Total Hours':      r.totalHours || 0,
+    'VO Qty':           voCountFor(r),
     'Cost to Complete': r.costToComplete || 0,
     'Comment':          r.comment || '',
   }))
   const ws = XLSX.utils.json_to_sheet(data)
+  ws['!cols'] = [
+    { wch: 18 },
+    { wch: 28 },
+    { wch: 16 },
+    { wch: 14 },
+    { wch: 28 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 10 },
+    { wch: 18 },
+    { wch: 36 },
+  ]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Site Status')
   const date = new Date().toISOString().slice(0, 10)

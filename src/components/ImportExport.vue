@@ -747,6 +747,16 @@
               <span class="font-bold text-gray-900">{{ restorePreview.scopeCount }}</span>
               <span class="text-gray-500">Activity Logs</span>
               <span class="font-bold text-gray-900">{{ restorePreview.logCount }}</span>
+              <span class="text-gray-500">Site Status Rows</span>
+              <span class="font-bold text-gray-900">{{ restorePreview.siteStatusCount }}</span>
+              <span class="text-gray-500">Flagged VOs</span>
+              <span class="font-bold text-gray-900">{{ restorePreview.flaggedCount }}</span>
+              <span class="text-gray-500">Cost Import History</span>
+              <span class="font-bold text-gray-900">{{ restorePreview.costHistoryCount }}</span>
+              <span class="text-gray-500">Monthly Manual Entries</span>
+              <span class="font-bold text-gray-900">{{ restorePreview.manualInvoiceCount }}</span>
+              <span class="text-gray-500">App Settings / View State</span>
+              <span class="font-bold text-gray-900">{{ restorePreview.localStorageCount }}</span>
               <span class="text-gray-500">Exported at</span>
               <span class="font-bold text-gray-900">{{ restorePreview.exportedAt }}</span>
             </div>
@@ -803,17 +813,45 @@ import { exportToExcel, exportToCSV } from '../utils/export'
 import { importFromFile } from '../utils/import'
 import { formatCurrency } from '../utils/formatters'
 import { clearAllData, bulkInsertVOs } from '../db/indexdb'
+import { BACKUP_VERSION, BACKUP_LOCAL_STORAGE_KEYS, downloadFullBackup } from '../utils/backup'
 import * as XLSX from 'xlsx'
 
 const store = useVOStore()
 
-const BACKUP_VERSION = 2
+const readJSONFromSnapshot = (snapshot, key, fallback = null) => {
+  try {
+    const raw = snapshot?.[key]
+    return typeof raw === 'string' ? JSON.parse(raw) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+const restoreLocalStorageData = (data) => {
+  const snapshot = data.localStorageData
+  if (snapshot && typeof snapshot === 'object') {
+    BACKUP_LOCAL_STORAGE_KEYS.forEach(key => {
+      if (!Object.prototype.hasOwnProperty.call(snapshot, key)) localStorage.removeItem(key)
+    })
+    Object.entries(snapshot).forEach(([key, value]) => {
+      if (typeof value === 'string') localStorage.setItem(key, value)
+    })
+    return
+  }
+
+  // Backward compatibility for v1/v2 backups.
+  localStorage.setItem('invoicePrepIds', JSON.stringify(data.invoicePrepIds || []))
+  if (data.adminData) localStorage.setItem('globalData', JSON.stringify(data.adminData))
+  if (data.activityLog) localStorage.setItem('voActivityLog', JSON.stringify(data.activityLog))
+}
 
 // ── backup meta ──
 const backupContents = computed(() => [
   { label: 'Variations',     desc: `${store.vos.value?.length || 0} records (all fields, IDs, invoice log & PO log preserved)` },
   { label: 'Invoice Prep',   desc: 'which VOs are queued for invoicing' },
   { label: 'Admin Data',     desc: 'sites, categories, scopes & settings' },
+  { label: 'Site Status',    desc: 'started/not-started state, cost entries, hours, comments & status imports' },
+  { label: 'View Data',      desc: 'flagged VOs, manual invoice entries, cost import history & table preferences' },
   { label: 'Activity Log',   desc: 'full audit trail' },
 ])
 
@@ -831,23 +869,8 @@ const restoring         = ref(false)
 // ── export backup ──
 const exportBackup = () => {
   try {
-    const payload = {
-      _version:       BACKUP_VERSION,
-      exportedAt:     new Date().toISOString(),
-      vos:            store.vos.value || [],
-      invoicePrepIds: [...(store.invoicePrepIds?.value || [])],
-      adminData:      (() => { try { return JSON.parse(localStorage.getItem('globalData') || 'null') } catch { return null } })(),
-      activityLog:    (() => { try { return JSON.parse(localStorage.getItem('voActivityLog') || '[]') } catch { return [] } })(),
-    }
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    const date = new Date().toISOString().slice(0, 10)
-    a.href     = url
-    a.download = `VariationTracker_Backup_${date}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-    backupMessage.value     = `Backup downloaded — ${payload.vos.length} variations included`
+    const payload = downloadFullBackup(store.vos.value || [], store.invoicePrepIds?.value || [])
+    backupMessage.value     = `Backup downloaded — ${payload.vos.length} variations and all view data included`
     backupMessageType.value = 'success'
     setTimeout(() => { backupMessage.value = null }, 4000)
   } catch (e) {
@@ -870,6 +893,10 @@ const parseRestoreFile = async (file) => {
     if (data._version > BACKUP_VERSION) throw new Error(`Backup version ${data._version} is newer than this app supports (v${BACKUP_VERSION}) — please update the app`)
     restorePayload.value = data
     const d = new Date(data.exportedAt)
+    const siteStatusData = data.siteStatusData || readJSONFromSnapshot(data.localStorageData, 'siteStatusData', {})
+    const flaggedVOIds = data.flaggedVOIds || readJSONFromSnapshot(data.localStorageData, 'flaggedVOIds', [])
+    const costHistory = data.costImportHistory || readJSONFromSnapshot(data.localStorageData, 'ctdImportHistory', [])
+    const manualEntries = data.manualInvoiceEntries || readJSONFromSnapshot(data.localStorageData, 'manualInvoiceEntries', {})
     restorePreview.value = {
       voCount:       data.vos.length,
       prepCount:     (data.invoicePrepIds || []).length,
@@ -877,6 +904,11 @@ const parseRestoreFile = async (file) => {
       categoryCount: data.adminData?.voCategories?.length ?? 0,
       scopeCount:    data.adminData?.scopes?.length     ?? 0,
       logCount:      (data.activityLog || []).length,
+      siteStatusCount: Object.keys(siteStatusData || {}).length,
+      flaggedCount: Array.isArray(flaggedVOIds) ? flaggedVOIds.length : 0,
+      costHistoryCount: Array.isArray(costHistory) ? costHistory.length : 0,
+      manualInvoiceCount: Object.values(manualEntries || {}).reduce((sum, entries) => sum + (Array.isArray(entries) ? entries.length : 0), 0),
+      localStorageCount: Object.keys(data.localStorageData || {}).length || 4,
       exportedAt:    isNaN(d) ? data.exportedAt : d.toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
     }
   } catch (e) {
@@ -913,20 +945,32 @@ const confirmRestore = async () => {
     // 2. Re-insert all VOs (preserve original IDs, createdAt)
     if (data.vos.length > 0) await bulkInsertVOs(data.vos)
 
-    // 3. Restore localStorage — invoice prep IDs
-    localStorage.setItem('invoicePrepIds', JSON.stringify(data.invoicePrepIds || []))
+    // 3. Restore all localStorage-backed view data and preferences.
+    restoreLocalStorageData(data)
 
-    // 4. Restore admin data
-    if (data.adminData) localStorage.setItem('globalData', JSON.stringify(data.adminData))
+    if (Object.prototype.hasOwnProperty.call(data, 'siteStatusData')) {
+      localStorage.setItem('siteStatusData', JSON.stringify(data.siteStatusData || {}))
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'flaggedVOIds')) {
+      localStorage.setItem('flaggedVOIds', JSON.stringify(data.flaggedVOIds || []))
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'flaggedVONotes')) {
+      localStorage.setItem('flaggedVONotes', JSON.stringify(data.flaggedVONotes || {}))
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'costImportHistory')) {
+      localStorage.setItem('ctdImportHistory', JSON.stringify(data.costImportHistory || []))
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'manualInvoiceEntries')) {
+      localStorage.setItem('manualInvoiceEntries', JSON.stringify(data.manualInvoiceEntries || {}))
+    }
 
-    // 5. Restore activity log
-    if (data.activityLog) localStorage.setItem('voActivityLog', JSON.stringify(data.activityLog))
-
-    // 6. Reload store — VOs first, then sync the invoicePrepIds ref from localStorage
+    // 4. Reload store — VOs first, then sync localStorage-backed store refs.
     await store.loadAllVOs()
     store.reloadInvoicePrepIds()
+    store.reloadFlaggedData?.()
+    window.dispatchEvent(new Event('siteStatusUpdated'))
 
-    restoreSuccess.value = `Restore complete — ${data.vos.length} variations, ${(data.invoicePrepIds || []).length} invoice prep items, and admin data restored.`
+    restoreSuccess.value = `Restore complete — ${data.vos.length} variations and all backed-up view data restored.`
     restorePreview.value = null
     restorePayload.value = null
     if (restoreFileInput.value) restoreFileInput.value.value = ''

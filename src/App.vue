@@ -66,11 +66,75 @@
       </KeepAlive>
     </main>
 
+    <Teleport to="body">
+      <div v-if="routineBackupPrompt" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
+          <div class="px-5 py-4 bg-blue-700">
+            <p class="text-sm font-bold text-white">Routine JSON Backup</p>
+            <p class="text-xs text-blue-100 mt-0.5">Automatic export is about to run</p>
+          </div>
+          <div class="p-5 space-y-4">
+            <p class="text-sm text-gray-600">
+              Your full restore backup will export in
+              <span class="font-bold text-blue-700">{{ routineBackupCountdown }}s</span>.
+            </p>
+            <div class="h-2 rounded-full bg-gray-100 overflow-hidden">
+              <div class="h-full bg-blue-600 transition-all"
+                :style="{ width: ((15 - routineBackupCountdown) / 15 * 100) + '%' }"></div>
+            </div>
+            <div class="flex justify-end gap-2">
+              <button @click="cancelRoutineBackupForToday"
+                class="px-4 py-2 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition">
+                Cancel Today
+              </button>
+              <button @click="runRoutineBackupNow"
+                class="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition">
+                Export Now
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <transition name="routine-toast">
+        <div v-if="routineBackupToast"
+          class="fixed right-5 top-20 z-[60] w-full max-w-sm rounded-2xl bg-white shadow-2xl border overflow-hidden">
+          <div class="flex items-start gap-3 p-4"
+            :class="routineBackupToast.type === 'success' ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-slate-400'">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+              :class="routineBackupToast.type === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'">
+              <svg v-if="routineBackupToast.type === 'success'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M5 13l4 4L19 7"/>
+              </svg>
+              <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-bold text-gray-900">{{ routineBackupToast.title }}</p>
+              <p class="text-xs text-gray-500 mt-0.5">{{ routineBackupToast.message }}</p>
+            </div>
+            <button @click="routineBackupToast = null" class="p-1 rounded-lg text-gray-300 hover:text-gray-500 hover:bg-gray-50 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="h-1 bg-gray-100">
+            <div class="h-full"
+              :class="routineBackupToast.type === 'success' ? 'bg-emerald-500' : 'bg-slate-400'"></div>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
+
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, h } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, h } from 'vue'
 import Dashboard         from './components/Dashboard.vue'
 import TableView         from './components/TableView.vue'
 import ImportExport      from './components/ImportExport.vue'
@@ -82,6 +146,7 @@ import CostToDate        from './components/CostToDate.vue'
 import PLView            from './components/PLView.vue'
 import SiteStatusView    from './components/SiteStatusView.vue'
 import { useVOStore } from './stores/voStore'
+import { downloadFullBackup } from './utils/backup'
 
 const VALID_VIEWS = ['dashboard', 'table', 'invoice-list', 'monthly-invoice', 'reminders', 'cost-to-date', 'pl', 'site-status', 'import-export', 'admin']
 const saved = localStorage.getItem('currentView')
@@ -112,6 +177,99 @@ const reminderCount = computed(() =>
 )
 
 const today = new Date().toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+const routineBackupPrompt = ref(false)
+const routineBackupCountdown = ref(15)
+const routineBackupToast = ref(null)
+let routineBackupCheckTimer = null
+let routineBackupCountdownTimer = null
+let routineBackupToastTimer = null
+
+function todayKey() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+function currentTimeKey() {
+  const now = new Date()
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+}
+
+function scheduledTodayAt(time) {
+  const [hours, minutes] = String(time || '').split(':').map(Number)
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null
+  const dt = new Date()
+  dt.setHours(hours, minutes, 0, 0)
+  return dt
+}
+
+function routineBackupSettings() {
+  try {
+    const data = JSON.parse(localStorage.getItem('globalData') || '{}')
+    return data.settings || {}
+  } catch {
+    return {}
+  }
+}
+
+function routineBackupFilename() {
+  const now = new Date()
+  const date = now.toISOString().slice(0, 10)
+  const time = `${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}`
+  return `VariationTracker_Backup_${date}_${time}.json`
+}
+
+function markRoutineBackupDone() {
+  localStorage.setItem('routineBackupLastRunDate', todayKey())
+}
+
+function showRoutineBackupToast(type, title, message) {
+  routineBackupToast.value = { type, title, message }
+  clearTimeout(routineBackupToastTimer)
+  routineBackupToastTimer = setTimeout(() => {
+    routineBackupToast.value = null
+  }, 5000)
+}
+
+function runRoutineBackupNow() {
+  if (!routineBackupPrompt.value) return
+  routineBackupPrompt.value = false
+  clearInterval(routineBackupCountdownTimer)
+  routineBackupCountdownTimer = null
+  try {
+    downloadFullBackup(store.vos.value || [], store.invoicePrepIds?.value || [], routineBackupFilename())
+    markRoutineBackupDone()
+    showRoutineBackupToast('success', 'Backup Export Started', 'Your full restore backup has been downloaded.')
+  } catch (err) {
+    showRoutineBackupToast('cancel', 'Backup Failed', err.message || 'Could not export the routine backup.')
+  }
+}
+
+function cancelRoutineBackupForToday() {
+  routineBackupPrompt.value = false
+  clearInterval(routineBackupCountdownTimer)
+  routineBackupCountdownTimer = null
+  markRoutineBackupDone()
+  showRoutineBackupToast('cancel', 'Backup Cancelled Today', 'Routine backup will wait until the next scheduled day.')
+}
+
+function showRoutineBackupPrompt() {
+  if (routineBackupPrompt.value) return
+  routineBackupPrompt.value = true
+  routineBackupCountdown.value = 15
+  clearInterval(routineBackupCountdownTimer)
+  routineBackupCountdownTimer = setInterval(() => {
+    routineBackupCountdown.value -= 1
+    if (routineBackupCountdown.value <= 0) runRoutineBackupNow()
+  }, 1000)
+}
+
+function checkRoutineBackupSchedule() {
+  const settings = routineBackupSettings()
+  if (!settings.routineBackupEnabled || !settings.routineBackupTime) return
+  if (localStorage.getItem('routineBackupLastRunDate') === todayKey()) return
+  const scheduled = scheduledTodayAt(settings.routineBackupTime)
+  if (scheduled && new Date() >= scheduled) showRoutineBackupPrompt()
+}
 
 // SVG icon components inline
 const IconDashboard = {
@@ -198,5 +356,25 @@ const navItems = [
 
 onMounted(() => {
   store.loadAllVOs()
+  routineBackupCheckTimer = setInterval(checkRoutineBackupSchedule, 30000)
+  checkRoutineBackupSchedule()
+})
+
+onUnmounted(() => {
+  clearInterval(routineBackupCheckTimer)
+  clearInterval(routineBackupCountdownTimer)
+  clearTimeout(routineBackupToastTimer)
 })
 </script>
+
+<style scoped>
+.routine-toast-enter-active,
+.routine-toast-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.routine-toast-enter-from,
+.routine-toast-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) translateX(12px);
+}
+</style>

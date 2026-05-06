@@ -448,6 +448,11 @@ export function useVOStore() {
     invoicePrepIds.value = _loadInvoicePrepIds()
   }
 
+  const reloadFlaggedData = () => {
+    flaggedIds.value = _loadFlaggedIds()
+    flaggedNotes.value = _loadFlaggedNotes()
+  }
+
   const setFlag = (id, description) => {
     const updated = new Set(flaggedIds.value)
     updated.add(id)
@@ -511,6 +516,7 @@ export function useVOStore() {
     removeFromInvoicePrep,
     clearInvoicePrep,
     reloadInvoicePrepIds,
+    reloadFlaggedData,
     toggleFlag,
     setFlag,
     removeFlag,

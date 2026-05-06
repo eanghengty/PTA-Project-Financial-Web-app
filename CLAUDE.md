@@ -36,7 +36,7 @@ No test runner or linter is configured.
 
 **Invoice Status Import** (`ImportExport.vue` — `parseInvoiceImportFile`): Bulk-updates invoice statuses from `.xlsx/.xls/.csv`. Columns: `PO Number` (required), `VO Amount` (optional), `Invoice Status` (optional). Match is by PO number only. Rows appear in the diff preview when status differs OR amount differs from the existing VO. Amount-mismatch rows: displayed with the current amount struck through and the imported amount in orange; row background is orange when selected. The diff object includes `amountMismatch: boolean`, `importedAmount: number|null`, and `siteId`. On apply, `invoiceStatus`, `invoiceDate`, and `invoiceLog` are updated; if `amountMismatch` is true, `voAmount` is also updated to `importedAmount`. Preview table columns: Checkbox · Site ID · PO Number · VO Description · Amount (with mismatch indicator) · Current Status → New Status · Invoice Date. The toolbar shows a badge counting rows with amount changes. Success message reports how many amounts were also updated.
 
-**Backup & Restore:** `ImportExport.vue` exports a versioned `.json` snapshot containing `vos` (all fields including `invoiceLog` and `poLog`, original IDs/dates), `invoicePrepIds` (array), `adminData` (`globalData` object), and `activityLog`. Format has `_version: 2` and `exportedAt` ISO timestamp. Restore clears IndexedDB via `clearAllData()`, re-inserts via `bulkInsertVOs()` (preserving original IDs), writes all three localStorage keys, then calls `store.loadAllVOs()` to refresh all views. Version guard: restoring a file with `_version < 1` (corrupt) or `_version > BACKUP_VERSION` (too new) throws an error with a descriptive message.
+**Backup & Restore:** Full restore-ready JSON backup creation is shared in `src/utils/backup.js` (`createFullBackupPayload`, `downloadFullBackup`). `ImportExport.vue` and the Admin routine backup both use the same payload. Format has `_version: 3` and `exportedAt` ISO timestamp. The snapshot contains `vos` (all fields including `invoiceLog` and `poLog`, original IDs/dates), `invoicePrepIds`, `adminData` (`globalData`), `activityLog`, `siteStatusData`, `flaggedVOIds`, `flaggedVONotes`, `costImportHistory` (`ctdImportHistory`), `manualInvoiceEntries`, and a `localStorageData` string snapshot that includes view state/preferences such as `currentView`, `admin_activeTab`, `routineBackupLastRunDate`, and `tv_*` table settings. Restore clears IndexedDB via `clearAllData()`, re-inserts via `bulkInsertVOs()` (preserving original IDs), restores localStorage-backed view data, then calls `store.loadAllVOs()`, `store.reloadInvoicePrepIds()`, `store.reloadFlaggedData()`, and dispatches `siteStatusUpdated`. Version guard: restoring a file with `_version < 1` (corrupt) or `_version > BACKUP_VERSION` (too new) throws a descriptive error. Older v1/v2 backups remain supported but only contain the fields they originally exported.
 
 **Invoice statuses** (ordered): `Not Yet Sent` → `To Be Sent to Nokia` (indigo) → `Request to Nokia` (blue) → `SIT Approved` (yellow) → `SIT Completed` (green). A VO is only counted as **invoiced** when `invoiceStatus === 'SIT Completed'` **and** `invoiceDate` is set. The `invoiceLog` field is an append-only array of `{ status, date, loggedAt, source? }`.
 
@@ -284,13 +284,13 @@ Dedicated view (`site-status`, emerald-themed) for tracking construction progres
 
 **Status toggle** — clicking the Started / Not Started pill flips `status` immediately and persists. Emerald = started, amber = not started. Left border accent matches.
 
-**Table columns (10):** Site ID · Site Name · Job # · Status · Scope · **Entries** (badge showing count of cost entries, click opens edit modal) · VO Qty · Cost to Complete · Comment · Actions.
+**Table columns (11):** Site ID · Site Name · Job # · Status · Scope · **Entries** (badge showing count of cost entries, click opens edit modal) · **Total Hours** · VO Qty · Cost to Complete · Comment · Actions. Total Hours is calculated from cost entries as `qtyDays × qtyHours × qtyPeople` and respects the active month filter.
 
 **KPI cards (4):** Total Sites · Started (count + cost to complete) · Not Started (count + cost to complete) · Total Cost to Complete. All KPI values respect the active month filter.
 
 **Filter bar:** Text search (site ID / name / job) + All / Started / Not Started status toggle group + **Scope dropdown** (emerald when active) + **Month dropdown** (violet, calendar icon — shows only months that have cost entries with dates; turns violet when active).
 
-**Month filter** (`monthFilter = ref('')`) — when a month is selected, `filteredRows` remaps each row's `costEntries` and `costToComplete` to only entries whose `date` falls in that month. All sites remain visible (those with no entries for that month show 0 cost). KPI cards, footer total, and Entries badge all reflect the filtered cost. A violet info banner appears above the filter bar explaining the active month. The month chip appears in the active-filter summary row and "Clear all" resets it.
+**Month filter** (`monthFilter = ref('')`) — when a month is selected, `filteredRows` remaps each row's `costEntries`, `totalHours`, and `costToComplete` to only entries whose `date` falls in that month. All sites remain visible (those with no entries for that month show 0 cost and 0 hours). KPI cards, footer total, Entries badge, and Total Hours all reflect the filtered cost. A violet info banner appears above the filter bar explaining the active month. The month chip appears in the active-filter summary row and "Clear all" resets it.
 
 **Filter summary row** — when any filter is active (status, scope, search, or month) a summary row appears **above the column-header row** inside `<thead>`. Left side: active filter chips (each dismissible, plus "Clear all" link). Right side: `N of M sites`, started count (emerald dot), not-started count (amber dot), total cost to complete for the filtered set.
 
@@ -308,7 +308,7 @@ Dedicated view (`site-status`, emerald-themed) for tracking construction progres
   - Shows old status struck through → new status for updated rows; raw unrecognised value in monospace for skipped rows
   - Summary pills: X updated · Y not found · Z skipped; each entry shows original file row number
 
-**Export:** Downloads filtered view as `Site_Status_YYYY-MM-DD.xlsx` with columns: Site ID, Site Name, Job Number, Status, Cost Entries (count), Cost to Complete, Comment.
+**Export:** Downloads filtered view as `Site_Status_YYYY-MM-DD.xlsx` with columns matching the displayed data columns: Site ID, Site Name, Job Number, Status, Scope, Cost Entries, Total Hours, VO Qty, Cost to Complete, Comment.
 
 ## Admin View Features
 
@@ -320,6 +320,8 @@ Dedicated view (`site-status`, emerald-themed) for tracking construction progres
   - **"Add New Only (skip conflicts)"** — adds new sites, leaves conflicting existing sites unchanged
   - **"Add New + Override All"** — adds new sites AND replaces all conflicting entries with VO data (comment field is preserved)
 - Deduplication: same job number or same siteId+siteName blocks duplicate syncing
+
+**Settings › Routine JSON Backup:** Settings include `routineBackupEnabled` and `routineBackupTime` under `globalData.settings`. `AdminView.vue` renders an enable switch plus `<input type="time">`, a live "Next export in ..." countdown, and a styled in-app reset modal when changing the time after today's run/cancel. The modal offers **Reset Today** (clears `routineBackupLastRunDate` so the new time can run today) or **Wait Until Next Day**. `App.vue` owns the runtime scheduler: while the SPA is open, it checks the configured local time, shows a 15-second warning popup, then calls `downloadFullBackup(store.vos.value, store.invoicePrepIds.value, filename)` once per local calendar day. The downloaded file is `VariationTracker_Backup_YYYY-MM-DD_HH-MM.json` and uses the same full restore-ready payload as Import/Export Backup & Restore, including Site Status and other view data. Success and cancel actions show top-right routine backup toasts. The last run/cancel date is stored in localStorage as `routineBackupLastRunDate`. This is a browser download workflow, so it only runs while the app is open in the browser.
 
 ## Import / Export View Layout
 

@@ -10,11 +10,19 @@ Format: `## YYYY-MM-DD — <summary>` with sub-sections for **Added**, **Fixed**
 ### Added
 - **P&L view** (`PLView.vue`): new site/job-level table synced from Variation records. Groups by Site ID, Site Name, and Job; shows total VO quantity, total VO amount, SIT Completed invoice amount, not-yet-invoiced amount, Cost to Date, and P&L calculated as `Total PO - Cost to Date`.
 - Added the **P&L** tab to the main navigation and persisted view list in `App.vue`.
+- **Admin Settings › Routine Backup** (`AdminView.vue`, `App.vue`): added an enable switch and daily time picker. While the app is open, `App.vue` watches the configured time, shows a 15-second warning popup, then automatically exports a full restore-ready backup once per day.
+- **Admin Settings › Routine Backup** (`AdminView.vue`): settings now show the live time remaining until the next routine export. Changing the backup time after today's run/cancel prompts whether to reset today so the new time can run, or keep waiting until the next scheduled day.
+- **Admin Settings › Routine Backup UI** (`AdminView.vue`, `App.vue`): replaced the native browser reset confirmation with a styled in-app modal, and added polished success/cancel toasts for routine backup export and cancel actions.
+- **Shared full JSON backup utility** (`src/utils/backup.js`): added a single restore-ready backup payload generator used by both Import/Export and Admin routine backup. Backup version is now `_version: 3`.
 
 ### Changed
 - **Dashboard › Invoice by Site detail modal** (`Dashboard.vue`): clicking a site now shows grouped detail sections with category totals for VO - Service (non-BOQ), VO - Third Party (non-BOQ), BOQ Related, and Base PO.
 - **P&L view** (`PLView.vue`): Total Invoice Amount and Not Yet Invoice Amount cells are now clickable and open a detail modal for the selected site/job.
 - **P&L view › Not Yet Invoice detail** (`PLView.vue`): modal summary now splits the selected not-yet-invoiced amount into Has PO and No PO amounts.
+- **Site Status view** (`SiteStatusView.vue`): added a Total Hours table/export column calculated from cost entries as `qtyDays × qtyHours × qtyPeople`; it respects the active month filter.
+- **Import/Export › Backup & Restore** (`ImportExport.vue`): full JSON backups now include all restore-critical view data: `siteStatusData`, flagged VO IDs/notes, Cost to Date import history, monthly manual invoice entries, admin data, activity log, invoice prep IDs, and a `localStorageData` snapshot for view preferences/state. Restore reloads invoice prep, flagged VO state, and dispatches `siteStatusUpdated`.
+- **Admin Settings › Routine Backup** (`AdminView.vue`, `App.vue`): routine backup now downloads the same full restore-ready JSON file as Import/Export (`VariationTracker_Backup_YYYY-MM-DD_HH-MM.json`) instead of a Variations-only Excel file.
+- **Project docs** (`CLAUDE.md`, `AGENTS.md`, `CHANGELOG.md`): updated backup architecture notes to match the shared JSON backup implementation.
 
 ---
 
