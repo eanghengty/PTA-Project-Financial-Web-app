@@ -1395,6 +1395,12 @@
                   <span class="px-2.5 py-1 bg-white border border-gray-100 rounded-lg text-xs font-bold" :class="group.titleClass">
                     {{ formatCurrency(group.total) }}
                   </span>
+                  <span class="px-2.5 py-1 bg-white border border-teal-100 rounded-lg text-xs font-bold text-teal-700">
+                    Has PO {{ formatCurrency(group.havePO) }}
+                  </span>
+                  <span class="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-600">
+                    No PO {{ formatCurrency(group.noPO) }}
+                  </span>
                 </div>
               </div>
 
@@ -1447,13 +1453,6 @@
                     <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.invoiceDate ? new Date(vo.invoiceDate).toLocaleDateString('en-AU') : '-' }}</td>
                   </tr>
                 </tbody>
-                <tfoot class="border-t border-gray-200 bg-gray-50">
-                  <tr>
-                    <td colspan="4" class="px-5 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wider">Category Total</td>
-                    <td class="px-4 py-2.5 text-right text-sm font-bold text-gray-900 whitespace-nowrap">{{ formatCurrency(group.total) }}</td>
-                    <td colspan="3"></td>
-                  </tr>
-                </tfoot>
               </table>
             </div>
           </div>
@@ -3104,6 +3103,8 @@ const invoiceSiteModalGroups = computed(() => {
       titleClass: 'text-blue-700',
       items: [],
       total: 0,
+      havePO: 0,
+      noPO: 0,
     },
     {
       key: 'thirdParty',
@@ -3114,6 +3115,8 @@ const invoiceSiteModalGroups = computed(() => {
       titleClass: 'text-sky-700',
       items: [],
       total: 0,
+      havePO: 0,
+      noPO: 0,
     },
     {
       key: 'boq',
@@ -3124,6 +3127,8 @@ const invoiceSiteModalGroups = computed(() => {
       titleClass: 'text-emerald-700',
       items: [],
       total: 0,
+      havePO: 0,
+      noPO: 0,
     },
     {
       key: 'basePO',
@@ -3134,6 +3139,8 @@ const invoiceSiteModalGroups = computed(() => {
       titleClass: 'text-amber-700',
       items: [],
       total: 0,
+      havePO: 0,
+      noPO: 0,
     },
   ]
   const byKey = Object.fromEntries(groups.map(group => [group.key, group]))
@@ -3150,6 +3157,8 @@ const invoiceSiteModalGroups = computed(() => {
 
     group.items.push(vo)
     group.total += vo.voAmount || 0
+    if (vo.poNumber?.trim()) group.havePO += vo.voAmount || 0
+    else group.noPO += vo.voAmount || 0
   }
 
   for (const group of groups) {
