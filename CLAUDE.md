@@ -252,7 +252,7 @@ Dedicated view (`pl`, emerald-themed) for site/job-level profit and loss. It rea
 - `costToDate` = sum of `labourCost + thirdPartyCost`, using the same VO cost fields as Cost to Date.
 - `profitLoss` = `totalVOAmount - costToDate`.
 
-**KPI cards (5):** Sites, Total PO, SIT Completed, Cost to Date, P&L. Includes search by site ID / site name / job number, sortable columns, sticky totals footer, and Excel export as `P&L_DD-MM-YYYY.xlsx`.
+**KPI cards (5):** Sites, Total PO, SIT Completed, Cost to Date, P&L. Includes search by site ID / site name / job number, sortable columns, sticky totals footer, and Excel export as `P&L_DD-MM-YYYY.xlsx`. In the table, Total Invoice Amount and Not Yet Invoice Amount cells are clickable; each opens a modal listing the matching VOs for that site/job with Description, Category, Scope, PO Number, Invoice Status, Invoice Date, and Amount.
 
 ## Site Status View (`src/components/SiteStatusView.vue`)
 

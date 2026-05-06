@@ -91,8 +91,22 @@
               <td class="px-5 py-3.5 text-sm font-semibold text-gray-900 whitespace-nowrap">{{ row.jobNumber || '-' }}</td>
               <td class="px-5 py-3.5 text-xs text-right text-gray-500 whitespace-nowrap">{{ row.voCount }} VO{{ row.voCount !== 1 ? 's' : '' }}</td>
               <td class="px-5 py-3.5 text-sm text-right font-bold text-blue-700 whitespace-nowrap">{{ formatCurrency(row.totalVOAmount) }}</td>
-              <td class="px-5 py-3.5 text-sm text-right font-bold text-green-700 whitespace-nowrap">{{ formatCurrency(row.invoiceAmount) }}</td>
-              <td class="px-5 py-3.5 text-sm text-right font-semibold text-orange-600 whitespace-nowrap">{{ formatCurrency(row.notYetInvoiceAmount) }}</td>
+              <td class="px-5 py-3.5 text-sm text-right whitespace-nowrap">
+                <button @click.stop="openDetail(row, 'invoiced')"
+                  :disabled="row.invoiceItems.length === 0"
+                  class="font-bold text-green-700 rounded-lg px-2 py-1 transition"
+                  :class="row.invoiceItems.length ? 'hover:bg-green-50 hover:ring-1 hover:ring-green-200 cursor-pointer' : 'opacity-40 cursor-default'">
+                  {{ formatCurrency(row.invoiceAmount) }}
+                </button>
+              </td>
+              <td class="px-5 py-3.5 text-sm text-right whitespace-nowrap">
+                <button @click.stop="openDetail(row, 'notYet')"
+                  :disabled="row.notYetInvoiceItems.length === 0"
+                  class="font-semibold text-orange-600 rounded-lg px-2 py-1 transition"
+                  :class="row.notYetInvoiceItems.length ? 'hover:bg-orange-50 hover:ring-1 hover:ring-orange-200 cursor-pointer' : 'opacity-40 cursor-default'">
+                  {{ formatCurrency(row.notYetInvoiceAmount) }}
+                </button>
+              </td>
               <td class="px-5 py-3.5 text-sm text-right font-semibold text-violet-700 whitespace-nowrap">{{ formatCurrency(row.costToDate) }}</td>
               <td class="px-5 py-3.5 text-sm text-right font-bold whitespace-nowrap" :class="row.profitLoss >= 0 ? 'text-emerald-700' : 'text-red-600'">
                 {{ formatCurrency(row.profitLoss) }}
@@ -113,6 +127,88 @@
         </table>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div v-if="detailModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        @click.self="detailModal = null">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden">
+          <div class="flex items-center justify-between px-6 py-4 shrink-0"
+            :class="detailModal.type === 'invoiced' ? 'bg-green-700' : 'bg-orange-600'">
+            <div>
+              <h3 class="font-bold text-white text-base">
+                {{ detailModal.title }}
+              </h3>
+              <p class="text-xs mt-0.5" :class="detailModal.type === 'invoiced' ? 'text-green-100' : 'text-orange-100'">
+                {{ detailModal.row.siteId || '-' }} · {{ detailModal.row.siteName || '-' }} · Job {{ detailModal.row.jobNumber || '-' }}
+              </p>
+            </div>
+            <button @click="detailModal = null"
+              class="w-8 h-8 flex items-center justify-center rounded-xl text-white text-lg font-bold transition"
+              :class="detailModal.type === 'invoiced' ? 'bg-green-600 hover:bg-green-500' : 'bg-orange-500 hover:bg-orange-400'">×</button>
+          </div>
+
+          <div class="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3 flex-wrap shrink-0">
+            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-100 rounded-xl">
+              <span class="text-xs text-gray-500">Items</span>
+              <span class="text-sm font-bold text-gray-800">{{ detailModal.items.length }}</span>
+            </div>
+            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-100 rounded-xl">
+              <span class="text-xs text-gray-500">Total</span>
+              <span class="text-sm font-bold" :class="detailModal.type === 'invoiced' ? 'text-green-700' : 'text-orange-600'">
+                {{ formatCurrency(detailModal.total) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="flex-1 overflow-auto">
+            <table class="w-full text-sm border-collapse" style="min-width: 900px;">
+              <thead class="sticky top-0 z-10">
+                <tr>
+                  <th class="px-5 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Description</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Category</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Scope</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">PO Number</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Invoice Status</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Invoice Date</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-right text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Amount</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr v-for="vo in detailModal.items" :key="vo.id" class="hover:bg-gray-50 transition">
+                  <td class="px-5 py-3">
+                    <div class="max-w-xs truncate text-gray-800 font-medium" :title="vo.voDescription">{{ vo.voDescription || '-' }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.voCategory || '-' }}</td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.scope || '-' }}</td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span v-if="vo.poNumber" class="font-mono text-xs text-teal-700 bg-teal-50 px-2 py-0.5 rounded">{{ vo.poNumber }}</span>
+                    <span v-else class="text-gray-300 text-xs">-</span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span v-if="vo.invoiceStatus"
+                      :class="vo.invoiceStatus === 'SIT Completed' ? 'bg-green-100 text-green-700'
+                        : vo.invoiceStatus === 'To Be Sent to Nokia' ? 'bg-indigo-100 text-indigo-700'
+                        : vo.invoiceStatus === 'SIT Approved' ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-blue-100 text-blue-700'"
+                      class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                      {{ vo.invoiceStatus }}
+                    </span>
+                    <span v-else class="text-gray-300 text-xs">-</span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.invoiceDate ? new Date(vo.invoiceDate).toLocaleDateString('en-AU') : '-' }}</td>
+                  <td class="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(vo.voAmount || 0) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-end shrink-0">
+            <button @click="detailModal = null"
+              class="px-5 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition">Close</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -126,6 +222,7 @@ const store = useVOStore()
 const searchText = ref('')
 const sortCol = ref('siteId')
 const sortDir = ref('asc')
+const detailModal = ref(null)
 
 const columns = [
   { key: 'siteId',              label: 'Site ID',                 align: 'left' },
@@ -152,6 +249,7 @@ const plRows = computed(() => {
       totalVOAmount: 0,
       invoiceAmount: 0,
       costToDate: 0,
+      vos: [],
     }
 
     const voAmount = Number(vo.voAmount) || 0
@@ -162,11 +260,14 @@ const plRows = computed(() => {
     existing.totalVOAmount += voAmount
     existing.invoiceAmount += isInvoiced ? voAmount : 0
     existing.costToDate += cost
+    existing.vos.push(vo)
     map.set(key, existing)
   }
 
   return [...map.values()].map(row => ({
     ...row,
+    invoiceItems: row.vos.filter(vo => vo.invoiceStatus === 'SIT Completed' && !!vo.invoiceDate),
+    notYetInvoiceItems: row.vos.filter(vo => !(vo.invoiceStatus === 'SIT Completed' && !!vo.invoiceDate)),
     notYetInvoiceAmount: row.totalVOAmount - row.invoiceAmount,
     profitLoss: row.totalVOAmount - row.costToDate,
   }))
@@ -223,6 +324,19 @@ function toggleSort(key) {
   } else {
     sortCol.value = key
     sortDir.value = 'asc'
+  }
+}
+
+function openDetail(row, type) {
+  const isInvoiced = type === 'invoiced'
+  const items = isInvoiced ? row.invoiceItems : row.notYetInvoiceItems
+  if (!items.length) return
+  detailModal.value = {
+    row,
+    type,
+    title: isInvoiced ? 'Total Invoice Amount Detail' : 'Not Yet Invoice Amount Detail',
+    items,
+    total: items.reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
   }
 }
 

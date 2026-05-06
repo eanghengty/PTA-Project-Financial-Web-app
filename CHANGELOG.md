@@ -13,6 +13,7 @@ Format: `## YYYY-MM-DD — <summary>` with sub-sections for **Added**, **Fixed**
 
 ### Changed
 - **Dashboard › Invoice by Site detail modal** (`Dashboard.vue`): clicking a site now shows grouped detail sections with category totals for VO - Service (non-BOQ), VO - Third Party (non-BOQ), BOQ Related, and Base PO.
+- **P&L view** (`PLView.vue`): Total Invoice Amount and Not Yet Invoice Amount cells are now clickable and open a detail modal for the selected site/job.
 
 ---
 
