@@ -158,6 +158,14 @@
                 {{ formatCurrency(detailModal.total) }}
               </span>
             </div>
+            <div v-if="detailModal.type === 'notYet'" class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-teal-100 rounded-xl">
+              <span class="text-xs text-gray-500">Has PO</span>
+              <span class="text-sm font-bold text-teal-700">{{ formatCurrency(detailModal.havePO) }}</span>
+            </div>
+            <div v-if="detailModal.type === 'notYet'" class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-xl">
+              <span class="text-xs text-gray-500">No PO</span>
+              <span class="text-sm font-bold text-gray-700">{{ formatCurrency(detailModal.noPO) }}</span>
+            </div>
           </div>
 
           <div class="flex-1 overflow-auto">
@@ -337,6 +345,8 @@ function openDetail(row, type) {
     title: isInvoiced ? 'Total Invoice Amount Detail' : 'Not Yet Invoice Amount Detail',
     items,
     total: items.reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
+    havePO: items.filter(vo => vo.poNumber?.trim()).reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
+    noPO: items.filter(vo => !vo.poNumber?.trim()).reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
   }
 }
 
