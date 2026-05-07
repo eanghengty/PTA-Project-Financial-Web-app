@@ -5,6 +5,21 @@ Format: `## YYYY-MM-DD — <summary>` with sub-sections for **Added**, **Fixed**
 
 ---
 
+## 2026-05-08 - P&L enhancements
+
+### Added
+- **P&L view** (`PLView.vue`): added Scope, Labour Cost, Third Party Cost, Manual Deduction, Cost to Complete, and manual Comment columns.
+- **P&L view filters** (`PLView.vue`): added multi-select Site ID and Scope filters. KPI summary cards and footer totals now update with active search/filter state.
+- **P&L Cost to Complete toggle** (`PLView.vue`): added an Include Cost to Complete toggle plus required month selector. When enabled, P&L pulls selected-month Site Status cost entries from `localStorage.siteStatusData` by `siteId|jobNumber`.
+- **P&L manual fields** (`PLView.vue`): manual deductions and comments persist per `siteId|jobNumber` in `localStorage` keys `plManualDeductions` and `plManualComments`.
+
+### Changed
+- **P&L calculation** (`PLView.vue`): P&L now calculates as `Total VO Amount - Cost to Date - Manual Deduction - Cost to Complete`.
+- **P&L export** (`PLView.vue`): export now includes Scope, split labour/third-party costs, Manual Deduction, Cost to Complete, recalculated P&L, and manual Comment.
+- **P&L table UX** (`PLView.vue`): Site ID and Site Name are frozen during horizontal scroll; the table header remains sticky during vertical scroll; Comment moved to the last column.
+
+---
+
 ## 2026-05-06 - P&L view
 
 ### Added

@@ -13,40 +13,54 @@
           <p class="text-xs text-gray-400 mt-0.5">Site-level PO, invoice, cost and margin summary</p>
         </div>
       </div>
-      <button @click="exportToExcel"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition shadow-sm">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-        </svg>
-        Export
-      </button>
+      <div class="flex items-center gap-2">
+        <label class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold cursor-pointer transition"
+          :class="includeCostToComplete ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'">
+          <input v-model="includeCostToComplete" type="checkbox" class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+          Include Cost to Complete
+        </label>
+        <select v-model="costToCompleteMonth"
+          :disabled="!includeCostToComplete"
+          class="px-3 py-2 rounded-xl border text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed"
+          :class="includeCostToComplete && costToCompleteMonth ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-gray-300 text-gray-600'">
+          <option value="">Select month</option>
+          <option v-for="month in costToCompleteMonths" :key="month.value" :value="month.value">{{ month.label }}</option>
+        </select>
+        <button @click="exportToExcel"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Export
+        </button>
+      </div>
     </div>
 
     <div class="grid grid-cols-5 gap-4">
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4">
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Sites</p>
-        <p class="text-2xl font-bold text-gray-900">{{ plRows.length }}</p>
+        <p class="text-2xl font-bold text-gray-900">{{ summaryRows.length }}</p>
         <p class="text-xs text-gray-400 mt-1">site/job rows</p>
       </div>
       <div class="bg-white rounded-xl border border-blue-200 shadow-sm px-5 py-4">
         <p class="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-1">Total PO</p>
-        <p class="text-2xl font-bold text-blue-700">{{ formatCurrency(totals.totalVOAmount) }}</p>
+        <p class="text-2xl font-bold text-blue-700">{{ formatCurrency(summaryTotals.totalVOAmount) }}</p>
         <p class="text-xs text-gray-400 mt-1">total VO amount</p>
       </div>
       <div class="bg-white rounded-xl border border-green-200 shadow-sm px-5 py-4">
         <p class="text-xs font-semibold text-green-500 uppercase tracking-wider mb-1">SIT Completed</p>
-        <p class="text-2xl font-bold text-green-700">{{ formatCurrency(totals.invoiceAmount) }}</p>
+        <p class="text-2xl font-bold text-green-700">{{ formatCurrency(summaryTotals.invoiceAmount) }}</p>
         <p class="text-xs text-gray-400 mt-1">invoiced with date</p>
       </div>
       <div class="bg-white rounded-xl border border-violet-200 shadow-sm px-5 py-4">
         <p class="text-xs font-semibold text-violet-500 uppercase tracking-wider mb-1">Cost to Date</p>
-        <p class="text-2xl font-bold text-violet-700">{{ formatCurrency(totals.costToDate) }}</p>
+        <p class="text-2xl font-bold text-violet-700">{{ formatCurrency(summaryTotals.costToDate) }}</p>
         <p class="text-xs text-gray-400 mt-1">labour + third party</p>
       </div>
-      <div class="bg-white rounded-xl border shadow-sm px-5 py-4" :class="totals.profitLoss >= 0 ? 'border-emerald-200' : 'border-red-200'">
-        <p class="text-xs font-semibold uppercase tracking-wider mb-1" :class="totals.profitLoss >= 0 ? 'text-emerald-500' : 'text-red-500'">P&amp;L</p>
-        <p class="text-2xl font-bold" :class="totals.profitLoss >= 0 ? 'text-emerald-700' : 'text-red-600'">{{ formatCurrency(totals.profitLoss) }}</p>
+      <div class="bg-white rounded-xl border shadow-sm px-5 py-4" :class="summaryTotals.profitLoss >= 0 ? 'border-emerald-200' : 'border-red-200'">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1" :class="summaryTotals.profitLoss >= 0 ? 'text-emerald-500' : 'text-red-500'">P&amp;L</p>
+        <p class="text-2xl font-bold" :class="summaryTotals.profitLoss >= 0 ? 'text-emerald-700' : 'text-red-600'">{{ formatCurrency(summaryTotals.profitLoss) }}</p>
         <p class="text-xs text-gray-400 mt-1">total PO - cost to date</p>
       </div>
     </div>
@@ -55,19 +69,73 @@
       <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-4">
         <input v-model="searchText" type="text" placeholder="Search by site ID, site name or job number..."
           class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
-        <button v-if="searchText" @click="searchText = ''"
+        <div class="relative shrink-0">
+          <button @click.stop="siteFilterOpen = !siteFilterOpen; scopeFilterOpen = false"
+            class="inline-flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-semibold transition"
+            :class="selectedSiteIds.size ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'">
+            Site ID
+            <span v-if="selectedSiteIds.size" class="px-1.5 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] leading-none">{{ selectedSiteIds.size }}</span>
+            <svg class="w-3.5 h-3.5" :class="siteFilterOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div v-if="siteFilterOpen" class="absolute right-0 z-30 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Filter Site ID</p>
+              <button v-if="selectedSiteIds.size" @click="selectedSiteIds = new Set()" class="text-xs text-indigo-600 font-semibold hover:text-indigo-800">Clear</button>
+            </div>
+            <div class="max-h-72 overflow-auto py-2">
+              <label v-for="site in siteOptions" :key="site"
+                class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 cursor-pointer">
+                <input type="checkbox" :checked="selectedSiteIds.has(site)" @change="toggleSite(site)"
+                  class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                <span class="font-mono text-xs">{{ site || '-' }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="relative shrink-0">
+          <button @click.stop="scopeFilterOpen = !scopeFilterOpen; siteFilterOpen = false"
+            class="inline-flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-semibold transition"
+            :class="selectedScopes.size ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'">
+            Scope
+            <span v-if="selectedScopes.size" class="px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] leading-none">{{ selectedScopes.size }}</span>
+            <svg class="w-3.5 h-3.5" :class="scopeFilterOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div v-if="scopeFilterOpen" class="absolute right-0 z-30 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Filter Scope</p>
+              <button v-if="selectedScopes.size" @click="selectedScopes = new Set()" class="text-xs text-emerald-600 font-semibold hover:text-emerald-800">Clear</button>
+            </div>
+            <div class="max-h-72 overflow-auto py-2">
+              <label v-for="scope in scopeOptions" :key="scope"
+                class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-emerald-50 cursor-pointer">
+                <input type="checkbox" :checked="selectedScopes.has(scope)" @change="toggleScope(scope)"
+                  class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                <span>{{ scope || '-' }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <button v-if="hasActiveFilters" @click="clearAllFilters"
           class="text-sm text-gray-400 hover:text-gray-600 transition px-2 py-1 rounded">Clear</button>
         <span class="text-sm text-gray-400 whitespace-nowrap">{{ filteredRows.length }} row{{ filteredRows.length !== 1 ? 's' : '' }}</span>
       </div>
 
       <div class="overflow-auto" style="max-height: calc(100vh - 360px);">
-        <table class="border-collapse w-full" style="min-width: 1100px;">
-          <thead class="sticky top-0 z-10">
+        <table class="border-collapse w-full" style="min-width: 1750px;">
+          <thead class="sticky top-0 z-40">
             <tr>
               <th v-for="col in columns" :key="col.key"
                 @click="toggleSort(col.key)"
-                class="px-5 py-3 bg-emerald-700 border-b-2 border-emerald-800 text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-emerald-600 transition select-none"
-                :class="col.align === 'right' ? 'text-right' : 'text-left'">
+                class="sticky top-0 z-40 px-5 py-3 bg-emerald-700 border-b-2 border-emerald-800 text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-emerald-600 transition select-none"
+                :class="[
+                  col.align === 'right' ? 'text-right' : 'text-left',
+                  col.sticky === 1 ? 'left-0 z-50 min-w-[130px] !bg-emerald-700 hover:!bg-emerald-600 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.45)]' : '',
+                  col.sticky === 2 ? 'left-[130px] z-50 min-w-[240px] !bg-emerald-700 hover:!bg-emerald-600 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.45)]' : ''
+                ]">
                 <span class="inline-flex items-center gap-1">
                   {{ col.label }}
                   <svg v-if="sortCol === col.key && sortDir === 'asc'" class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
@@ -84,11 +152,14 @@
               </td>
             </tr>
             <tr v-for="row in sortedRows" :key="row.rowKey" class="hover:bg-emerald-50 transition-colors">
-              <td class="px-5 py-3.5 text-sm text-gray-700 whitespace-nowrap">
+              <td class="sticky left-0 z-10 min-w-[130px] px-5 py-3.5 text-sm text-gray-700 whitespace-nowrap bg-white shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">
                 <span class="px-2 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-700">{{ row.siteId || '-' }}</span>
               </td>
-              <td class="px-5 py-3.5 text-sm text-gray-700">{{ row.siteName || '-' }}</td>
+              <td class="sticky left-[130px] z-10 min-w-[240px] px-5 py-3.5 text-sm text-gray-700 bg-white shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">{{ row.siteName || '-' }}</td>
               <td class="px-5 py-3.5 text-sm font-semibold text-gray-900 whitespace-nowrap">{{ row.jobNumber || '-' }}</td>
+              <td class="px-5 py-3.5 text-sm text-gray-600">
+                <div class="max-w-[220px] truncate" :title="row.scopeLabel">{{ row.scopeLabel || '-' }}</div>
+              </td>
               <td class="px-5 py-3.5 text-xs text-right text-gray-500 whitespace-nowrap">{{ row.voCount }} VO{{ row.voCount !== 1 ? 's' : '' }}</td>
               <td class="px-5 py-3.5 text-sm text-right font-bold text-blue-700 whitespace-nowrap">{{ formatCurrency(row.totalVOAmount) }}</td>
               <td class="px-5 py-3.5 text-sm text-right whitespace-nowrap">
@@ -107,21 +178,52 @@
                   {{ formatCurrency(row.notYetInvoiceAmount) }}
                 </button>
               </td>
-              <td class="px-5 py-3.5 text-sm text-right font-semibold text-violet-700 whitespace-nowrap">{{ formatCurrency(row.costToDate) }}</td>
+              <td class="px-5 py-3.5 text-sm text-right font-semibold whitespace-nowrap"
+                :class="row.labourCost > 0 ? 'text-violet-700' : 'text-gray-300'">
+                {{ row.labourCost > 0 ? formatCurrency(row.labourCost) : '-' }}
+              </td>
+              <td class="px-5 py-3.5 text-sm text-right font-semibold whitespace-nowrap"
+                :class="row.thirdPartyCost > 0 ? 'text-blue-700' : 'text-gray-300'">
+                {{ row.thirdPartyCost > 0 ? formatCurrency(row.thirdPartyCost) : '-' }}
+              </td>
+              <td class="px-5 py-3.5 text-sm text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(row.costToDate) }}</td>
+              <td class="px-5 py-3.5 text-right whitespace-nowrap">
+                <input :value="formatManualDeductionInput(row.costKey)"
+                  @focus="$event.target.select()"
+                  @change="setManualDeduction(row.costKey, $event.target.value)"
+                  class="w-32 px-2 py-1.5 rounded-lg border border-gray-200 bg-white text-right text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300" />
+              </td>
+              <td class="px-5 py-3.5 text-sm text-right font-semibold whitespace-nowrap"
+                :class="row.costToComplete > 0 ? 'text-emerald-700' : includeCostToComplete ? 'text-gray-300' : 'text-gray-300'">
+                {{ includeCostToComplete ? (row.costToComplete > 0 ? formatCurrency(row.costToComplete) : '-') : 'Not included' }}
+              </td>
               <td class="px-5 py-3.5 text-sm text-right font-bold whitespace-nowrap" :class="row.profitLoss >= 0 ? 'text-emerald-700' : 'text-red-600'">
                 {{ formatCurrency(row.profitLoss) }}
+              </td>
+              <td class="px-5 py-3.5 text-sm text-gray-600">
+                <input :value="row.manualComment"
+                  @change="setManualComment(row.costKey, $event.target.value)"
+                  placeholder="Add remark..."
+                  class="w-64 px-2 py-1.5 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-300" />
               </td>
             </tr>
           </tbody>
           <tfoot v-if="filteredRows.length > 0" class="sticky bottom-0">
             <tr class="bg-gray-50 border-t-2 border-gray-200">
-              <td class="px-5 py-3 text-xs font-bold text-gray-600 uppercase tracking-wider" colspan="3">Totals ({{ filteredRows.length }} rows)</td>
+              <td class="sticky left-0 z-20 min-w-[130px] px-5 py-3 text-xs font-bold text-gray-600 uppercase tracking-wider bg-gray-50 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">Totals</td>
+              <td class="sticky left-[130px] z-20 min-w-[240px] px-5 py-3 text-xs font-bold text-gray-600 uppercase tracking-wider bg-gray-50 shadow-[4px_0_8px_-6px_rgba(15,23,42,0.35)]">{{ filteredRows.length }} rows</td>
+              <td class="px-5 py-3 text-xs font-bold text-gray-600 uppercase tracking-wider" colspan="2"></td>
               <td class="px-5 py-3 text-xs text-right text-gray-500">{{ filteredTotals.voCount }} VOs</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-blue-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.totalVOAmount) }}</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-green-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.invoiceAmount) }}</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-orange-600 whitespace-nowrap">{{ formatCurrency(filteredTotals.notYetInvoiceAmount) }}</td>
-              <td class="px-5 py-3 text-sm text-right font-bold text-violet-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.costToDate) }}</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-violet-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.labourCost) }}</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-blue-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.thirdPartyCost) }}</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-gray-900 whitespace-nowrap">{{ formatCurrency(filteredTotals.costToDate) }}</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-slate-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.manualDeduction) }}</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-emerald-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.costToComplete) }}</td>
               <td class="px-5 py-3 text-sm text-right font-bold whitespace-nowrap" :class="filteredTotals.profitLoss >= 0 ? 'text-emerald-700' : 'text-red-600'">{{ formatCurrency(filteredTotals.profitLoss) }}</td>
+              <td class="px-5 py-3 text-xs text-gray-400"></td>
             </tr>
           </tfoot>
         </table>
@@ -221,7 +323,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import * as XLSX from 'xlsx'
 import { useVOStore } from '../stores/voStore'
 import { formatCurrency } from '../utils/formatters'
@@ -231,18 +333,95 @@ const searchText = ref('')
 const sortCol = ref('siteId')
 const sortDir = ref('asc')
 const detailModal = ref(null)
+const siteFilterOpen = ref(false)
+const scopeFilterOpen = ref(false)
+const selectedSiteIds = ref(new Set())
+const selectedScopes = ref(new Set())
+const includeCostToComplete = ref(false)
+const costToCompleteMonth = ref('')
+const siteStatusRevision = ref(0)
+
+const MANUAL_DEDUCTION_KEY = 'plManualDeductions'
+const MANUAL_COMMENT_KEY = 'plManualComments'
+const PL_CTC_INCLUDE_KEY = 'plIncludeCostToComplete'
+const PL_CTC_MONTH_KEY = 'plCostToCompleteMonth'
+
+function loadManualDeductions() {
+  try { return JSON.parse(localStorage.getItem(MANUAL_DEDUCTION_KEY) || '{}') } catch { return {} }
+}
+
+const manualDeductions = ref(loadManualDeductions())
+const manualComments = ref(loadManualComments())
+includeCostToComplete.value = localStorage.getItem(PL_CTC_INCLUDE_KEY) === 'true'
+costToCompleteMonth.value = localStorage.getItem(PL_CTC_MONTH_KEY) || ''
+
+function loadManualComments() {
+  try { return JSON.parse(localStorage.getItem(MANUAL_COMMENT_KEY) || '{}') } catch { return {} }
+}
 
 const columns = [
-  { key: 'siteId',              label: 'Site ID',                 align: 'left' },
-  { key: 'siteName',            label: 'Site Name',               align: 'left' },
+  { key: 'siteId',              label: 'Site ID',                 align: 'left', sticky: 1 },
+  { key: 'siteName',            label: 'Site Name',               align: 'left', sticky: 2 },
   { key: 'jobNumber',           label: 'Job',                     align: 'left' },
+  { key: 'scopeLabel',          label: 'Scope',                   align: 'left' },
   { key: 'voCount',             label: 'Total VO Qty',            align: 'right' },
   { key: 'totalVOAmount',       label: 'Total VO Amount',         align: 'right' },
   { key: 'invoiceAmount',       label: 'Total Invoice Amount',    align: 'right' },
   { key: 'notYetInvoiceAmount', label: 'Not Yet Invoice Amount',  align: 'right' },
+  { key: 'labourCost',          label: 'Labour Cost',             align: 'right' },
+  { key: 'thirdPartyCost',      label: 'Third Party Cost',        align: 'right' },
   { key: 'costToDate',          label: 'Cost to Date',            align: 'right' },
+  { key: 'manualDeduction',     label: 'Manual Deduction',        align: 'right' },
+  { key: 'costToComplete',      label: 'Cost to Complete',        align: 'right' },
   { key: 'profitLoss',          label: 'P&L',                     align: 'right' },
+  { key: 'manualComment',       label: 'Comment',                 align: 'left' },
 ]
+
+function calcEntryCost(e) {
+  return (parseFloat(e.qtyDays) || 0) * (parseFloat(e.qtyHours) || 0) *
+         (parseFloat(e.qtyPeople) || 0) * (parseFloat(e.rate) || 0)
+}
+
+function entryMonthKey(e) {
+  if (!e?.date) return ''
+  const dt = new Date(e.date)
+  if (isNaN(dt)) return ''
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
+}
+
+function readSiteStatusData() {
+  try { return JSON.parse(localStorage.getItem('siteStatusData') || '{}') } catch { return {} }
+}
+
+const costToCompleteMonths = computed(() => {
+  void siteStatusRevision.value
+  const monthMap = {}
+  for (const d of Object.values(readSiteStatusData())) {
+    for (const entry of (d.costEntries || [])) {
+      const key = entryMonthKey(entry)
+      if (!key) continue
+      const dt = new Date(entry.date)
+      monthMap[key] = dt.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })
+    }
+  }
+  return Object.entries(monthMap)
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.value.localeCompare(b.value))
+})
+
+const costToCompleteBySiteJob = computed(() => {
+  void siteStatusRevision.value
+  if (!includeCostToComplete.value || !costToCompleteMonth.value) return {}
+
+  const result = {}
+  for (const [key, d] of Object.entries(readSiteStatusData())) {
+    const entries = Array.isArray(d.costEntries) ? d.costEntries : []
+    result[key] = entries
+      .filter(entry => entryMonthKey(entry) === costToCompleteMonth.value)
+      .reduce((sum, entry) => sum + calcEntryCost(entry), 0)
+  }
+  return result
+})
 
 const plRows = computed(() => {
   const map = new Map()
@@ -253,42 +432,80 @@ const plRows = computed(() => {
       siteId: vo.siteId || '',
       siteName: vo.siteName || '',
       jobNumber: vo.jobNumber || '',
+      costKey: `${vo.siteId || ''}|${vo.jobNumber || ''}`,
       voCount: 0,
       totalVOAmount: 0,
       invoiceAmount: 0,
+      labourCost: 0,
+      thirdPartyCost: 0,
       costToDate: 0,
+      scopes: new Set(),
       vos: [],
     }
 
     const voAmount = Number(vo.voAmount) || 0
-    const cost = (Number(vo.labourCost) || 0) + (Number(vo.thirdPartyCost) || 0)
+    const labourCost = Number(vo.labourCost) || 0
+    const thirdPartyCost = Number(vo.thirdPartyCost) || 0
+    const cost = labourCost + thirdPartyCost
     const isInvoiced = vo.invoiceStatus === 'SIT Completed' && !!vo.invoiceDate
 
     existing.voCount += 1
     existing.totalVOAmount += voAmount
     existing.invoiceAmount += isInvoiced ? voAmount : 0
+    existing.labourCost += labourCost
+    existing.thirdPartyCost += thirdPartyCost
     existing.costToDate += cost
+    if (vo.scope?.trim()) existing.scopes.add(vo.scope.trim())
     existing.vos.push(vo)
     map.set(key, existing)
   }
 
   return [...map.values()].map(row => ({
     ...row,
+    scopeList: [...row.scopes].sort((a, b) => a.localeCompare(b)),
+    scopeLabel: [...row.scopes].sort((a, b) => a.localeCompare(b)).join(', '),
+    manualComment: manualComments.value[row.costKey] || '',
     invoiceItems: row.vos.filter(vo => vo.invoiceStatus === 'SIT Completed' && !!vo.invoiceDate),
     notYetInvoiceItems: row.vos.filter(vo => !(vo.invoiceStatus === 'SIT Completed' && !!vo.invoiceDate)),
     notYetInvoiceAmount: row.totalVOAmount - row.invoiceAmount,
-    profitLoss: row.totalVOAmount - row.costToDate,
+    manualDeduction: Number(manualDeductions.value[row.costKey]) || 0,
+    costToComplete: costToCompleteBySiteJob.value[row.costKey] || 0,
+    profitLoss: row.totalVOAmount - row.costToDate - (Number(manualDeductions.value[row.costKey]) || 0) - (costToCompleteBySiteJob.value[row.costKey] || 0),
   }))
 })
 
+const siteOptions = computed(() =>
+  [...new Set(plRows.value.map(row => row.siteId).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+)
+
+const scopeOptions = computed(() =>
+  [...new Set(plRows.value.flatMap(row => row.scopeList || []).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b))
+)
+
+const hasActiveFilters = computed(() =>
+  !!searchText.value.trim() || selectedSiteIds.value.size > 0 || selectedScopes.value.size > 0
+)
+
 const filteredRows = computed(() => {
   const q = searchText.value.trim().toLowerCase()
-  if (!q) return plRows.value
-  return plRows.value.filter(row =>
-    row.siteId.toLowerCase().includes(q) ||
-    row.siteName.toLowerCase().includes(q) ||
-    row.jobNumber.toLowerCase().includes(q)
-  )
+  const siteIds = selectedSiteIds.value
+  const scopes = selectedScopes.value
+
+  return plRows.value.filter(row => {
+    const matchesSearch = !q ||
+      row.siteId.toLowerCase().includes(q) ||
+      row.siteName.toLowerCase().includes(q) ||
+      row.jobNumber.toLowerCase().includes(q) ||
+      row.scopeLabel.toLowerCase().includes(q) ||
+      row.manualComment.toLowerCase().includes(q)
+
+    const matchesSite = siteIds.size === 0 || siteIds.has(row.siteId)
+    const matchesScope = scopes.size === 0 || row.scopeList.some(scope => scopes.has(scope))
+
+    return matchesSearch && matchesSite && matchesScope
+  })
 })
 
 const sortedRows = computed(() => {
@@ -306,6 +523,8 @@ const sortedRows = computed(() => {
 
 const totals = computed(() => summarize(plRows.value))
 const filteredTotals = computed(() => summarize(filteredRows.value))
+const summaryRows = computed(() => hasActiveFilters.value ? filteredRows.value : plRows.value)
+const summaryTotals = computed(() => hasActiveFilters.value ? filteredTotals.value : totals.value)
 
 function summarize(rows) {
   return rows.reduce((acc, row) => {
@@ -313,7 +532,11 @@ function summarize(rows) {
     acc.totalVOAmount += row.totalVOAmount
     acc.invoiceAmount += row.invoiceAmount
     acc.notYetInvoiceAmount += row.notYetInvoiceAmount
+    acc.labourCost += row.labourCost
+    acc.thirdPartyCost += row.thirdPartyCost
     acc.costToDate += row.costToDate
+    acc.manualDeduction += row.manualDeduction
+    acc.costToComplete += row.costToComplete
     acc.profitLoss += row.profitLoss
     return acc
   }, {
@@ -321,7 +544,11 @@ function summarize(rows) {
     totalVOAmount: 0,
     invoiceAmount: 0,
     notYetInvoiceAmount: 0,
+    labourCost: 0,
+    thirdPartyCost: 0,
     costToDate: 0,
+    manualDeduction: 0,
+    costToComplete: 0,
     profitLoss: 0,
   })
 }
@@ -333,6 +560,53 @@ function toggleSort(key) {
     sortCol.value = key
     sortDir.value = 'asc'
   }
+}
+
+function toggleSite(siteId) {
+  const next = new Set(selectedSiteIds.value)
+  next.has(siteId) ? next.delete(siteId) : next.add(siteId)
+  selectedSiteIds.value = next
+}
+
+function toggleScope(scope) {
+  const next = new Set(selectedScopes.value)
+  next.has(scope) ? next.delete(scope) : next.add(scope)
+  selectedScopes.value = next
+}
+
+function clearAllFilters() {
+  searchText.value = ''
+  selectedSiteIds.value = new Set()
+  selectedScopes.value = new Set()
+  siteFilterOpen.value = false
+  scopeFilterOpen.value = false
+}
+
+function parseCurrencyInput(value) {
+  return Math.max(0, parseFloat(String(value || '').replace(/[,$\s]/g, '')) || 0)
+}
+
+function formatManualDeductionInput(rowKey) {
+  const value = Number(manualDeductions.value[rowKey]) || 0
+  return value ? value.toFixed(2) : ''
+}
+
+function setManualDeduction(rowKey, value) {
+  const amount = parseCurrencyInput(value)
+  const next = { ...manualDeductions.value }
+  if (amount > 0) next[rowKey] = amount
+  else delete next[rowKey]
+  manualDeductions.value = next
+  localStorage.setItem(MANUAL_DEDUCTION_KEY, JSON.stringify(next))
+}
+
+function setManualComment(rowKey, value) {
+  const comment = String(value || '').trim()
+  const next = { ...manualComments.value }
+  if (comment) next[rowKey] = comment
+  else delete next[rowKey]
+  manualComments.value = next
+  localStorage.setItem(MANUAL_COMMENT_KEY, JSON.stringify(next))
 }
 
 function openDetail(row, type) {
@@ -355,21 +629,48 @@ function exportToExcel() {
     'Site ID': row.siteId,
     'Site Name': row.siteName,
     'Job': row.jobNumber,
+    'Scope': row.scopeLabel,
     'Total VO Qty': row.voCount,
     'Total VO Amount': row.totalVOAmount,
     'Total Invoice Amount': row.invoiceAmount,
     'Not Yet Invoice Amount': row.notYetInvoiceAmount,
+    'Labour Cost': row.labourCost,
+    'Third Party Cost': row.thirdPartyCost,
     'Cost to Date': row.costToDate,
+    'Manual Deduction': row.manualDeduction,
+    'Cost to Complete': row.costToComplete,
     'P&L': row.profitLoss,
+    'Comment': row.manualComment,
   }))
   const ws = XLSX.utils.json_to_sheet(rows)
   ws['!cols'] = [
-    { wch: 14 }, { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 18 },
-    { wch: 22 }, { wch: 24 }, { wch: 16 }, { wch: 16 },
+    { wch: 14 }, { wch: 28 }, { wch: 18 }, { wch: 28 }, { wch: 14 }, { wch: 18 },
+    { wch: 22 }, { wch: 24 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 18 },
+    { wch: 18 }, { wch: 16 }, { wch: 36 },
   ]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'P&L')
   const date = new Date().toLocaleDateString('en-AU').replace(/\//g, '-')
   XLSX.writeFile(wb, `P&L_${date}.xlsx`)
 }
+
+function onSiteStatusUpdated() {
+  siteStatusRevision.value++
+}
+
+watch(includeCostToComplete, value => {
+  localStorage.setItem(PL_CTC_INCLUDE_KEY, value ? 'true' : 'false')
+})
+
+watch(costToCompleteMonth, value => {
+  localStorage.setItem(PL_CTC_MONTH_KEY, value || '')
+})
+
+onMounted(() => {
+  window.addEventListener('siteStatusUpdated', onSiteStatusUpdated)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('siteStatusUpdated', onSiteStatusUpdated)
+})
 </script>

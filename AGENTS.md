@@ -240,18 +240,28 @@ Dedicated view (`cost-to-date`, violet-themed) for tracking labour and third par
 
 ## P&L View (`src/components/PLView.vue`)
 
-Dedicated view (`pl`, emerald-themed) for site/job-level profit and loss. It reads directly from `store.vos.value` and groups records by `siteId + jobNumber + siteName`, matching the Cost to Date grouping shape.
+Dedicated view (`pl`, emerald-themed) for site/job-level profit and loss. It reads directly from `store.vos.value` and groups records by `siteId + jobNumber + siteName`, matching the Cost to Date grouping shape. Manual P&L-only values are persisted in `localStorage`: manual deductions under `plManualDeductions`, manual comments under `plManualComments`, and Cost to Complete include/month preferences under `plIncludeCostToComplete` / `plCostToCompleteMonth`.
 
-**Table columns:** Site ID · Site Name · Job · Total VO Qty · Total VO Amount · Total Invoice Amount · Not Yet Invoice Amount · Cost to Date · P&L.
+**Table columns:** Site ID · Site Name · Job · Scope · Total VO Qty · Total VO Amount · Total Invoice Amount · Not Yet Invoice Amount · Labour Cost · Third Party Cost · Cost to Date · Manual Deduction · Cost to Complete · P&L · Comment.
+
+- **Site ID** and **Site Name** are frozen sticky columns during horizontal scroll; the header is sticky during vertical table scroll.
+- **Scope** is synced from the VOs in the grouped site/job row. Multiple scopes are shown as a comma-separated list.
+- **Manual Deduction** is an editable numeric input per `siteId|jobNumber`; it is not written back to VO records.
+- **Comment** is a manual P&L remark input per `siteId|jobNumber`; it is not synced from VO comments.
+- **Cost to Complete** reads from Site Status `localStorage.siteStatusData` by matching the `"siteId|jobNumber"` key. It is only included when the header toggle is on and a specific month is selected. The value is the sum of Site Status `costEntries` for that month, using `qtyDays × qtyHours × qtyPeople × rate`.
 
 **Metric logic:**
 - `totalVOAmount` = sum of `voAmount` for the grouped records; this is the Total PO value used by P&L.
 - `invoiceAmount` = sum of `voAmount` only where `invoiceStatus === 'SIT Completed'` and `invoiceDate` is set.
 - `notYetInvoiceAmount` = `totalVOAmount - invoiceAmount`.
-- `costToDate` = sum of `labourCost + thirdPartyCost`, using the same VO cost fields as Cost to Date.
-- `profitLoss` = `totalVOAmount - costToDate`.
+- `labourCost` = sum of `labourCost`, using the same VO cost fields as Cost to Date.
+- `thirdPartyCost` = sum of `thirdPartyCost`, using the same VO cost fields as Cost to Date.
+- `costToDate` = `labourCost + thirdPartyCost`.
+- `manualDeduction` = manual P&L-only deduction from `plManualDeductions`.
+- `costToComplete` = selected-month Site Status cost when included; otherwise `0`.
+- `profitLoss` = `totalVOAmount - costToDate - manualDeduction - costToComplete`.
 
-**KPI cards (5):** Sites, Total PO, SIT Completed, Cost to Date, P&L. Includes search by site ID / site name / job number, sortable columns, sticky totals footer, and Excel export as `P&L_DD-MM-YYYY.xlsx`. In the table, Total Invoice Amount and Not Yet Invoice Amount cells are clickable; each opens a modal listing the matching VOs for that site/job with Description, Category, Scope, PO Number, Invoice Status, Invoice Date, and Amount.
+**KPI cards (5):** Sites, Total PO, SIT Completed, Cost to Date, P&L. The KPI values update with the active table filters. Includes search by site ID / site name / job number / scope / manual comment, sortable columns, multi-select Site ID and Scope filters, sticky totals footer, and Excel export as `P&L_DD-MM-YYYY.xlsx`. In the table, Total Invoice Amount and Not Yet Invoice Amount cells are clickable; each opens a modal listing the matching VOs for that site/job with Description, Category, Scope, PO Number, Invoice Status, Invoice Date, and Amount. Export includes the manual deduction, selected Cost to Complete value, recalculated P&L, and manual Comment.
 
 ## Site Status View (`src/components/SiteStatusView.vue`)
 
