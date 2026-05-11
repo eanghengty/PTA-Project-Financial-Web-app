@@ -13,11 +13,16 @@ import {
   getUniqueCategories,
   getUniqueSites,
   bulkInsertVOs,
-  clearAllData
+  clearAllData,
+  addIssueLog,
+  updateIssueLog,
+  deleteIssueLog,
+  getAllIssueLogs
 } from '../db/indexdb'
 
 // State
 const vos = ref([])
+const issueLogs = ref([])
 const loading = ref(false)
 const error = ref(null)
 
@@ -193,6 +198,14 @@ const timelineMetrics = computed(() => {
     overduePending,
     approvalRate
   }
+})
+
+const issueLogSummary = computed(() => {
+  const total = issueLogs.value.length
+  const open = issueLogs.value.filter(i => i.status === 'open').length
+  const clear = issueLogs.value.filter(i => i.status === 'clear').length
+  const amount = issueLogs.value.reduce((sum, i) => sum + Number(i.amount || 0), 0)
+  return { total, open, clear, amount }
 })
 
 // Initialize store on first use
@@ -448,6 +461,68 @@ export function useVOStore() {
     invoicePrepIds.value = _loadInvoicePrepIds()
   }
 
+  const loadAllIssueLogs = async () => {
+    loading.value = true
+    error.value = null
+    try {
+      issueLogs.value = await getAllIssueLogs()
+      issueLogs.value.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    } catch (err) {
+      error.value = err.message
+      console.error('Error loading issue logs:', err)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const createIssueLog = async (issueData) => {
+    loading.value = true
+    error.value = null
+    try {
+      const newIssue = await addIssueLog(issueData)
+      issueLogs.value.unshift(newIssue)
+      return newIssue
+    } catch (err) {
+      error.value = err.message
+      console.error('Error creating issue log:', err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const editIssueLog = async (id, issueData) => {
+    loading.value = true
+    error.value = null
+    try {
+      const updatedIssue = await updateIssueLog(id, issueData)
+      const index = issueLogs.value.findIndex(i => i.id === id)
+      if (index !== -1) issueLogs.value[index] = updatedIssue
+      return updatedIssue
+    } catch (err) {
+      error.value = err.message
+      console.error('Error updating issue log:', err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const removeIssueLog = async (id) => {
+    loading.value = true
+    error.value = null
+    try {
+      await deleteIssueLog(id)
+      issueLogs.value = issueLogs.value.filter(i => i.id !== id)
+    } catch (err) {
+      error.value = err.message
+      console.error('Error deleting issue log:', err)
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   const reloadFlaggedData = () => {
     flaggedIds.value = _loadFlaggedIds()
     flaggedNotes.value = _loadFlaggedNotes()
@@ -487,6 +562,7 @@ export function useVOStore() {
   const returnObj = {
     // State (use computed property for vos to ensure it's reactive)
     vos: reactiveVOs,
+    issueLogs,
     loading,
     error,
     selectedFilters,
@@ -497,6 +573,7 @@ export function useVOStore() {
     financialSummary,
     categoryDistribution,
     timelineMetrics,
+    issueLogSummary,
     invoicePrepIds,
     invoicePrepItems,
     invoicePrepSummary,
@@ -505,9 +582,13 @@ export function useVOStore() {
 
     // Actions
     loadAllVOs,
+    loadAllIssueLogs,
     createVO,
+    createIssueLog,
     editVO,
+    editIssueLog,
     removeVO,
+    removeIssueLog,
     importVOs,
     updateFilters,
     clearFilters,

@@ -1,8 +1,9 @@
 import { v4 as uuidv4 } from 'uuid'
 
 const DB_NAME = 'VariationTrackerDB'
-const DB_VERSION = 3
+const DB_VERSION = 4
 const STORE_NAME = 'variations'
+const ISSUE_STORE_NAME = 'issueLogs'
 
 let db = null
 
@@ -47,6 +48,15 @@ export function initDatabase() {
           if (!store.indexNames.contains('invoiceDate'))    store.createIndex('invoiceDate',    'invoiceDate',    { unique: false })
           if (!store.indexNames.contains('amountChangeFlag')) store.createIndex('amountChangeFlag', 'amountChangeFlag', { unique: false })
         }
+      }
+
+      if (!database.objectStoreNames.contains(ISSUE_STORE_NAME)) {
+        const issueStore = database.createObjectStore(ISSUE_STORE_NAME, { keyPath: 'id' })
+        issueStore.createIndex('siteId', 'siteId', { unique: false })
+        issueStore.createIndex('siteName', 'siteName', { unique: false })
+        issueStore.createIndex('status', 'status', { unique: false })
+        issueStore.createIndex('registerLog', 'registerLog', { unique: false })
+        issueStore.createIndex('createdAt', 'createdAt', { unique: false })
       }
     }
   })
@@ -284,5 +294,94 @@ export function clearAllData() {
     const request = store.clear()
     request.onerror = () => reject(request.error)
     request.onsuccess = () => resolve(true)
+  })
+}
+
+/**
+ * Add a new issue log record
+ */
+export function addIssueLog(issueData) {
+  return new Promise((resolve, reject) => {
+    const transaction = getDB().transaction([ISSUE_STORE_NAME], 'readwrite')
+    const store = transaction.objectStore(ISSUE_STORE_NAME)
+
+    const issue = {
+      id: uuidv4(),
+      siteId: issueData.siteId || '',
+      siteName: issueData.siteName || '',
+      jobDescription: issueData.jobDescription || '',
+      registerLog: issueData.registerLog || null,
+      scope: issueData.scope || '',
+      amount: Number(issueData.amount || 0),
+      status: issueData.status || 'open',
+      comment: issueData.comment || '',
+      createdAt: issueData.createdAt || new Date(),
+      updatedAt: new Date()
+    }
+
+    const request = store.add(issue)
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => resolve(issue)
+  })
+}
+
+/**
+ * Update an existing issue log record
+ */
+export function updateIssueLog(id, issueData) {
+  return new Promise((resolve, reject) => {
+    const transaction = getDB().transaction([ISSUE_STORE_NAME], 'readwrite')
+    const store = transaction.objectStore(ISSUE_STORE_NAME)
+
+    const getRequest = store.get(id)
+    getRequest.onerror = () => reject(getRequest.error)
+    getRequest.onsuccess = () => {
+      const issue = getRequest.result
+      if (!issue) {
+        reject(new Error('Issue log not found'))
+        return
+      }
+
+      const updatedIssue = {
+        ...issue,
+        ...issueData,
+        id: issue.id,
+        amount: Number(issueData.amount ?? issue.amount ?? 0),
+        createdAt: issue.createdAt,
+        updatedAt: new Date()
+      }
+
+      const updateRequest = store.put(updatedIssue)
+      updateRequest.onerror = () => reject(updateRequest.error)
+      updateRequest.onsuccess = () => resolve(updatedIssue)
+    }
+  })
+}
+
+/**
+ * Delete an issue log record
+ */
+export function deleteIssueLog(id) {
+  return new Promise((resolve, reject) => {
+    const transaction = getDB().transaction([ISSUE_STORE_NAME], 'readwrite')
+    const store = transaction.objectStore(ISSUE_STORE_NAME)
+
+    const request = store.delete(id)
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => resolve(true)
+  })
+}
+
+/**
+ * Get all issue logs
+ */
+export function getAllIssueLogs() {
+  return new Promise((resolve, reject) => {
+    const transaction = getDB().transaction([ISSUE_STORE_NAME], 'readonly')
+    const store = transaction.objectStore(ISSUE_STORE_NAME)
+
+    const request = store.getAll()
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => resolve(request.result)
   })
 }

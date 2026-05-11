@@ -145,10 +145,11 @@ import MonthlyInvoicing  from './components/MonthlyInvoicing.vue'
 import CostToDate        from './components/CostToDate.vue'
 import PLView            from './components/PLView.vue'
 import SiteStatusView    from './components/SiteStatusView.vue'
+import IssueLogView      from './components/IssueLogView.vue'
 import { useVOStore } from './stores/voStore'
 import { downloadFullBackup } from './utils/backup'
 
-const VALID_VIEWS = ['dashboard', 'table', 'invoice-list', 'monthly-invoice', 'reminders', 'cost-to-date', 'pl', 'site-status', 'import-export', 'admin']
+const VALID_VIEWS = ['dashboard', 'table', 'invoice-list', 'monthly-invoice', 'reminders', 'cost-to-date', 'pl', 'site-status', 'issue-log', 'import-export', 'admin']
 const saved = localStorage.getItem('currentView')
 const currentView = ref(VALID_VIEWS.includes(saved) ? saved : 'dashboard')
 
@@ -158,7 +159,7 @@ const store = useVOStore()
 watch(currentView, v => localStorage.setItem('currentView', v))
 
 // Map view key → component (used by <component :is>)
-const viewMap = { dashboard: Dashboard, table: TableView, 'invoice-list': InvoiceList, 'monthly-invoice': MonthlyInvoicing, reminders: ReminderView, 'cost-to-date': CostToDate, pl: PLView, 'site-status': SiteStatusView, 'import-export': ImportExport, admin: AdminView }
+const viewMap = { dashboard: Dashboard, table: TableView, 'invoice-list': InvoiceList, 'monthly-invoice': MonthlyInvoicing, reminders: ReminderView, 'cost-to-date': CostToDate, pl: PLView, 'site-status': SiteStatusView, 'issue-log': IssueLogView, 'import-export': ImportExport, admin: AdminView }
 const currentComponent = computed(() => viewMap[currentView.value] ?? Dashboard)
 
 const voCount = computed(() => store.vos.value?.length || 0)
@@ -341,6 +342,13 @@ const IconSiteStatus = {
   ])
 }
 
+const IconIssueLog = {
+  render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+    h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2',
+      d: 'M8 6h10M8 10h10M8 14h6M6 6h.01M6 10h.01M6 14h.01M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z' })
+  ])
+}
+
 const navItems = [
   { key: 'dashboard',       label: 'Dashboard',      icon: IconDashboard },
   { key: 'table',           label: 'Variations',     icon: IconTable     },
@@ -350,12 +358,14 @@ const navItems = [
   { key: 'cost-to-date',    label: 'Cost to Date',   icon: IconCost        },
   { key: 'pl',              label: 'P&L',            icon: IconPL          },
   { key: 'site-status',     label: 'Site Status',    icon: IconSiteStatus  },
+  { key: 'issue-log',       label: 'Issue Log',      icon: IconIssueLog    },
   { key: 'import-export',   label: 'Import/Export',  icon: IconImport      },
   { key: 'admin',           label: 'Admin',           icon: IconAdmin     },
 ]
 
 onMounted(() => {
   store.loadAllVOs()
+  store.loadAllIssueLogs()
   routineBackupCheckTimer = setInterval(checkRoutineBackupSchedule, 30000)
   checkRoutineBackupSchedule()
 })

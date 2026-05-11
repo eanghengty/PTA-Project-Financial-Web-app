@@ -576,11 +576,11 @@
             <tr>
               <th rowspan="2" class="pb-3 text-left font-semibold text-gray-500 uppercase tracking-wider pr-4 w-20 align-bottom sticky left-0 z-20 bg-white" style="box-shadow: 2px 0 4px -2px rgba(0,0,0,0.08)">Scope</th>
               <!-- Have PO group -->
-              <th colspan="4" class="pb-1 text-center font-semibold text-teal-600 uppercase tracking-wider border-b border-teal-200 px-1">
+              <th colspan="6" class="pb-1 text-center font-semibold text-teal-600 uppercase tracking-wider border-b border-teal-200 px-1">
                 Have PO
               </th>
               <!-- No PO group -->
-              <th colspan="4" class="pb-1 text-center font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200 px-1">
+              <th colspan="5" class="pb-1 text-center font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200 px-1">
                 No PO
               </th>
               <!-- Grand Total -->
@@ -600,12 +600,15 @@
             </tr>
             <tr class="border-b-2 border-gray-100">
               <!-- Have PO sub-cols -->
-              <th class="pt-1 pb-2 text-right font-semibold text-blue-500 px-2 whitespace-nowrap">VO</th>
+              <th class="pt-1 pb-2 text-right font-semibold text-blue-500 px-2 whitespace-nowrap">VO Service</th>
+              <th class="pt-1 pb-2 text-right font-semibold text-blue-500 px-2 whitespace-nowrap">VO 3rd Party</th>
+              <th class="pt-1 pb-2 text-right font-semibold text-slate-500 px-2 whitespace-nowrap">Downtime</th>
               <th class="pt-1 pb-2 text-right font-semibold text-emerald-600 px-2 whitespace-nowrap">BOQ</th>
               <th class="pt-1 pb-2 text-right font-semibold text-amber-600 px-2 whitespace-nowrap">Base PO</th>
               <th class="pt-1 pb-2 text-right font-bold text-teal-700 px-2 whitespace-nowrap">Total</th>
               <!-- No PO sub-cols -->
-              <th class="pt-1 pb-2 text-right font-semibold text-blue-300 px-2 whitespace-nowrap">VO</th>
+              <th class="pt-1 pb-2 text-right font-semibold text-blue-300 px-2 whitespace-nowrap">VO Service</th>
+              <th class="pt-1 pb-2 text-right font-semibold text-blue-300 px-2 whitespace-nowrap">VO 3rd Party</th>
               <th class="pt-1 pb-2 text-right font-semibold text-emerald-300 px-2 whitespace-nowrap">BOQ</th>
               <th class="pt-1 pb-2 text-right font-semibold text-amber-300 px-2 whitespace-nowrap">Base PO</th>
               <th class="pt-1 pb-2 text-right font-bold text-gray-500 px-2 whitespace-nowrap">Total</th>
@@ -637,16 +640,49 @@
             <tr v-for="row in poInvoiceSummary" :key="row.scope" class="hover:bg-blue-50/30 transition">
               <td class="py-2.5 pr-4 font-medium text-gray-700 truncate max-w-[80px] sticky left-0 z-10 bg-white" style="box-shadow: 2px 0 4px -2px rgba(0,0,0,0.08)" :title="row.scope">{{ row.scope }}</td>
               <!-- Have PO breakdown -->
-              <td class="py-2.5 text-right text-blue-600 px-2">{{ row.voPO ? formatCompact(row.voPO) : '—' }}</td>
-              <td class="py-2.5 text-right text-emerald-600 px-2">{{ row.boqPO ? formatCompact(row.boqPO) : '—' }}</td>
-              <td class="py-2.5 text-right text-amber-600 px-2">{{ row.basePOAmt ? formatCompact(row.basePOAmt) : '—' }}</td>
+              <td class="py-2.5 text-right px-2 transition"
+                :class="row.voServicePO > 0 ? 'text-blue-600 font-semibold cursor-pointer hover:text-blue-800 underline decoration-dotted' : 'text-gray-300'"
+                @click="row.voServicePO > 0 && openHavePODetail(row, 'service')"
+                :title="row.voServicePO > 0 ? 'Click to view Service VO detail' : ''">
+                {{ row.voServicePO ? formatCompact(row.voServicePO) : '—' }}
+              </td>
+              <td class="py-2.5 text-right px-2 transition"
+                :class="row.vo3rdPartyPO > 0 ? 'text-blue-600 font-semibold cursor-pointer hover:text-blue-800 underline decoration-dotted' : 'text-gray-300'"
+                @click="row.vo3rdPartyPO > 0 && openHavePODetail(row, '3rdParty')"
+                :title="row.vo3rdPartyPO > 0 ? 'Click to view 3rd Party VO detail' : ''">
+                {{ row.vo3rdPartyPO ? formatCompact(row.vo3rdPartyPO) : '—' }}
+              </td>
+              <td class="py-2.5 text-right px-2 transition"
+                :class="row.downtimePO > 0 ? 'text-slate-600 font-semibold cursor-pointer hover:text-slate-800 underline decoration-dotted' : 'text-gray-300'"
+                @click="row.downtimePO > 0 && openHavePODetail(row, 'downtime')"
+                :title="row.downtimePO > 0 ? 'Click to view Downtime detail' : ''">
+                {{ row.downtimePO ? formatCompact(row.downtimePO) : '—' }}
+              </td>
+              <td class="py-2.5 text-right px-2 transition"
+                :class="row.boqPO > 0 ? 'text-emerald-600 font-semibold cursor-pointer hover:text-emerald-800 underline decoration-dotted' : 'text-gray-300'"
+                @click="row.boqPO > 0 && openHavePODetail(row, 'boq')"
+                :title="row.boqPO > 0 ? 'Click to view BOQ detail' : ''">
+                {{ row.boqPO ? formatCompact(row.boqPO) : '—' }}
+              </td>
+              <td class="py-2.5 text-right px-2 transition"
+                :class="row.basePOAmt > 0 ? 'text-amber-600 font-semibold cursor-pointer hover:text-amber-800 underline decoration-dotted' : 'text-gray-300'"
+                @click="row.basePOAmt > 0 && openHavePODetail(row, 'basePO')"
+                :title="row.basePOAmt > 0 ? 'Click to view Base PO detail' : ''">
+                {{ row.basePOAmt ? formatCompact(row.basePOAmt) : '—' }}
+              </td>
               <td class="py-2.5 text-right font-bold text-teal-700 px-2 bg-teal-50/40">{{ row.totalHavePO ? formatCompact(row.totalHavePO) : '—' }}</td>
               <!-- No PO breakdown — clickable -->
               <td class="py-2.5 text-right px-2 transition"
-                :class="row.voNoPO > 0 ? 'text-blue-400 font-semibold cursor-pointer hover:text-blue-600 underline decoration-dotted' : 'text-gray-300'"
-                @click="row.voNoPO > 0 && openNoPODetail(row, 'vo')"
-                :title="row.voNoPO > 0 ? 'Click to view VO detail' : ''">
-                {{ row.voNoPO ? formatCompact(row.voNoPO) : '—' }}
+                :class="row.voServiceNoPO > 0 ? 'text-blue-400 font-semibold cursor-pointer hover:text-blue-600 underline decoration-dotted' : 'text-gray-300'"
+                @click="row.voServiceNoPO > 0 && openNoPODetail(row, 'service')"
+                :title="row.voServiceNoPO > 0 ? 'Click to view Service VO detail' : ''">
+                {{ row.voServiceNoPO ? formatCompact(row.voServiceNoPO) : '—' }}
+              </td>
+              <td class="py-2.5 text-right px-2 transition"
+                :class="row.vo3rdPartyNoPO > 0 ? 'text-blue-400 font-semibold cursor-pointer hover:text-blue-600 underline decoration-dotted' : 'text-gray-300'"
+                @click="row.vo3rdPartyNoPO > 0 && openNoPODetail(row, '3rdParty')"
+                :title="row.vo3rdPartyNoPO > 0 ? 'Click to view 3rd Party VO detail' : ''">
+                {{ row.vo3rdPartyNoPO ? formatCompact(row.vo3rdPartyNoPO) : '—' }}
               </td>
               <td class="py-2.5 text-right px-2 transition"
                 :class="row.boqNoPO > 0 ? 'text-emerald-400 font-semibold cursor-pointer hover:text-emerald-600 underline decoration-dotted' : 'text-gray-300'"
@@ -732,12 +768,15 @@
             <tr class="font-semibold">
               <td class="pt-2.5 pb-1 text-gray-600 uppercase text-[10px] tracking-wider pr-4 sticky left-0 z-10 bg-white" style="box-shadow: 2px 0 4px -2px rgba(0,0,0,0.08)">Total</td>
               <!-- Have PO totals -->
-              <td class="pt-2.5 text-right text-blue-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.voPO,0)) }}</td>
+              <td class="pt-2.5 text-right text-blue-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.voServicePO,0)) }}</td>
+              <td class="pt-2.5 text-right text-blue-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.vo3rdPartyPO,0)) }}</td>
+              <td class="pt-2.5 text-right text-slate-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.downtimePO,0)) }}</td>
               <td class="pt-2.5 text-right text-emerald-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.boqPO,0)) }}</td>
               <td class="pt-2.5 text-right text-amber-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.basePOAmt,0)) }}</td>
               <td class="pt-2.5 text-right font-bold text-teal-700 px-2 bg-teal-50/40">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.totalHavePO,0)) }}</td>
               <!-- No PO totals -->
-              <td class="pt-2.5 text-right text-blue-300 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.voNoPO,0)) }}</td>
+              <td class="pt-2.5 text-right text-blue-300 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.voServiceNoPO,0)) }}</td>
+              <td class="pt-2.5 text-right text-blue-300 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.vo3rdPartyNoPO,0)) }}</td>
               <td class="pt-2.5 text-right text-emerald-300 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.boqNoPO,0)) }}</td>
               <td class="pt-2.5 text-right text-amber-300 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.baseNoPO,0)) }}</td>
               <td class="pt-2.5 text-right font-bold text-gray-500 px-2 bg-gray-50">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.totalNoPO,0)) }}</td>
@@ -2078,10 +2117,10 @@
     </div>
   </Teleport>
 
-  <!-- ── No PO Detail Slide-over ── -->
+  <!-- ── PO Detail Slide-over ── -->
   <Teleport to="body">
     <div v-if="noPOScope" class="fixed inset-0 z-50 flex">
-      <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="noPOScope = null; noPOType = null"></div>
+      <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="closePODetail"></div>
       <div class="relative ml-auto w-full bg-white h-full shadow-2xl flex flex-col" style="max-width: 920px;">
 
         <!-- Header -->
@@ -2094,14 +2133,17 @@
             </div>
             <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
-                <h3 class="text-base font-bold text-gray-900">No PO</h3>
+                <h3 class="text-base font-bold text-gray-900">{{ noPOMode === 'havePO' ? 'Have PO' : 'No PO' }}</h3>
                 <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-700 shrink-0">{{ noPOScope.scope }}</span>
                 <span v-if="noPOType === 'vo'"     class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">VO only</span>
+                <span v-if="noPOType === 'service'" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">VO Service only</span>
+                <span v-if="noPOType === '3rdParty'" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">VO 3rd Party only</span>
+                <span v-if="noPOType === 'downtime'" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">Downtime only</span>
                 <span v-if="noPOType === 'boq'"    class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">BOQ only</span>
                 <span v-if="noPOType === 'basePO'" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">Base PO only</span>
               </div>
               <div class="flex items-center gap-3 mt-0.5 flex-wrap">
-                <span class="text-xs text-gray-400">{{ noPOItems.all.length }} items without a PO number</span>
+                <span class="text-xs text-gray-400">{{ noPOItems.all.length }} items {{ noPOMode === 'havePO' ? 'with a PO number' : 'without a PO number' }}</span>
                 <span class="text-xs font-bold text-gray-600">{{ formatCurrency(noPOItems.all.reduce((s,v)=>s+(v.voAmount||0),0)) }}</span>
                 <div v-if="!noPOType" class="flex items-center gap-1.5">
                   <span v-if="noPOItems.vo.length"     class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">VO ×{{ noPOItems.vo.length }}</span>
@@ -2111,7 +2153,7 @@
               </div>
             </div>
           </div>
-          <button @click="noPOScope = null; noPOType = null"
+          <button @click="closePODetail"
             class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition shrink-0 ml-4">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -2122,7 +2164,7 @@
         <!-- Body -->
         <div class="flex-1 overflow-y-auto">
           <div v-if="noPOItems.all.length === 0" class="flex items-center justify-center h-40 text-gray-400 text-sm">
-            No items without a PO found for this scope.
+            No {{ noPOMode === 'havePO' ? 'Have PO' : 'No PO' }} items found for this scope.
           </div>
           <table v-else class="w-full text-xs border-collapse" style="min-width: 700px;">
             <thead class="sticky top-0 z-10">
@@ -2131,6 +2173,7 @@
                 <th class="px-4 py-2.5 text-left font-semibold text-white uppercase tracking-wider bg-gray-600">Site Name</th>
                 <th class="px-4 py-2.5 text-left font-semibold text-white uppercase tracking-wider bg-gray-600">Description</th>
                 <th class="px-4 py-2.5 text-left font-semibold text-white uppercase tracking-wider whitespace-nowrap bg-gray-600 w-24">Category</th>
+                <th class="px-4 py-2.5 text-left font-semibold text-white uppercase tracking-wider whitespace-nowrap bg-gray-600 w-32">PO Number</th>
                 <th class="px-4 py-2.5 text-left font-semibold text-white uppercase tracking-wider whitespace-nowrap bg-gray-600 w-28">Status</th>
                 <th class="px-4 py-2.5 text-right font-semibold text-white uppercase tracking-wider whitespace-nowrap bg-gray-600 w-28">Amount</th>
               </tr>
@@ -2138,9 +2181,9 @@
             <tbody>
 
               <!-- ── VO rows ── -->
-              <template v-if="noPOItems.vo.length > 0 && (!noPOType || noPOType === 'vo')">
+              <template v-if="noPOItems.vo.length > 0 && (!noPOType || noPOType === 'vo' || noPOType === 'service' || noPOType === '3rdParty')">
                 <tr class="sticky top-[41px] z-10">
-                  <td colspan="6" class="px-4 py-2 bg-blue-600 text-white font-bold text-xs uppercase tracking-wider">
+                  <td colspan="7" class="px-4 py-2 bg-blue-600 text-white font-bold text-xs uppercase tracking-wider">
                     <div class="flex items-center justify-between">
                       <span>Variation Orders (VO) — {{ noPOItems.vo.length }} items</span>
                       <span>{{ formatCurrency(noPOItems.vo.reduce((s,v)=>s+(v.voAmount||0),0)) }}</span>
@@ -2153,12 +2196,16 @@
                   <td class="px-4 py-2 text-gray-600 max-w-xs"><div class="truncate" :title="vo.voDescription">{{ vo.voDescription || '—' }}</div></td>
                   <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ vo.voCategory || '—' }}</td>
                   <td class="px-4 py-2 whitespace-nowrap">
+                    <span v-if="vo.poNumber" class="font-mono text-xs text-teal-700 bg-teal-50 px-2 py-0.5 rounded">{{ vo.poNumber }}</span>
+                    <span v-else class="text-gray-300">—</span>
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap">
                     <span class="px-2 py-0.5 rounded-full text-xs font-semibold" :class="notYetInvStatusClass(vo.voStatus)">{{ formatStatus(vo.voStatus) }}</span>
                   </td>
                   <td class="px-4 py-2 text-right font-semibold text-gray-800 whitespace-nowrap">{{ formatCurrency(vo.voAmount) }}</td>
                 </tr>
                 <tr class="border-b-2 border-blue-200">
-                  <td colspan="5" class="px-4 py-1.5 text-right text-xs font-bold text-blue-600 bg-blue-50 uppercase tracking-wider">VO Subtotal</td>
+                  <td colspan="6" class="px-4 py-1.5 text-right text-xs font-bold text-blue-600 bg-blue-50 uppercase tracking-wider">VO Subtotal</td>
                   <td class="px-4 py-1.5 text-right text-xs font-bold text-blue-700 bg-blue-50">{{ formatCurrency(noPOItems.vo.reduce((s,v)=>s+(v.voAmount||0),0)) }}</td>
                 </tr>
               </template>
@@ -2166,7 +2213,7 @@
               <!-- ── BOQ rows ── -->
               <template v-if="noPOItems.boq.length > 0 && (!noPOType || noPOType === 'boq')">
                 <tr class="sticky top-[41px] z-10">
-                  <td colspan="6" class="px-4 py-2 bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider">
+                  <td colspan="7" class="px-4 py-2 bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider">
                     <div class="flex items-center justify-between">
                       <span>BOQ Related — {{ noPOItems.boq.length }} items</span>
                       <span>{{ formatCurrency(noPOItems.boq.reduce((s,v)=>s+(v.voAmount||0),0)) }}</span>
@@ -2179,12 +2226,16 @@
                   <td class="px-4 py-2 text-gray-600 max-w-xs"><div class="truncate" :title="vo.voDescription">{{ vo.voDescription || '—' }}</div></td>
                   <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ vo.voCategory || '—' }}</td>
                   <td class="px-4 py-2 whitespace-nowrap">
+                    <span v-if="vo.poNumber" class="font-mono text-xs text-teal-700 bg-teal-50 px-2 py-0.5 rounded">{{ vo.poNumber }}</span>
+                    <span v-else class="text-gray-300">—</span>
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap">
                     <span class="px-2 py-0.5 rounded-full text-xs font-semibold" :class="notYetInvStatusClass(vo.voStatus)">{{ formatStatus(vo.voStatus) }}</span>
                   </td>
                   <td class="px-4 py-2 text-right font-semibold text-gray-800 whitespace-nowrap">{{ formatCurrency(vo.voAmount) }}</td>
                 </tr>
                 <tr class="border-b-2 border-emerald-200">
-                  <td colspan="5" class="px-4 py-1.5 text-right text-xs font-bold text-emerald-600 bg-emerald-50 uppercase tracking-wider">BOQ Subtotal</td>
+                  <td colspan="6" class="px-4 py-1.5 text-right text-xs font-bold text-emerald-600 bg-emerald-50 uppercase tracking-wider">BOQ Subtotal</td>
                   <td class="px-4 py-1.5 text-right text-xs font-bold text-emerald-700 bg-emerald-50">{{ formatCurrency(noPOItems.boq.reduce((s,v)=>s+(v.voAmount||0),0)) }}</td>
                 </tr>
               </template>
@@ -2192,7 +2243,7 @@
               <!-- ── Base PO rows ── -->
               <template v-if="noPOItems.basePO.length > 0 && (!noPOType || noPOType === 'basePO')">
                 <tr class="sticky top-[41px] z-10">
-                  <td colspan="6" class="px-4 py-2 bg-amber-500 text-white font-bold text-xs uppercase tracking-wider">
+                  <td colspan="7" class="px-4 py-2 bg-amber-500 text-white font-bold text-xs uppercase tracking-wider">
                     <div class="flex items-center justify-between">
                       <span>Base PO — {{ noPOItems.basePO.length }} items</span>
                       <span>{{ formatCurrency(noPOItems.basePO.reduce((s,v)=>s+(v.voAmount||0),0)) }}</span>
@@ -2205,12 +2256,16 @@
                   <td class="px-4 py-2 text-gray-600 max-w-xs"><div class="truncate" :title="vo.voDescription">{{ vo.voDescription || '—' }}</div></td>
                   <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ vo.voCategory || '—' }}</td>
                   <td class="px-4 py-2 whitespace-nowrap">
+                    <span v-if="vo.poNumber" class="font-mono text-xs text-teal-700 bg-teal-50 px-2 py-0.5 rounded">{{ vo.poNumber }}</span>
+                    <span v-else class="text-gray-300">—</span>
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap">
                     <span class="px-2 py-0.5 rounded-full text-xs font-semibold" :class="notYetInvStatusClass(vo.voStatus)">{{ formatStatus(vo.voStatus) }}</span>
                   </td>
                   <td class="px-4 py-2 text-right font-semibold text-gray-800 whitespace-nowrap">{{ formatCurrency(vo.voAmount) }}</td>
                 </tr>
                 <tr class="border-b-2 border-amber-200">
-                  <td colspan="5" class="px-4 py-1.5 text-right text-xs font-bold text-amber-600 bg-amber-50 uppercase tracking-wider">Base PO Subtotal</td>
+                  <td colspan="6" class="px-4 py-1.5 text-right text-xs font-bold text-amber-600 bg-amber-50 uppercase tracking-wider">Base PO Subtotal</td>
                   <td class="px-4 py-1.5 text-right text-xs font-bold text-amber-700 bg-amber-50">{{ formatCurrency(noPOItems.basePO.reduce((s,v)=>s+(v.voAmount||0),0)) }}</td>
                 </tr>
               </template>
@@ -2349,7 +2404,8 @@ const notYetInvScope = ref(null)   // selected scope row for drill-down modal
 const notYetInvType  = ref(null)   // 'vo' | 'boq' | 'basePO' | null (all)
 
 const noPOScope = ref(null)        // selected scope row for No PO drill-down
-const noPOType  = ref(null)        // 'vo' | 'boq' | 'basePO' | null (all)
+const noPOType  = ref(null)        // 'vo' | 'service' | '3rdParty' | 'downtime' | 'boq' | 'basePO' | null (all)
+const noPOMode  = ref('noPO')      // 'noPO' | 'havePO'
 const descColWidth   = ref(220)    // resizable description column width (px)
 
 const openNotYetInvDetail = (row, type = null) => {
@@ -2360,6 +2416,19 @@ const openNotYetInvDetail = (row, type = null) => {
 const openNoPODetail = (row, type = null) => {
   noPOScope.value = row
   noPOType.value  = type
+  noPOMode.value  = 'noPO'
+}
+
+const openHavePODetail = (row, type = null) => {
+  noPOScope.value = row
+  noPOType.value  = type
+  noPOMode.value  = 'havePO'
+}
+
+const closePODetail = () => {
+  noPOScope.value = null
+  noPOType.value = null
+  noPOMode.value = 'noPO'
 }
 
 const onDescResizeStart = (e) => {
@@ -2427,7 +2496,9 @@ const noPOItems = computed(() => {
   const targetScope = noPOScope.value.scope
 
   const scopeMatch = (vo) => (vo.scope?.trim() || '(No Scope)') === targetScope
-  const hasNoPO    = (vo) => !vo.poNumber?.trim()
+  const matchesPOState = (vo) => noPOMode.value === 'havePO'
+    ? !!vo.poNumber?.trim()
+    : !vo.poNumber?.trim()
 
   const sortBySiteId = (arr) =>
     [...arr].sort((a, b) => (a.siteId || '').localeCompare(b.siteId || '', undefined, { numeric: true }))
@@ -2435,14 +2506,34 @@ const noPOItems = computed(() => {
   const allInScope = [
     ...voItems.value.filter(scopeMatch),
     ...basePOItems.value.filter(scopeMatch),
-  ].filter(v => hasNoPO(v) && voMatchesSiteFilter(v))
+  ].filter(v => matchesPOState(v) && voMatchesSiteFilter(v))
 
-  const vo     = sortBySiteId(allInScope.filter(v => !isBasePO(v) && !(v.boqRelated === true || v.boqRelated === 'yes')))
-  const boq    = sortBySiteId(allInScope.filter(v => !isBasePO(v) && (v.boqRelated === true || v.boqRelated === 'yes')))
-  const basePO = sortBySiteId(allInScope.filter(v => isBasePO(v)))
+  const voAll  = sortBySiteId(allInScope.filter(v => !isBasePO(v) && !(v.boqRelated === true || v.boqRelated === 'yes')))
+  const boqAll = sortBySiteId(allInScope.filter(v => !isBasePO(v) && (v.boqRelated === true || v.boqRelated === 'yes')))
+  const basePOAll = sortBySiteId(allInScope.filter(v => isBasePO(v)))
 
   const type = noPOType.value
-  const filtered = type === 'vo' ? vo : type === 'boq' ? boq : type === 'basePO' ? basePO : allInScope
+  const vo = type === 'service'
+    ? voAll.filter(v => v.voCategory?.trim() === 'Service')
+    : type === '3rdParty'
+      ? voAll.filter(v => v.voCategory?.trim() === 'Third Party')
+      : voAll
+  const boq = type === 'boq' ? boqAll : boqAll
+  const basePO = type === 'basePO' ? basePOAll : basePOAll
+
+  const filtered = type === 'vo'
+    ? voAll
+    : type === 'service'
+      ? voAll.filter(v => v.voCategory?.trim() === 'Service')
+      : type === '3rdParty'
+        ? voAll.filter(v => v.voCategory?.trim() === 'Third Party')
+        : type === 'downtime'
+          ? voAll.filter(v => v.voCategory?.trim()?.toLowerCase() === 'downtime')
+          : type === 'boq'
+            ? boqAll
+            : type === 'basePO'
+              ? basePOAll
+              : allInScope
   return { vo, boq, basePO, all: filtered }
 })
 
@@ -2664,9 +2755,11 @@ const poInvoiceSummary = computed(() => {
     if (!map[scope]) map[scope] = {
       scope,
       voPO: 0, boqPO: 0, basePOAmt: 0,          // have PO by type
+      downtimePO: 0,
       voNoPO: 0, boqNoPO: 0, baseNoPO: 0,        // no PO by type
       voInvoiced: 0, boqInvoiced: 0, baseInvoiced: 0, // invoiced by type
       voServicePO: 0, vo3rdPartyPO: 0,
+      voServiceNoPO: 0, vo3rdPartyNoPO: 0,
       voServiceInvoiced: 0, vo3rdPartyInvoiced: 0,
       boqServicePO: 0, boq3rdPartyPO: 0,
       boqServiceInvoiced: 0, boq3rdPartyInvoiced: 0,
@@ -2699,8 +2792,12 @@ const poInvoiceSummary = computed(() => {
         const cat = vo.voCategory?.trim()
         if (cat === 'Service')      { map[scope].voServicePO  += amt; if (isInvoiced) map[scope].voServiceInvoiced  += amt }
         if (cat === 'Third Party')  { map[scope].vo3rdPartyPO += amt; if (isInvoiced) map[scope].vo3rdPartyInvoiced += amt }
+        if (cat?.toLowerCase() === 'downtime') map[scope].downtimePO += amt
       } else {
         map[scope].voNoPO += amt
+        const cat = vo.voCategory?.trim()
+        if (cat === 'Service')     map[scope].voServiceNoPO  += amt
+        if (cat === 'Third Party') map[scope].vo3rdPartyNoPO += amt
       }
     }
     map[scope].labourCost     += vo.labourCost     || 0
@@ -2721,8 +2818,8 @@ const poInvoiceSummary = computed(() => {
   }
 
   return Object.values(map).map(r => {
-    const totalHavePO      = r.voPO + r.boqPO + r.basePOAmt
-    const totalNoPO        = r.voNoPO + r.boqNoPO + r.baseNoPO
+    const totalHavePO      = r.voServicePO + r.vo3rdPartyPO + r.downtimePO + r.boqPO + r.basePOAmt
+    const totalNoPO        = r.voServiceNoPO + r.vo3rdPartyNoPO + r.boqNoPO + r.baseNoPO
     const total            = totalHavePO + totalNoPO
     const invoiced         = r.voInvoiced + r.boqInvoiced + r.baseInvoiced
     const voNotYetInv         = r.voPO     - r.voInvoiced

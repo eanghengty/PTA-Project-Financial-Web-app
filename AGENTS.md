@@ -14,12 +14,12 @@ No test runner or linter is configured.
 
 ## Architecture
 
-**Vue 3 SPA — no Vue Router.** Views are swapped via `<component :is="currentComponent">` in `App.vue`, with the active view persisted to `localStorage` as `currentView`. Available views: `dashboard`, `table`, `invoice-list`, `monthly-invoice`, `reminders`, `cost-to-date`, `pl`, `site-status`, `import-export`, `admin`.
+**Vue 3 SPA — no Vue Router.** Views are swapped via `<component :is="currentComponent">` in `App.vue`, with the active view persisted to `localStorage` as `currentView`. Available views: `dashboard`, `table`, `invoice-list`, `monthly-invoice`, `reminders`, `cost-to-date`, `pl`, `site-status`, `issue-log`, `import-export`, `admin`.
 
-**State:** A single composable store in `src/stores/voStore.js` (`useVOStore()`) holds all reactive state — no Pinia or Vuex. Key refs: `vos`, `loading`, `error`, `invoicePrepIds` (a `Set`), `selectedFilters`. Key computed: `filteredVOs`, `statusSummary`, `financialSummary`, `categoryDistribution`, `timelineMetrics`, `invoicePrepItems`. All components import this composable directly.
+**State:** A single composable store in `src/stores/voStore.js` (`useVOStore()`) holds all reactive state — no Pinia or Vuex. Key refs: `vos`, `issueLogs`, `loading`, `error`, `invoicePrepIds` (a `Set`), `selectedFilters`. Key computed: `filteredVOs`, `statusSummary`, `financialSummary`, `categoryDistribution`, `timelineMetrics`, `invoicePrepItems`, `issueLogSummary`. All components import this composable directly.
 
 **Persistence split:**
-- `src/db/indexdb.js` — IndexedDB ("VariationTrackerDB" v3, store "variations") for all VO records. All operations return Promises.
+- `src/db/indexdb.js` — IndexedDB ("VariationTrackerDB" v4) with store `variations` for VO records and store `issueLogs` for Issue Log records. All operations return Promises.
 - `localStorage` — UI state (active view/tab), invoice prep IDs, flagged VO IDs (`flaggedVOIds`), flagged VO notes (`flaggedVONotes`), activity log (no cap — all entries preserved), global admin data (sites, categories, scopes, settings), site status data (`siteStatusData`).
 
 **VO data model** (key fields): `id` (UUID), `siteId`, `siteName`, `jobNumber`, `voDescription`, `voAmount`, `voCategory`, `scope`, `boqRelated` (boolean `true`/`false`), `voStatus` (`draft|submitted|pending-approval|approved|rejected|cancelled`), invoice fields (`poNumber`, `invoiceStatus`, `invoiceDate`, `invoiceLog`, `poLog`), tracking fields (`emailSentToNokia`, `emailApprovedFromNokia`, `ticketNumber`, `ticketSubmissionDate`, `ticketApprovalDate`), cost fields (`labourCost`, `thirdPartyCost` — both numeric, default `0`), `comment`, and `createdAt`/`updatedAt`.
@@ -48,6 +48,32 @@ No test runner or linter is configured.
 - A VO is only counted as **invoiced** (in Dashboard and any future metric) when `invoiceStatus === 'SIT Completed'` **and** `invoiceDate` is set.
 
 **Admin data** (sites, VO categories, scopes, app settings) lives entirely in `localStorage` under the key `globalData`. It is loaded independently by `AdminView.vue` — the main store does not read it except `VOForm.vue` consumes it for autocomplete dropdowns.
+
+**Issue Log store actions:** `loadAllIssueLogs()`, `createIssueLog()`, `editIssueLog()`, `removeIssueLog()`. Summary computed: `issueLogSummary` (`total`, `open`, `clear`, `amount`).
+
+## Issue Log View (`src/components/IssueLogView.vue`)
+
+Dedicated view (`issue-log`) for tracking site issues independently from VOs. Data fields per issue record:
+- `siteId`
+- `siteName`
+- `jobDescription`
+- `registerLog` (ISO date `YYYY-MM-DD`)
+- `scope`
+- `amount`
+- `status` (`open` | `clear`)
+- `comment`
+
+**Strict Admin autocomplete rules (modal):**
+- `siteId` + `siteName` must be selected from Admin `globalData.sites` via one linked site picker (single selection fills both fields).
+- `scope` must be selected from Admin `globalData.scopes` via scope autocomplete.
+- Off-list values and site/scope mismatches are blocked on save.
+
+**Edit behavior with legacy data:**
+- Existing issue rows still load even if old values are no longer in Admin lists.
+- If a row's saved site/scope no longer exists in Admin data, the user must re-select valid values before save.
+
+**Out of scope currently:**
+- Issue Log records are not included in Import/Export VO flows or JSON backup/restore flows.
 
 ## Base PO Categories
 
@@ -161,7 +187,8 @@ All currency in Dashboard uses `formatCompact()` (e.g., $1.23M, $456.7K, $999).
    - **Card header filter bar** — site status toggle ("All Sites" / "Started" / "Not Started", `poInvoiceSiteFilter = ref('all')`) **and** a single month `<select>` (`ctcMonth = ref('')`, calendar icon, turns emerald when active) placed directly to the right of the site toggle. Both wrapped in `@click.stop` so they don't collapse the accordion. The month filter controls the Cost to Complete column only.
    - **Site status filter** — filters both VO and Base PO items by matching `siteId|jobNumber` against `siteStatusData` in localStorage via `filteredSiteKeys` computed (a `Set` of `"siteId|jobNumber"` strings, or `null` for "all"). All amounts and pills update accordingly.
    - **Sticky Scope column** — the Scope header (`rowspan=2`) and every Scope `<td>` in tbody/tfoot are `position: sticky; left: 0` with a subtle right-side `box-shadow`, so the column stays pinned during horizontal scroll.
-   - **Have PO** group (teal, `colspan=4`): VO · BOQ · Base PO · Total. **No PO** group (gray, `colspan=4`): VO · BOQ · Base PO · Total — all three No PO cells are clickable, opening a `noPOScope`/`noPOType` slide-over (refs + `noPOItems` computed) showing items without a PO number, split by type (VO/BOQ/Base PO). The `noPOItems` computed applies `voMatchesSiteFilter` so the slide-over only shows items matching the active Started / Not Started toggle. **Total** column. **Cost to Date** (violet, `colspan=3`): Labour · 3rd Party · Total.
+   - **Have PO** group (teal, `colspan=6`): VO Service · VO 3rd Party · Downtime · BOQ · Base PO · Total. All five amount cells are clickable and open the shared PO detail slide-over in `havePO` mode. Downtime is identified by `voCategory.trim().toLowerCase() === 'downtime'` and is included in Total Have PO.
+   - **No PO** group (gray, `colspan=5`): VO Service · VO 3rd Party · BOQ · Base PO · Total. The four amount cells are clickable and open the shared PO detail slide-over in `noPO` mode. Supported `noPOType` values: `'vo'` · `'service'` · `'3rdParty'` · `'downtime'` · `'boq'` · `'basePO'` · `null` (all). The `noPOItems` computed applies `voMatchesSiteFilter` so the slide-over only shows items matching the active Started / Not Started toggle. **Total** column. **Cost to Date** (violet, `colspan=3`): Labour · 3rd Party · Total.
    - **Invoice group** (`colspan=9`) has **9 sub-columns**: Invoiced (green) · **Not Inv. 3rd Party** · **Not Inv. BOQ 3rd** · **Not Inv. Service** · **Not Inv. BOQ Svc** · **Not Inv. Base** · **Total Service Not Inv.** (bold orange) · **Total 3rd Party Not Inv.** (bold orange) · Inv. Progress bar. The "VO" not-yet-invoiced is split by `voCategory`: `'Service'` → Not Inv. Service, `'Third Party'` → Not Inv. 3rd Party. The "BOQ" not-yet-invoiced splits the same way. **Total Service Not Inv.** = Not Inv. Service + Not Inv. BOQ Svc + Not Inv. Base (excludes 3rd Party). All six clickable Not Inv. cells open the `notYetInvItems` drill-down slide-over (`notYetInvScope` / `notYetInvType` refs). Supported types: `'vo'` · `'service'` · `'3rdParty'` · `'boqService'` · `'boq3rdParty'` · `'boq'` · `'basePO'` · `null` (all). The `notYetInvItems` computed applies `voMatchesSiteFilter` so the slide-over only shows items matching the active Started / Not Started toggle.
    - **Cost to Complete column** (emerald, single column, left-bordered) — reads `siteStatusData` from localStorage via `costToCompleteByScope` computed (object keyed by scope). Distributes each site's cost evenly across its scopes; filtered by both `ctcMonth` and `filteredSiteKeys` (the site status toggle — Started / Not Started / All). The column and the header pill therefore update when the site filter changes. The column sub-header shows a **read-only chip** with the active month label (or "All Months" in gray). Both the group and sub-headers use `text-right` to align with data cells.
    - **Summary pills in the header (8):** Total Have PO (teal) · No PO (gray) · Invoiced (green) · Not Yet Inv. (orange) · Labour Cost (violet) · 3rd Party (blue) · Total Cost (gray) · **Cost to Complete** (emerald, read-only value, no embedded dropdown). Table scrolls horizontally (`overflow-x-auto`).
@@ -337,3 +364,4 @@ Dedicated view (`site-status`, emerald-themed) for tracking construction progres
 - **Left column card** — Export Data (Excel + CSV buttons) stacked above Import Data (file drop zone + 3-step preview/confirm flow), separated by a thin divider within the same card.
 - **Right column card** — Import Template (download blank xlsx + required/optional column reference).
 - **Full-width card** — Backup & Restore (Export Backup left / Restore Backup right, divided by a vertical rule). Restore button uses amber to signal destructive action.
+

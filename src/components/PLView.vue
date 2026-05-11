@@ -125,7 +125,7 @@
       </div>
 
       <div class="overflow-auto" style="max-height: calc(100vh - 360px);">
-        <table class="border-collapse w-full" style="min-width: 1750px;">
+        <table class="border-collapse w-full" style="min-width: 2150px;">
           <thead class="sticky top-0 z-40">
             <tr>
               <th v-for="col in columns" :key="col.key"
@@ -162,6 +162,30 @@
               </td>
               <td class="px-5 py-3.5 text-xs text-right text-gray-500 whitespace-nowrap">{{ row.voCount }} VO{{ row.voCount !== 1 ? 's' : '' }}</td>
               <td class="px-5 py-3.5 text-sm text-right font-bold text-blue-700 whitespace-nowrap">{{ formatCurrency(row.totalVOAmount) }}</td>
+              <td class="px-5 py-3.5 text-sm text-right whitespace-nowrap">
+                <button @click.stop="openCategoryDetail(row, 'service')"
+                  :disabled="row.serviceItems.length === 0"
+                  class="font-semibold text-blue-700 rounded-lg px-2 py-1 transition"
+                  :class="row.serviceItems.length ? 'hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 cursor-pointer' : 'opacity-40 cursor-default'">
+                  {{ row.serviceAmount > 0 ? formatCurrency(row.serviceAmount) : '-' }}
+                </button>
+              </td>
+              <td class="px-5 py-3.5 text-sm text-right whitespace-nowrap">
+                <button @click.stop="openCategoryDetail(row, 'thirdParty')"
+                  :disabled="row.thirdPartyItems.length === 0"
+                  class="font-semibold text-sky-700 rounded-lg px-2 py-1 transition"
+                  :class="row.thirdPartyItems.length ? 'hover:bg-sky-50 hover:ring-1 hover:ring-sky-200 cursor-pointer' : 'opacity-40 cursor-default'">
+                  {{ row.thirdPartyAmount > 0 ? formatCurrency(row.thirdPartyAmount) : '-' }}
+                </button>
+              </td>
+              <td class="px-5 py-3.5 text-sm text-right whitespace-nowrap">
+                <button @click.stop="openCategoryDetail(row, 'boq')"
+                  :disabled="row.boqItems.length === 0"
+                  class="font-semibold text-emerald-700 rounded-lg px-2 py-1 transition"
+                  :class="row.boqItems.length ? 'hover:bg-emerald-50 hover:ring-1 hover:ring-emerald-200 cursor-pointer' : 'opacity-40 cursor-default'">
+                  {{ row.boqAmount > 0 ? formatCurrency(row.boqAmount) : '-' }}
+                </button>
+              </td>
               <td class="px-5 py-3.5 text-sm text-right whitespace-nowrap">
                 <button @click.stop="openDetail(row, 'invoiced')"
                   :disabled="row.invoiceItems.length === 0"
@@ -215,6 +239,9 @@
               <td class="px-5 py-3 text-xs font-bold text-gray-600 uppercase tracking-wider" colspan="2"></td>
               <td class="px-5 py-3 text-xs text-right text-gray-500">{{ filteredTotals.voCount }} VOs</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-blue-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.totalVOAmount) }}</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-blue-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.serviceAmount) }}</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-sky-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.thirdPartyAmount) }}</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-emerald-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.boqAmount) }}</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-green-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.invoiceAmount) }}</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-orange-600 whitespace-nowrap">{{ formatCurrency(filteredTotals.notYetInvoiceAmount) }}</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-violet-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.labourCost) }}</td>
@@ -229,6 +256,87 @@
         </table>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div v-if="categoryDrawer" class="fixed inset-0 z-50 flex">
+        <div class="absolute inset-0 bg-black/40" @click="categoryDrawer = null"></div>
+        <div class="relative ml-auto h-full w-full max-w-5xl bg-white shadow-2xl flex flex-col">
+          <div class="px-6 py-4 border-b border-gray-100 shrink-0"
+            :class="categoryDrawer.type === 'boq' ? 'bg-emerald-700' : categoryDrawer.type === 'thirdParty' ? 'bg-sky-700' : 'bg-blue-700'">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <h3 class="text-base font-bold text-white">{{ categoryDrawer.title }}</h3>
+                <p class="text-xs text-white/80 mt-0.5">
+                  {{ categoryDrawer.row.siteId || '-' }} · {{ categoryDrawer.row.siteName || '-' }} · Job {{ categoryDrawer.row.jobNumber || '-' }}
+                </p>
+              </div>
+              <button @click="categoryDrawer = null"
+                class="w-8 h-8 flex items-center justify-center rounded-xl bg-white/15 text-white hover:bg-white/25 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="px-6 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3 shrink-0">
+            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-100 rounded-xl">
+              <span class="text-xs text-gray-500">Items</span>
+              <span class="text-sm font-bold text-gray-800">{{ categoryDrawer.items.length }}</span>
+            </div>
+            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-100 rounded-xl">
+              <span class="text-xs text-gray-500">Total</span>
+              <span class="text-sm font-bold"
+                :class="categoryDrawer.type === 'boq' ? 'text-emerald-700' : categoryDrawer.type === 'thirdParty' ? 'text-sky-700' : 'text-blue-700'">
+                {{ formatCurrency(categoryDrawer.total) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="flex-1 overflow-auto">
+            <table class="w-full text-sm border-collapse" style="min-width: 950px;">
+              <thead class="sticky top-0 z-10">
+                <tr>
+                  <th class="px-5 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Description</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Category</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Scope</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">PO Number</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Invoice Status</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Invoice Date</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-right text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Amount</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr v-for="vo in categoryDrawer.items" :key="vo.id" class="hover:bg-gray-50 transition">
+                  <td class="px-5 py-3">
+                    <div class="max-w-sm truncate text-gray-800 font-medium" :title="vo.voDescription">{{ vo.voDescription || '-' }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.voCategory || '-' }}</td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.scope || '-' }}</td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span v-if="vo.poNumber" class="font-mono text-xs text-teal-700 bg-teal-50 px-2 py-0.5 rounded">{{ vo.poNumber }}</span>
+                    <span v-else class="text-gray-300 text-xs">-</span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span v-if="vo.invoiceStatus"
+                      :class="vo.invoiceStatus === 'SIT Completed' ? 'bg-green-100 text-green-700'
+                        : vo.invoiceStatus === 'To Be Sent to Nokia' ? 'bg-indigo-100 text-indigo-700'
+                        : vo.invoiceStatus === 'SIT Approved' ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-blue-100 text-blue-700'"
+                      class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold">
+                      {{ vo.invoiceStatus }}
+                    </span>
+                    <span v-else class="text-gray-300 text-xs">-</span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.invoiceDate ? new Date(vo.invoiceDate).toLocaleDateString('en-AU') : '-' }}</td>
+                  <td class="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(vo.voAmount || 0) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <Teleport to="body">
       <div v-if="detailModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -333,6 +441,7 @@ const searchText = ref('')
 const sortCol = ref('siteId')
 const sortDir = ref('asc')
 const detailModal = ref(null)
+const categoryDrawer = ref(null)
 const siteFilterOpen = ref(false)
 const scopeFilterOpen = ref(false)
 const selectedSiteIds = ref(new Set())
@@ -366,6 +475,9 @@ const columns = [
   { key: 'scopeLabel',          label: 'Scope',                   align: 'left' },
   { key: 'voCount',             label: 'Total VO Qty',            align: 'right' },
   { key: 'totalVOAmount',       label: 'Total VO Amount',         align: 'right' },
+  { key: 'serviceAmount',       label: 'VO Service',              align: 'right' },
+  { key: 'thirdPartyAmount',    label: 'VO 3rd Party',            align: 'right' },
+  { key: 'boqAmount',           label: 'BOQ Related',             align: 'right' },
   { key: 'invoiceAmount',       label: 'Total Invoice Amount',    align: 'right' },
   { key: 'notYetInvoiceAmount', label: 'Not Yet Invoice Amount',  align: 'right' },
   { key: 'labourCost',          label: 'Labour Cost',             align: 'right' },
@@ -376,6 +488,12 @@ const columns = [
   { key: 'profitLoss',          label: 'P&L',                     align: 'right' },
   { key: 'manualComment',       label: 'Comment',                 align: 'left' },
 ]
+
+const BASE_PO_CATEGORIES = new Set(['Site Survey', 'WOP', 'C&I', 'SAT&SIT', 'Snag Closure'])
+const isBasePO = (vo) => BASE_PO_CATEGORIES.has(vo.voCategory?.trim())
+const isBOQ = (vo) => !isBasePO(vo) && (vo.boqRelated === true || vo.boqRelated === 'yes')
+const isStandardService = (vo) => !isBasePO(vo) && !isBOQ(vo) && vo.voCategory?.trim() === 'Service'
+const isStandardThirdParty = (vo) => !isBasePO(vo) && !isBOQ(vo) && vo.voCategory?.trim() === 'Third Party'
 
 function calcEntryCost(e) {
   return (parseFloat(e.qtyDays) || 0) * (parseFloat(e.qtyHours) || 0) *
@@ -465,6 +583,12 @@ const plRows = computed(() => {
     scopeList: [...row.scopes].sort((a, b) => a.localeCompare(b)),
     scopeLabel: [...row.scopes].sort((a, b) => a.localeCompare(b)).join(', '),
     manualComment: manualComments.value[row.costKey] || '',
+    serviceItems: row.vos.filter(isStandardService),
+    thirdPartyItems: row.vos.filter(isStandardThirdParty),
+    boqItems: row.vos.filter(isBOQ),
+    serviceAmount: row.vos.filter(isStandardService).reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
+    thirdPartyAmount: row.vos.filter(isStandardThirdParty).reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
+    boqAmount: row.vos.filter(isBOQ).reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
     invoiceItems: row.vos.filter(vo => vo.invoiceStatus === 'SIT Completed' && !!vo.invoiceDate),
     notYetInvoiceItems: row.vos.filter(vo => !(vo.invoiceStatus === 'SIT Completed' && !!vo.invoiceDate)),
     notYetInvoiceAmount: row.totalVOAmount - row.invoiceAmount,
@@ -530,6 +654,9 @@ function summarize(rows) {
   return rows.reduce((acc, row) => {
     acc.voCount += row.voCount
     acc.totalVOAmount += row.totalVOAmount
+    acc.serviceAmount += row.serviceAmount
+    acc.thirdPartyAmount += row.thirdPartyAmount
+    acc.boqAmount += row.boqAmount
     acc.invoiceAmount += row.invoiceAmount
     acc.notYetInvoiceAmount += row.notYetInvoiceAmount
     acc.labourCost += row.labourCost
@@ -542,6 +669,9 @@ function summarize(rows) {
   }, {
     voCount: 0,
     totalVOAmount: 0,
+    serviceAmount: 0,
+    thirdPartyAmount: 0,
+    boqAmount: 0,
     invoiceAmount: 0,
     notYetInvoiceAmount: 0,
     labourCost: 0,
@@ -551,6 +681,23 @@ function summarize(rows) {
     costToComplete: 0,
     profitLoss: 0,
   })
+}
+
+function openCategoryDetail(row, type) {
+  const map = {
+    service: { title: 'VO Service Detail', items: row.serviceItems },
+    thirdParty: { title: 'VO 3rd Party Detail', items: row.thirdPartyItems },
+    boq: { title: 'BOQ Related Detail', items: row.boqItems },
+  }
+  const config = map[type]
+  if (!config?.items?.length) return
+  categoryDrawer.value = {
+    row,
+    type,
+    title: config.title,
+    items: config.items,
+    total: config.items.reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
+  }
 }
 
 function toggleSort(key) {
@@ -632,6 +779,9 @@ function exportToExcel() {
     'Scope': row.scopeLabel,
     'Total VO Qty': row.voCount,
     'Total VO Amount': row.totalVOAmount,
+    'VO Service': row.serviceAmount,
+    'VO 3rd Party': row.thirdPartyAmount,
+    'BOQ Related': row.boqAmount,
     'Total Invoice Amount': row.invoiceAmount,
     'Not Yet Invoice Amount': row.notYetInvoiceAmount,
     'Labour Cost': row.labourCost,
@@ -645,6 +795,7 @@ function exportToExcel() {
   const ws = XLSX.utils.json_to_sheet(rows)
   ws['!cols'] = [
     { wch: 14 }, { wch: 28 }, { wch: 18 }, { wch: 28 }, { wch: 14 }, { wch: 18 },
+    { wch: 16 }, { wch: 16 }, { wch: 16 },
     { wch: 22 }, { wch: 24 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 18 },
     { wch: 18 }, { wch: 16 }, { wch: 36 },
   ]

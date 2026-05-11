@@ -5,18 +5,38 @@ Format: `## YYYY-MM-DD — <summary>` with sub-sections for **Added**, **Fixed**
 
 ---
 
+## 2026-05-11 - Issue Log view and strict Admin autocomplete
+
+### Added
+- **Issue Log view** (`IssueLogView.vue`): added a new top-level `issue-log` tab with full CRUD for issue records (`siteId`, `siteName`, `jobDescription`, `registerLog`, `scope`, `amount`, `status`, `comment`).
+- **IndexedDB issue log persistence** (`src/db/indexdb.js`): added `issueLogs` object store and CRUD helpers (`addIssueLog`, `updateIssueLog`, `deleteIssueLog`, `getAllIssueLogs`) with DB version bump from `3` to `4`.
+- **Store support for Issue Log** (`src/stores/voStore.js`): added `issueLogs` state ref, `issueLogSummary` computed, and actions `loadAllIssueLogs`, `createIssueLog`, `editIssueLog`, `removeIssueLog`.
+
+### Changed
+- **Issue Log modal validation** (`IssueLogView.vue`): site and scope selection is now strict Admin-driven autocomplete.
+  - `siteId` + `siteName` must be selected from `globalData.sites` through one linked site picker.
+  - `scope` must be selected from `globalData.scopes`.
+  - Off-list/manual mismatches are blocked on save.
+- **Issue Log edit behavior** (`IssueLogView.vue`): legacy issue rows still load, but users must re-select site/scope if values no longer exist in Admin data.
+- **Scope note:** Issue Log records are currently out of scope for existing VO Import/Export flows and JSON backup/restore payloads.
+
+---
+
 ## 2026-05-08 - P&L enhancements
 
 ### Added
 - **P&L view** (`PLView.vue`): added Scope, Labour Cost, Third Party Cost, Manual Deduction, Cost to Complete, and manual Comment columns.
+- **P&L view category drill-downs** (`PLView.vue`): added VO Service, VO 3rd Party, and BOQ Related columns. Each value opens a right-side drawer listing the matching VOs for that site/job.
 - **P&L view filters** (`PLView.vue`): added multi-select Site ID and Scope filters. KPI summary cards and footer totals now update with active search/filter state.
 - **P&L Cost to Complete toggle** (`PLView.vue`): added an Include Cost to Complete toggle plus required month selector. When enabled, P&L pulls selected-month Site Status cost entries from `localStorage.siteStatusData` by `siteId|jobNumber`.
 - **P&L manual fields** (`PLView.vue`): manual deductions and comments persist per `siteId|jobNumber` in `localStorage` keys `plManualDeductions` and `plManualComments`.
+- **Dashboard PO & Invoice Summary** (`Dashboard.vue`): split Have PO and No PO VO values into explicit VO Service and VO 3rd Party columns, added a Have PO Downtime column, and made Have PO / No PO amount cells open detail slide-overs.
 
 ### Changed
 - **P&L calculation** (`PLView.vue`): P&L now calculates as `Total VO Amount - Cost to Date - Manual Deduction - Cost to Complete`.
-- **P&L export** (`PLView.vue`): export now includes Scope, split labour/third-party costs, Manual Deduction, Cost to Complete, recalculated P&L, and manual Comment.
+- **P&L export** (`PLView.vue`): export now includes Scope, VO Service, VO 3rd Party, BOQ Related, split labour/third-party costs, Manual Deduction, Cost to Complete, recalculated P&L, and manual Comment.
 - **P&L table UX** (`PLView.vue`): Site ID and Site Name are frozen during horizontal scroll; the table header remains sticky during vertical scroll; Comment moved to the last column.
+- **Dashboard PO & Invoice Summary totals** (`Dashboard.vue`): Total Have PO now includes the explicit Downtime bucket in addition to VO Service, VO 3rd Party, BOQ, and Base PO.
 
 ---
 
