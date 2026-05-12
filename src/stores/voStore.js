@@ -299,8 +299,9 @@ export function useVOStore() {
     }
   }
 
-  const editVO = async (id, voData) => {
-    loading.value = true
+  const editVO = async (id, voData, options = {}) => {
+    const { suppressActivityLog = false, suppressLoadingToggle = false } = options
+    if (!suppressLoadingToggle) loading.value = true
     error.value = null
     try {
       const before = vos.value.find(vo => vo.id === id) || {}
@@ -336,18 +337,20 @@ export function useVOStore() {
         }
       }
 
-      addLog({
-        action: 'updated',
-        voId: updatedVO.id,
-        siteId: updatedVO.siteId,
-        siteName: updatedVO.siteName,
-        jobNumber: updatedVO.jobNumber || '',
-        voDescription: updatedVO.voDescription,
-        voAmount: updatedVO.voAmount,
-        voStatus: updatedVO.voStatus,
-        comment: updatedVO.comment || '',
-        changes,
-      })
+      if (!suppressActivityLog) {
+        addLog({
+          action: 'updated',
+          voId: updatedVO.id,
+          siteId: updatedVO.siteId,
+          siteName: updatedVO.siteName,
+          jobNumber: updatedVO.jobNumber || '',
+          voDescription: updatedVO.voDescription,
+          voAmount: updatedVO.voAmount,
+          voStatus: updatedVO.voStatus,
+          comment: updatedVO.comment || '',
+          changes,
+        })
+      }
       return updatedVO
     } catch (err) {
       error.value = err.message
@@ -461,6 +464,27 @@ export function useVOStore() {
     invoicePrepIds.value = _loadInvoicePrepIds()
   }
 
+  const addCostImportSummaryLog = ({ status, filename, rowsTotal = 0, rowsProcessed = 0, updatedCount = 0, revertedCount = 0, message = '' } = {}) => {
+    addLog({
+      action: 'cost-import',
+      voId: null,
+      siteId: '(Import)',
+      siteName: '(Cost to Date)',
+      jobNumber: '',
+      voDescription: `Cost import ${status || 'unknown'}${filename ? `: ${filename}` : ''}`,
+      voAmount: 0,
+      voStatus: 'draft',
+      comment: message || '',
+      changes: [
+        { field: 'status', label: 'Status', from: '—', to: status || 'unknown' },
+        { field: 'rowsTotal', label: 'Rows Total', from: '—', to: String(rowsTotal) },
+        { field: 'rowsProcessed', label: 'Rows Processed', from: '—', to: String(rowsProcessed) },
+        { field: 'updatedCount', label: 'VOs Updated', from: '—', to: String(updatedCount) },
+        { field: 'revertedCount', label: 'VOs Reverted', from: '—', to: String(revertedCount) },
+      ],
+    })
+  }
+
   const loadAllIssueLogs = async () => {
     loading.value = true
     error.value = null
@@ -471,7 +495,7 @@ export function useVOStore() {
       error.value = err.message
       console.error('Error loading issue logs:', err)
     } finally {
-      loading.value = false
+      if (!suppressLoadingToggle) loading.value = false
     }
   }
 
@@ -589,6 +613,7 @@ export function useVOStore() {
     editIssueLog,
     removeVO,
     removeIssueLog,
+    addCostImportSummaryLog,
     importVOs,
     updateFilters,
     clearFilters,

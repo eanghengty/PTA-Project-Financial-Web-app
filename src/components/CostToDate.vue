@@ -17,12 +17,13 @@
       </div>
       <div class="flex items-center gap-2">
         <!-- Import -->
-        <label class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 transition cursor-pointer">
+        <label class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold transition"
+          :class="importing ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-50 cursor-pointer'">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
           </svg>
-          Import Costs
-          <input type="file" accept=".xlsx,.xls,.csv" class="hidden" @change="handleImport" />
+          {{ importing ? 'Importing...' : 'Import Costs' }}
+          <input type="file" accept=".xlsx,.xls,.csv" class="hidden" @change="handleImport" :disabled="importing" />
         </label>
         <!-- Download template -->
         <button @click="downloadTemplate"
@@ -107,6 +108,25 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Import progress banner -->
+    <div v-if="importing" class="flex items-start gap-3 px-4 py-3 rounded-xl border bg-violet-50 border-violet-200">
+      <svg class="w-4 h-4 mt-0.5 shrink-0 text-violet-600 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-30" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+        <path class="opacity-90" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z"></path>
+      </svg>
+      <div class="flex-1 text-sm text-violet-700">
+        <p class="font-semibold">{{ cancelRequested ? 'Cancelling import and rolling back...' : 'Import in progress...' }}</p>
+        <p class="text-xs mt-0.5">Rows {{ progress.processedRows }} / {{ progress.totalRows }} · Matched VOs {{ progress.matchedVOs }} · Applied {{ progress.appliedVOs }}</p>
+      </div>
+      <button
+        @click="requestCancelImport"
+        :disabled="cancelRequested"
+        class="shrink-0 inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold border transition"
+        :class="cancelRequested ? 'border-gray-300 text-gray-400 cursor-not-allowed' : 'border-violet-300 text-violet-700 hover:bg-violet-100'">
+        {{ cancelRequested ? 'Cancelling...' : 'Cancel' }}
+      </button>
     </div>
 
     <!-- Import result banner -->
@@ -229,7 +249,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import * as XLSX from 'xlsx'
 import { useVOStore } from '../stores/voStore'
 import { formatCurrency } from '../utils/formatters'
@@ -240,6 +260,15 @@ const sortCol = ref('jobNumber')
 const sortDir = ref('asc')
 const importResult = ref(null)
 const historyOpen = ref(false)
+const importing = ref(false)
+const cancelRequested = ref(false)
+const importSessionId = ref(null)
+const progress = ref({
+  totalRows: 0,
+  processedRows: 0,
+  matchedVOs: 0,
+  appliedVOs: 0,
+})
 
 const HISTORY_KEY = 'ctdImportHistory'
 
@@ -251,6 +280,12 @@ function saveHistory(arr) {
 }
 
 const importHistory = ref(loadHistory())  // newest first
+
+onMounted(() => {
+  if (import.meta.env.DEV && typeof importing?.value !== 'boolean') {
+    console.warn('[CostToDate] import state binding is stale. Hard refresh the browser to clear HMR cache.')
+  }
+})
 
 function getDelta(idx) {
   // idx=0 is newest; delta = this entry grand minus previous (older) entry grand
@@ -350,6 +385,24 @@ function toggleSort(key) {
   }
 }
 
+function resetImportProgress() {
+  progress.value = {
+    totalRows: 0,
+    processedRows: 0,
+    matchedVOs: 0,
+    appliedVOs: 0,
+  }
+}
+
+function requestCancelImport() {
+  if (!importing.value) return
+  cancelRequested.value = true
+}
+
+async function yieldToUI() {
+  await new Promise(resolve => setTimeout(resolve, 0))
+}
+
 // ── Download import template ──
 function downloadTemplate() {
   // Pre-fill with existing job data so user can just fill in costs
@@ -393,25 +446,46 @@ function exportToExcel() {
 async function handleImport(e) {
   const file = e.target.files?.[0]
   e.target.value = ''
-  if (!file) return
+  if (!file || importing.value) return
   importResult.value = null
+  importing.value = true
+  cancelRequested.value = false
+  importSessionId.value = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  resetImportProgress()
+  await nextTick()
+  await yieldToUI()
 
   try {
+    const importContext = {
+      rows: [],
+      originalCosts: new Map(),
+      touchedVOIds: new Set(),
+      warnings: [],
+      skipped: 0,
+      updated: 0,
+    }
+
+    // Phase 1: parse and build execution plan
+    await yieldToUI()
     const data = await file.arrayBuffer()
     const wb = XLSX.read(data, { type: 'array' })
     const ws = wb.Sheets[wb.SheetNames[0]]
     const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
+    await yieldToUI()
+    progress.value.totalRows = rows.length
 
     if (rows.length === 0) {
       importResult.value = { type: 'error', title: 'Empty file', message: 'No rows found in the spreadsheet.' }
+      store.addCostImportSummaryLog({ status: 'failed', filename: file.name, message: 'No rows found in the spreadsheet.' })
       return
     }
 
     const headers = Object.keys(rows[0]).map(h => h.trim().toLowerCase())
-    const hasJob   = headers.some(h => h.includes('job'))
-    const hasSite  = headers.some(h => h.includes('site id') || h === 'site_id' || h === 'siteid')
+    const hasJob = headers.some(h => h.includes('job'))
+    const hasSite = headers.some(h => h.includes('site id') || h === 'site_id' || h === 'siteid')
     if (!hasJob && !hasSite) {
       importResult.value = { type: 'error', title: 'Invalid template', message: 'File must have a "Job Number" or "Site ID" column to match VOs.' }
+      store.addCostImportSummaryLog({ status: 'failed', filename: file.name, rowsTotal: rows.length, message: 'Missing Job Number or Site ID column.' })
       return
     }
 
@@ -423,54 +497,111 @@ async function handleImport(e) {
       return undefined
     }
 
-    let updated = 0
-    let skipped = 0
-    const warnings = []
-
     for (let i = 0; i < rows.length; i++) {
+      if (cancelRequested.value) break
       const row = rows[i]
       const rowNum = i + 2
-
-      const jobNumber      = String(getVal(row, 'Job Number', 'Job No.', 'Job No', 'jobNumber') || '').trim()
-      const siteId         = String(getVal(row, 'Site ID', 'Site Id', 'siteId') || '').trim()
-      const siteName       = String(getVal(row, 'Site Name', 'siteName') || '').trim()
-      const labourRaw      = getVal(row, 'Labour Cost', 'labourCost')
-      const thirdPartyRaw  = getVal(row, 'Third Party Cost', 'thirdPartyCost')
-
-      const labourCost     = parseFloat(String(labourRaw).replace(/[,$]/g, '')) || 0
+      const jobNumber = String(getVal(row, 'Job Number', 'Job No.', 'Job No', 'jobNumber') || '').trim()
+      const siteId = String(getVal(row, 'Site ID', 'Site Id', 'siteId') || '').trim()
+      const siteName = String(getVal(row, 'Site Name', 'siteName') || '').trim()
+      const labourRaw = getVal(row, 'Labour Cost', 'labourCost')
+      const thirdPartyRaw = getVal(row, 'Third Party Cost', 'thirdPartyCost')
+      const labourCost = parseFloat(String(labourRaw).replace(/[,$]/g, '')) || 0
       const thirdPartyCost = parseFloat(String(thirdPartyRaw).replace(/[,$]/g, '')) || 0
 
-      // Match VOs: prefer jobNumber, fall back to siteId+siteName
       let matched = []
       if (jobNumber) {
         matched = store.vos.value.filter(vo => vo.jobNumber?.trim() === jobNumber)
       } else if (siteId || siteName) {
         matched = store.vos.value.filter(vo =>
-          (siteId   && vo.siteId?.trim().toLowerCase()   === siteId.toLowerCase())   ||
+          (siteId && vo.siteId?.trim().toLowerCase() === siteId.toLowerCase()) ||
           (siteName && vo.siteName?.trim().toLowerCase() === siteName.toLowerCase())
         )
       }
 
       if (matched.length === 0) {
-        warnings.push(`Row ${rowNum}: no matching VOs found for "${jobNumber || siteId || siteName}".`)
-        skipped++
+        importContext.warnings.push(`Row ${rowNum}: no matching VOs found for "${jobNumber || siteId || siteName}".`)
+        importContext.skipped++
+        progress.value.processedRows++
+        if (i % 20 === 0) await yieldToUI()
         continue
       }
 
-      // Distribute costs evenly across matched VOs
       const perVO = matched.length
-      const labourPer     = labourCost     / perVO
-      const thirdPartyPer = thirdPartyCost / perVO
-
-      for (const vo of matched) {
-        await store.editVO(vo.id, { ...vo, labourCost: labourPer, thirdPartyCost: thirdPartyPer })
-        updated++
-      }
+      importContext.rows.push({
+        matched,
+        labourPer: labourCost / perVO,
+        thirdPartyPer: thirdPartyCost / perVO,
+      })
+      progress.value.processedRows++
+      progress.value.matchedVOs += matched.length
+      if (i % 20 === 0) await yieldToUI()
     }
+
+    // Phase 2: apply updates with cancel checkpoints
+    for (let i = 0; i < importContext.rows.length; i++) {
+      if (cancelRequested.value) break
+      const rowPlan = importContext.rows[i]
+      for (const vo of rowPlan.matched) {
+        if (cancelRequested.value) break
+        if (!importContext.originalCosts.has(vo.id)) {
+          importContext.originalCosts.set(vo.id, {
+            labourCost: vo.labourCost || 0,
+            thirdPartyCost: vo.thirdPartyCost || 0,
+          })
+        }
+        importContext.touchedVOIds.add(vo.id)
+        await store.editVO(
+          vo.id,
+          { ...vo, labourCost: rowPlan.labourPer, thirdPartyCost: rowPlan.thirdPartyPer },
+          { suppressActivityLog: true, suppressLoadingToggle: true }
+        )
+        importContext.updated++
+        progress.value.appliedVOs = importContext.updated
+      }
+      await yieldToUI()
+    }
+
+    if (cancelRequested.value) {
+      let reverted = 0
+      for (const voId of importContext.touchedVOIds) {
+        const snapshot = importContext.originalCosts.get(voId)
+        const current = store.vos.value.find(v => v.id === voId)
+        if (!snapshot || !current) continue
+        await store.editVO(
+          voId,
+          { ...current, labourCost: snapshot.labourCost, thirdPartyCost: snapshot.thirdPartyCost },
+          { suppressActivityLog: true, suppressLoadingToggle: true }
+        )
+        reverted++
+        if (reverted % 25 === 0) await yieldToUI()
+      }
+
+      importResult.value = {
+        type: 'error',
+        title: 'Canceled - rolled back',
+        message: `Import canceled after ${progress.value.processedRows} row${progress.value.processedRows !== 1 ? 's' : ''}. ${reverted} VO${reverted !== 1 ? 's were' : ' was'} reverted.`,
+        warnings: importContext.warnings.slice(0, 10),
+      }
+      store.addCostImportSummaryLog({
+        status: 'canceled_rolled_back',
+        filename: file.name,
+        rowsTotal: progress.value.totalRows,
+        rowsProcessed: progress.value.processedRows,
+        updatedCount: importContext.updated,
+        revertedCount: reverted,
+        message: `Canceled by user. Rolled back ${reverted} VO updates.`,
+      })
+      return
+    }
+
+    const updated = importContext.updated
+    const skipped = importContext.skipped
+    const warnings = importContext.warnings
 
     importResult.value = {
       type: updated > 0 ? 'success' : 'error',
-      title: updated > 0 ? `Import complete — ${updated} VO${updated !== 1 ? 's' : ''} updated` : 'No VOs updated',
+      title: updated > 0 ? `Import complete - ${updated} VO${updated !== 1 ? 's' : ''} updated` : 'No VOs updated',
       message: skipped > 0 ? `${skipped} row${skipped !== 1 ? 's' : ''} skipped (no matching VOs).` : 'All rows matched successfully.',
       warnings: warnings.slice(0, 10),
     }
@@ -478,19 +609,40 @@ async function handleImport(e) {
     if (updated > 0) {
       const allVOs = store.vos.value || []
       const snap = {
-        importedAt:   new Date().toISOString(),
-        filename:     file.name,
-        labour:       allVOs.reduce((s, v) => s + (v.labourCost || 0), 0),
-        thirdParty:   allVOs.reduce((s, v) => s + (v.thirdPartyCost || 0), 0),
-        grand:        allVOs.reduce((s, v) => s + (v.labourCost || 0) + (v.thirdPartyCost || 0), 0),
+        importedAt: new Date().toISOString(),
+        filename: file.name,
+        labour: allVOs.reduce((s, v) => s + (v.labourCost || 0), 0),
+        thirdParty: allVOs.reduce((s, v) => s + (v.thirdPartyCost || 0), 0),
+        grand: allVOs.reduce((s, v) => s + (v.labourCost || 0) + (v.thirdPartyCost || 0), 0),
         updatedCount: updated,
       }
       importHistory.value = [snap, ...importHistory.value]
       saveHistory(importHistory.value)
       historyOpen.value = true
     }
+
+    store.addCostImportSummaryLog({
+      status: updated > 0 ? 'completed' : 'failed',
+      filename: file.name,
+      rowsTotal: progress.value.totalRows,
+      rowsProcessed: progress.value.processedRows,
+      updatedCount: updated,
+      message: updated > 0 ? 'Cost import completed successfully.' : 'No VOs were updated.',
+    })
   } catch (err) {
     importResult.value = { type: 'error', title: 'Import failed', message: err.message }
+    store.addCostImportSummaryLog({
+      status: 'failed',
+      filename: file?.name || '',
+      rowsTotal: progress.value.totalRows,
+      rowsProcessed: progress.value.processedRows,
+      updatedCount: progress.value.appliedVOs,
+      message: err.message,
+    })
+  } finally {
+    importing.value = false
+    cancelRequested.value = false
+    importSessionId.value = null
   }
 }
 </script>
