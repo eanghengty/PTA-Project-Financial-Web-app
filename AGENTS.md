@@ -18,6 +18,10 @@ No test runner or linter is configured.
 
 **State:** A single composable store in `src/stores/voStore.js` (`useVOStore()`) holds all reactive state — no Pinia or Vuex. Key refs: `vos`, `issueLogs`, `loading`, `error`, `invoicePrepIds` (a `Set`), `selectedFilters`. Key computed: `filteredVOs`, `statusSummary`, `financialSummary`, `categoryDistribution`, `timelineMetrics`, `invoicePrepItems`, `issueLogSummary`. All components import this composable directly.
 
+- `editVO(id, voData, options?)` supports batch-safe options:
+  - `suppressActivityLog` — skips per-record activity log writes for batch jobs
+  - `suppressLoadingToggle` — skips per-call `loading` true/false flips for high-volume updates (default behavior remains unchanged when omitted)
+
 **Persistence split:**
 - `src/db/indexdb.js` — IndexedDB ("VariationTrackerDB" v4) with store `variations` for VO records and store `issueLogs` for Issue Log records. All operations return Promises.
 - `localStorage` — UI state (active view/tab), invoice prep IDs, flagged VO IDs (`flaggedVOIds`), flagged VO notes (`flaggedVONotes`), activity log (no cap — all entries preserved), global admin data (sites, categories, scopes, settings), site status data (`siteStatusData`).
@@ -258,6 +262,13 @@ Dedicated view (`cost-to-date`, violet-themed) for tracking labour and third par
 **Search:** Filters rows by job number, site ID, or site name. Shows filtered count.
 
 **Import costs:** Accepts `.xlsx/.xls/.csv`. Matches rows to VOs by `jobNumber` (preferred) or `siteId`/`siteName`. Distributes costs evenly across all matched VOs for a job (`labourCost / matchedCount`, `thirdPartyCost / matchedCount`). Shows success/error banner with per-row warnings (up to 10). Required columns: one of `Job Number`, `Site ID`, or `Site Name`.
+
+**Import runtime behavior:** Cost import runs in staged phases (parse/plan → apply → optional rollback) with live progress UI:
+- Import button switches to loading state; a violet progress banner shows spinner + counters (`Rows`, `Matched VOs`, `Applied`) and a **Cancel** button.
+- Import execution yields to UI between chunks and after loading starts (`nextTick` + async checkpoint) so loading renders before long file parsing.
+- Cancel performs **full rollback** to pre-import `labourCost`/`thirdPartyCost` snapshots for all touched VOs.
+- `ctdImportHistory` entries are written only for successful completed imports (not for canceled+rolled-back runs).
+- Activity log records one summary lifecycle entry per run via `addCostImportSummaryLog` (`completed`, `canceled_rolled_back`, `failed`).
 
 **Import History panel** — collapsible section above the import result banner. Collapsed by default; auto-opens after each successful import. Persisted to localStorage under key `ctdImportHistory` (array, newest first). Each record stores: `importedAt` (ISO), `filename`, `labour`, `thirdParty`, `grand` (totals across **all** VOs at snapshot time), `updatedCount`. Table columns: # · Date & Time · File · Labour · 3rd Party · Grand Total · **Delta** · VOs Updated. Delta = current grand minus previous grand — green for increase, red for decrease, "baseline" for the oldest entry. "Clear history" button at the bottom (confirmation required).
 

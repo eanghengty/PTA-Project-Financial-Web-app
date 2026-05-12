@@ -5,6 +5,24 @@ Format: `## YYYY-MM-DD — <summary>` with sub-sections for **Added**, **Fixed**
 
 ---
 
+## 2026-05-12 - Cost to Date import loading, cancel, and rollback
+
+### Added
+- **Cost to Date import runtime UX** (`CostToDate.vue`): added explicit import execution state with a live progress banner, spinner, row/VO counters, and a Cancel action.
+- **Cost import summary activity logging** (`voStore.js`): added `addCostImportSummaryLog(...)` to record one lifecycle summary entry per import (`completed`, `canceled_rolled_back`, `failed`).
+- **Batch-safe store option** (`voStore.js`): `editVO(id, voData, options?)` now supports `suppressLoadingToggle` for high-volume batch updates.
+
+### Changed
+- **Cost to Date import pipeline** (`CostToDate.vue`): refactored into staged execution (parse/plan → apply → optional rollback) with periodic UI yield checkpoints for responsiveness on large files.
+- **Loading visibility timing** (`CostToDate.vue`): import now forces a paint checkpoint (`nextTick` + async yield) immediately after setting `importing = true`, so loading appears before heavy parsing and updates.
+
+### Fixed
+- **Cost to Date cancel behavior** (`CostToDate.vue`): cancel now performs a full rollback of touched VO cost values using pre-import snapshots.
+- **Cost to Date import history consistency** (`CostToDate.vue`): canceled-and-rolled-back runs no longer create `ctdImportHistory` entries; only completed imports do.
+- **Store loading thrash during batch import** (`voStore.js`): per-VO loading state toggles can now be suppressed during import batches to avoid unnecessary churn.
+
+---
+
 ## 2026-05-11 - Issue Log view and strict Admin autocomplete
 
 ### Added
