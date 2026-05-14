@@ -23,6 +23,166 @@
       </div>
     </div>
 
+    <!-- Ticket Update Import -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M11 5h2m-7 3h12M7 5h.01M17 5h.01M6 12h12M6 16h12M7 20h10"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-bold text-gray-900">Ticket Update Import</h3>
+            <p class="text-xs text-gray-500">Bulk-update ticket number and submission date by VO description (amount must match)</p>
+          </div>
+        </div>
+        <button @click="downloadTicketTemplate"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition shadow-sm shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          Download Template
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <label
+          class="flex flex-col items-center justify-center gap-3 w-full h-24 border-2 border-dashed rounded-xl cursor-pointer transition"
+          :class="ticketDragOver ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'"
+          @dragover.prevent="ticketDragOver = true"
+          @dragleave="ticketDragOver = false"
+          @drop.prevent="onTicketDrop">
+          <svg class="w-6 h-6" :class="ticketDragOver ? 'text-indigo-500' : 'text-gray-300'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+          <div class="text-center">
+            <span class="text-sm font-semibold text-gray-700">Drop file here or <span class="text-indigo-600">browse</span></span>
+            <p class="text-xs text-gray-400 mt-0.5">Supports .xlsx, .xls, .csv · Columns: VO Description, VO Amount, Ticket Submission Date, Ticket Number</p>
+          </div>
+          <input type="file" class="hidden" accept=".xlsx,.xls,.csv" @change="handleTicketFileSelect" ref="ticketFileInput" />
+        </label>
+
+        <div v-if="ticketFileName && !ticketError" class="flex items-center gap-2 px-3 py-2 bg-indigo-50 rounded-lg">
+          <svg class="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span class="text-sm font-medium text-indigo-700 flex-1 truncate">{{ ticketFileName }}</span>
+          <button @click="clearTicketImport" class="text-indigo-400 hover:text-indigo-600 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div v-if="ticketError" class="flex items-start gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
+          <svg class="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div>
+            <p class="text-sm font-semibold text-red-700">Parse failed</p>
+            <p class="text-xs text-red-600 mt-0.5">{{ ticketError }}</p>
+          </div>
+        </div>
+
+        <div v-if="ticketWarnings.length > 0" class="flex items-start gap-3 px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-xl">
+          <svg class="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          </svg>
+          <div>
+            <p class="text-xs font-semibold text-yellow-800">{{ ticketWarnings.length }} row(s) skipped during parse</p>
+            <ul class="mt-1 space-y-0.5">
+              <li v-for="(w, i) in ticketWarnings.slice(0, 3)" :key="i" class="text-xs text-yellow-700">
+                Row {{ w.row }}: {{ w.error }}
+              </li>
+              <li v-if="ticketWarnings.length > 3" class="text-xs text-yellow-600">
+                ... and {{ ticketWarnings.length - 3 }} more
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div v-if="ticketNoDiffs" class="flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-xl">
+          <svg class="w-5 h-5 text-green-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          <p class="text-sm font-semibold text-green-700">No ticket updates needed from this file.</p>
+        </div>
+
+        <div v-if="ticketDiffs.length > 0">
+          <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-gray-700">{{ ticketDiffs.length }} update{{ ticketDiffs.length !== 1 ? 's' : '' }} found</span>
+              <span class="text-xs text-gray-400">— select rows you want to apply</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="ticketDiffs.forEach(d => d.selected = true)"
+                class="text-xs px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition font-medium">Select All</button>
+              <button @click="ticketDiffs.forEach(d => d.selected = false)"
+                class="text-xs px-2.5 py-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition font-medium">Clear</button>
+              <button @click="applyTicketUpdates" :disabled="ticketSelectedCount === 0 || ticketApplying"
+                :class="ticketSelectedCount > 0 && !ticketApplying
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'"
+                class="inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-lg transition font-semibold">
+                <svg v-if="ticketApplying" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+                {{ ticketApplying ? 'Applying...' : `Apply ${ticketSelectedCount} Update${ticketSelectedCount !== 1 ? 's' : ''}` }}
+              </button>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-gray-200 overflow-hidden">
+            <table class="min-w-full text-sm">
+              <thead class="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th class="px-4 py-2.5 w-10">
+                    <input type="checkbox"
+                      :checked="ticketSelectedCount === ticketDiffs.length && ticketDiffs.length > 0"
+                      :indeterminate="ticketSelectedCount > 0 && ticketSelectedCount < ticketDiffs.length"
+                      @change="e => ticketDiffs.forEach(d => d.selected = e.target.checked)"
+                      class="w-4 h-4 rounded accent-indigo-600 cursor-pointer" />
+                  </th>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">VO Description</th>
+                  <th class="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Current Ticket</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-indigo-600 uppercase tracking-wider">New Ticket</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Current Sub Date</th>
+                  <th class="px-4 py-2.5 text-left text-xs font-semibold text-indigo-600 uppercase tracking-wider">New Sub Date</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <tr v-for="diff in ticketDiffs" :key="diff.voId"
+                  @click="diff.selected = !diff.selected"
+                  class="cursor-pointer transition"
+                  :class="diff.selected ? 'bg-indigo-50 hover:bg-indigo-100' : 'hover:bg-gray-50'">
+                  <td class="px-4 py-3 text-center" @click.stop>
+                    <input type="checkbox" v-model="diff.selected"
+                      class="w-4 h-4 rounded accent-indigo-600 cursor-pointer" />
+                  </td>
+                  <td class="px-4 py-3 text-sm text-gray-700 max-w-xs">
+                    <div class="truncate" :title="diff.voDescription">{{ diff.voDescription }}</div>
+                  </td>
+                  <td class="px-4 py-3 text-sm font-semibold text-gray-900 text-right whitespace-nowrap">{{ formatCurrency(diff.voAmount) }}</td>
+                  <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{{ diff.currentTicketNumber || '—' }}</td>
+                  <td class="px-4 py-3">
+                    <span class="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 text-xs font-bold">{{ diff.newTicketNumber }}</span>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{{ ticketDisplayDate(diff.currentSubmissionDate) }}</td>
+                  <td class="px-4 py-3 text-sm font-semibold text-indigo-700 whitespace-nowrap">{{ ticketDisplayDate(diff.newSubmissionDate) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- â”€â”€ Backup & Restore Section â”€â”€ -->
     <!-- ── Top row: Export+Import + Template ── -->
     <div class="grid grid-cols-2 gap-4 items-start">
 
@@ -804,6 +964,52 @@
 
 
   </div>
+
+  <!-- Ticket import result modal -->
+  <div v-if="ticketResultModal.open" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/45" @click="closeTicketResultModal"></div>
+    <div class="relative w-full max-w-2xl bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center"
+            :class="ticketResultModal.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
+            <svg v-if="ticketResultModal.type === 'success'" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <h4 class="text-base font-bold text-gray-900">{{ ticketResultModal.title }}</h4>
+        </div>
+        <button @click="closeTicketResultModal" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="px-5 py-4 space-y-3">
+        <p class="text-sm text-gray-700">{{ ticketResultModal.message }}</p>
+        <div v-if="ticketResultModal.details.length > 0" class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <p class="text-xs font-semibold text-gray-700 mb-2">Details</p>
+          <ul class="space-y-1">
+            <li v-for="(line, idx) in ticketResultModal.details.slice(0, 12)" :key="idx" class="text-xs text-gray-600">
+              {{ line }}
+            </li>
+          </ul>
+          <p v-if="ticketResultModal.details.length > 12" class="text-xs text-gray-500 mt-2">
+            ... and {{ ticketResultModal.details.length - 12 }} more
+          </p>
+        </div>
+      </div>
+      <div class="px-5 py-3 border-t border-gray-100 flex justify-end">
+        <button @click="closeTicketResultModal"
+          class="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -811,7 +1017,7 @@ import { ref, computed } from 'vue'
 import { useVOStore } from '../stores/voStore'
 import { exportToExcel, exportToCSV } from '../utils/export'
 import { importFromFile } from '../utils/import'
-import { formatCurrency } from '../utils/formatters'
+import { formatCurrency, formatDate } from '../utils/formatters'
 import { clearAllData, bulkInsertVOs } from '../db/indexdb'
 import { BACKUP_VERSION, BACKUP_LOCAL_STORAGE_KEYS, downloadFullBackup } from '../utils/backup'
 import * as XLSX from 'xlsx'
@@ -1358,6 +1564,319 @@ const applyAmountUpdates = async () => {
   } finally {
     amtApplying.value = false
   }
+}
+
+// Ticket Update Import
+const ticketFileInput = ref(null)
+const ticketDragOver = ref(false)
+const ticketFileName = ref(null)
+const ticketError = ref(null)
+const ticketDiffs = ref([])
+const ticketWarnings = ref([])
+const ticketNoDiffs = ref(false)
+const ticketApplying = ref(false)
+const ticketResultModal = ref({
+  open: false,
+  type: 'success',
+  title: '',
+  message: '',
+  details: [],
+})
+
+const ticketSelectedCount = computed(() => ticketDiffs.value.filter(d => d.selected).length)
+
+const BASE_PO_CATEGORIES = new Set(['Site Survey', 'WOP', 'C&I', 'SAT&SIT', 'Snag Closure'])
+
+const closeTicketResultModal = () => {
+  ticketResultModal.value.open = false
+}
+
+const showTicketResultModal = ({ type = 'success', title, message, details = [] }) => {
+  ticketResultModal.value = {
+    open: true,
+    type,
+    title,
+    message,
+    details,
+  }
+}
+
+const normalizeImportText = (value) => String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+const normalizeTicketNumber = (value) => String(value ?? '').trim()
+
+const numberToYMD = ({ y, m, d }) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+
+const toYMD = (value) => {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const parseImportDateToYMD = (value) => {
+  if (value === null || value === undefined || value === '') return ''
+  if (typeof value === 'number') {
+    const parsed = XLSX.SSF.parse_date_code(value)
+    return parsed ? numberToYMD(parsed) : ''
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return toYMD(value)
+  const raw = String(value).trim()
+  if (!raw) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+  const parsed = new Date(raw)
+  return Number.isNaN(parsed.getTime()) ? '' : toYMD(parsed)
+}
+
+const parseImportAmount = (value) => {
+  if (value === null || value === undefined || value === '') return NaN
+  const normalized = String(value).replace(/[$,\s]/g, '')
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : NaN
+}
+
+const ticketDisplayDate = (value) => (value ? formatDate(value) : '—')
+
+const resolveImportedStatus = (vo, nextTicketNumber, nextTicketSubmissionDate) => {
+  if (vo.voStatus === 'rejected' || vo.voStatus === 'cancelled') return vo.voStatus
+  const isBasePO = BASE_PO_CATEGORIES.has(vo.voCategory?.trim())
+  const isBOQ = !isBasePO && (vo.boqRelated === true || vo.boqRelated === 'yes')
+  const hasPO = !!vo.poNumber?.trim()
+  if (isBOQ) return hasPO ? 'approved' : 'pending-approval'
+  if (isBasePO) return vo.voStatus
+  if (hasPO || vo.ticketApprovalDate) return 'approved'
+  if (nextTicketNumber?.trim() && nextTicketSubmissionDate && (vo.voStatus === 'draft' || vo.voStatus === 'pending-approval')) return 'submitted'
+  return vo.voStatus
+}
+
+const clearTicketImport = () => {
+  ticketFileName.value = null
+  ticketError.value = null
+  ticketDiffs.value = []
+  ticketWarnings.value = []
+  ticketNoDiffs.value = false
+  ticketApplying.value = false
+  if (ticketFileInput.value) ticketFileInput.value.value = ''
+}
+
+const parseTicketImportFile = async (file) => {
+  clearTicketImport()
+  ticketFileName.value = file.name
+
+  try {
+    const data = await file.arrayBuffer()
+    const wb = XLSX.read(data)
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
+    if (rows.length === 0) throw new Error('No data rows found in the file')
+
+    const normalizeHeader = (value) => String(value ?? '').trim().toLowerCase().replace(/\s+/g, '')
+    const getVal = (row, candidates) => {
+      for (const candidate of candidates) {
+        const key = Object.keys(row).find(k => normalizeHeader(k) === normalizeHeader(candidate))
+        if (key !== undefined && row[key] !== '') return row[key]
+      }
+      return null
+    }
+
+    const headers = Object.keys(rows[0]).map(normalizeHeader)
+    const hasColumn = (candidates) => candidates.some(c => headers.includes(normalizeHeader(c)))
+    if (!hasColumn(['VO Description', 'Description'])) throw new Error('File must contain "VO Description" column')
+    if (!hasColumn(['VO Amount', 'Amount'])) throw new Error('File must contain "VO Amount" column')
+    if (!hasColumn(['Ticket Submission Date'])) throw new Error('File must contain "Ticket Submission Date" column')
+    if (!hasColumn(['Ticket Number'])) throw new Error('File must contain "Ticket Number" column')
+
+    const descriptionMap = new Map()
+    const existingTicketOwners = new Map()
+    for (const vo of (store.vos.value || [])) {
+      const descriptionKey = normalizeImportText(vo.voDescription)
+      if (descriptionKey) {
+        if (!descriptionMap.has(descriptionKey)) descriptionMap.set(descriptionKey, [])
+        descriptionMap.get(descriptionKey).push(vo)
+      }
+      const ticketKey = normalizeTicketNumber(vo.ticketNumber).toLowerCase()
+      if (ticketKey && !existingTicketOwners.has(ticketKey)) existingTicketOwners.set(ticketKey, vo.id)
+    }
+
+    const incomingTicketOwners = new Map()
+    const diffs = []
+    const warnings = []
+
+    rows.forEach((row, idx) => {
+      const rowNo = idx + 2
+      const descriptionRaw = getVal(row, ['VO Description', 'Description'])
+      const amountRaw = getVal(row, ['VO Amount', 'Amount'])
+      const ticketNoRaw = getVal(row, ['Ticket Number'])
+      const submissionRaw = getVal(row, ['Ticket Submission Date'])
+
+      const description = String(descriptionRaw ?? '').trim()
+      const ticketNumber = normalizeTicketNumber(ticketNoRaw)
+      const amount = parseImportAmount(amountRaw)
+      const submissionYMD = parseImportDateToYMD(submissionRaw)
+
+      if (!description) {
+        warnings.push({ row: rowNo, error: 'Missing VO Description' })
+        return
+      }
+      if (!ticketNumber) {
+        warnings.push({ row: rowNo, error: 'Missing Ticket Number' })
+        return
+      }
+      if (!submissionYMD) {
+        warnings.push({ row: rowNo, error: 'Invalid Ticket Submission Date' })
+        return
+      }
+      if (Number.isNaN(amount)) {
+        warnings.push({ row: rowNo, error: 'Invalid VO Amount' })
+        return
+      }
+
+      const descriptionKey = normalizeImportText(description)
+      const matches = descriptionMap.get(descriptionKey) || []
+      if (matches.length === 0) {
+        warnings.push({ row: rowNo, error: `No VO found for description "${description}"` })
+        return
+      }
+      if (matches.length > 1) {
+        warnings.push({ row: rowNo, error: `Multiple VOs found for description "${description}"` })
+        return
+      }
+
+      const vo = matches[0]
+      if (Math.abs((vo.voAmount || 0) - amount) > 0.01) {
+        warnings.push({ row: rowNo, error: `Amount mismatch for "${description}"` })
+        return
+      }
+
+      const ticketKey = ticketNumber.toLowerCase()
+      const existingOwner = existingTicketOwners.get(ticketKey)
+      if (existingOwner && existingOwner !== vo.id) {
+        warnings.push({ row: rowNo, error: `Ticket Number "${ticketNumber}" already exists on another VO` })
+        return
+      }
+      const incomingOwner = incomingTicketOwners.get(ticketKey)
+      if (incomingOwner && incomingOwner !== vo.id) {
+        warnings.push({ row: rowNo, error: `Ticket Number "${ticketNumber}" is duplicated in import file` })
+        return
+      }
+      incomingTicketOwners.set(ticketKey, vo.id)
+
+      if (diffs.some(d => d.voId === vo.id)) {
+        warnings.push({ row: rowNo, error: `Duplicate description row for "${description}" in import file` })
+        return
+      }
+
+      const currentTicketNumber = normalizeTicketNumber(vo.ticketNumber)
+      const currentSubmissionDate = toYMD(vo.ticketSubmissionDate)
+      if (currentTicketNumber === ticketNumber && currentSubmissionDate === submissionYMD) {
+        warnings.push({ row: rowNo, error: `No change needed for "${description}"` })
+        return
+      }
+
+      diffs.push({
+        voId: vo.id,
+        voDescription: vo.voDescription || description,
+        voAmount: vo.voAmount || 0,
+        currentTicketNumber,
+        newTicketNumber: ticketNumber,
+        currentSubmissionDate,
+        newSubmissionDate: submissionYMD,
+        selected: true,
+      })
+    })
+
+    ticketWarnings.value = warnings
+    if (diffs.length === 0) ticketNoDiffs.value = true
+    else ticketDiffs.value = diffs
+  } catch (err) {
+    ticketError.value = err.message
+    ticketFileName.value = null
+    showTicketResultModal({
+      type: 'error',
+      title: 'Ticket import failed',
+      message: err.message,
+      details: [],
+    })
+  }
+}
+
+const handleTicketFileSelect = (e) => {
+  const file = e.target.files?.[0]
+  if (file) parseTicketImportFile(file)
+}
+
+const onTicketDrop = (e) => {
+  ticketDragOver.value = false
+  const file = e.dataTransfer.files?.[0]
+  if (file) parseTicketImportFile(file)
+}
+
+const applyTicketUpdates = async () => {
+  const toUpdate = ticketDiffs.value.filter(d => d.selected)
+  if (toUpdate.length === 0) return
+  ticketApplying.value = true
+
+  let updatedCount = 0
+  const applyErrors = []
+  const parseSkippedCount = ticketWarnings.value.length
+
+  try {
+    for (const diff of toUpdate) {
+      try {
+        const vo = (store.vos.value || []).find(v => v.id === diff.voId)
+        if (!vo) {
+          applyErrors.push(`VO not found for "${diff.voDescription}"`)
+          continue
+        }
+        const nextStatus = resolveImportedStatus(vo, diff.newTicketNumber, diff.newSubmissionDate)
+        await store.editVO(diff.voId, {
+          ...vo,
+          ticketNumber: diff.newTicketNumber,
+          ticketSubmissionDate: new Date(diff.newSubmissionDate),
+          voStatus: nextStatus,
+        })
+        updatedCount += 1
+      } catch (err) {
+        applyErrors.push(`${diff.voDescription}: ${err.message}`)
+      }
+    }
+
+    const summary = `${updatedCount} row${updatedCount !== 1 ? 's' : ''} updated. ${parseSkippedCount} row${parseSkippedCount !== 1 ? 's were' : ' was'} skipped during parse.`
+    if (updatedCount > 0 && applyErrors.length === 0) {
+      showTicketResultModal({
+        type: 'success',
+        title: 'Ticket import completed',
+        message: summary,
+        details: ticketWarnings.value.map(w => `Row ${w.row}: ${w.error}`),
+      })
+      clearTicketImport()
+      return
+    }
+
+    showTicketResultModal({
+      type: 'error',
+      title: updatedCount > 0 ? 'Ticket import partially completed' : 'Ticket import failed',
+      message: summary,
+      details: [
+        ...applyErrors,
+        ...ticketWarnings.value.map(w => `Row ${w.row}: ${w.error}`),
+      ],
+    })
+
+    if (updatedCount > 0) clearTicketImport()
+  } finally {
+    ticketApplying.value = false
+  }
+}
+
+const downloadTicketTemplate = () => {
+  const headers = ['VO Description', 'VO Amount', 'Ticket Submission Date', 'Ticket Number']
+  const sample = ['Example VO description', '5000', '2026-05-14', 'TK-12345']
+  const note = ['Match existing description exactly', 'Must match existing amount', 'Use YYYY-MM-DD', 'Must be unique']
+  const ws = XLSX.utils.aoa_to_sheet([headers, sample, note])
+  ws['!cols'] = [{ wch: 36 }, { wch: 14 }, { wch: 22 }, { wch: 18 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Ticket Update Import')
+  XLSX.writeFile(wb, 'Ticket_Update_Import_Template.xlsx')
 }
 
 const downloadAmountTemplate = () => {

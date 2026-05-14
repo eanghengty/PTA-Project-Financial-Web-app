@@ -5,6 +5,19 @@ Format: `## YYYY-MM-DD — <summary>` with sub-sections for **Added**, **Fixed**
 
 ---
 
+## 2026-05-14 - Ticket update import in Import/Export
+
+### Added
+- **Ticket Update Import workflow** (`ImportExport.vue`): added a dedicated bulk-update tool for ticket fields in Import/Export with file upload (`.xlsx/.xls/.csv`), row diff preview, multi-select (`Select All` / `Clear`), and apply-selected updates.
+- **Ticket update template download** (`ImportExport.vue`): added `Ticket_Update_Import_Template.xlsx` with required columns `VO Description`, `VO Amount`, `Ticket Submission Date`, and `Ticket Number`.
+- **Ticket import result modal** (`ImportExport.vue`): added modal outcomes for `success`, `partial`, and `failed` runs with row-level detail lines.
+
+### Changed
+- **Ticket import validation and matching rules** (`ImportExport.vue`): rows now match by VO description (case-insensitive, trimmed), require amount parity against existing `voAmount` (tolerance 0.01), and enforce ticket-number uniqueness across both existing VOs and the incoming file.
+- **Ticket import apply behavior** (`ImportExport.vue`): selected rows update `ticketNumber` and `ticketSubmissionDate` through `store.editVO`; `rejected` and `cancelled` statuses remain protected, while other rows follow existing Base PO / BOQ / standard status logic.
+
+---
+
 ## 2026-05-12 - P&L split not-yet columns and expanded export actions
 
 ### Added
