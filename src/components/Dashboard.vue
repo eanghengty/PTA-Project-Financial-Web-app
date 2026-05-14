@@ -252,13 +252,13 @@
             </div>
           </div>
           <!-- Site rows -->
-          <table class="w-full text-xs">
+          <table class="w-full text-xs table-fixed">
             <thead class="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-20">Site ID</th>
-                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Site Name</th>
-                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Job No.</th>
-                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider">Description</th>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-36">Site Name</th>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-28">Job No.</th>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-48">Description</th>
                 <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-28">PO Number</th>
                 <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-36">Invoice Status</th>
                 <th class="px-4 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider w-28">Amount</th>
@@ -301,6 +301,204 @@
         <div class="px-5 py-3 bg-amber-50 border-t border-amber-200 flex items-center justify-between">
           <span class="text-xs font-bold text-amber-700 uppercase tracking-wider">Grand Total</span>
           <span class="text-sm font-bold text-amber-800">{{ formatCompact(satSitNotYetInvoiced.totalAmount) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── WOP Not Yet Invoiced by Site ── -->
+    <div v-if="wopNotYetInvoiced.totalCount > 0" class="bg-white rounded-xl border border-amber-200 overflow-hidden">
+      <!-- Clickable header -->
+      <div @click="wopOpen = !wopOpen"
+        class="flex items-center justify-between px-5 py-4 cursor-pointer select-none transition"
+        :class="wopOpen ? 'bg-amber-50/60 border-b border-amber-100' : 'hover:bg-amber-50/40'">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-gray-700">WOP — Not Yet Invoiced by Site</h3>
+            <p class="text-xs text-gray-400">Base PO · WOP category · invoiceStatus ≠ SIT Completed — grouped by scope, sorted by Site ID</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+          <div class="flex flex-col items-end px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-lg">
+            <span class="text-sm font-bold text-amber-700">{{ formatCompact(wopNotYetInvoiced.totalAmount) }}</span>
+            <span class="text-[10px] text-amber-400 uppercase tracking-wider">Total Amount</span>
+          </div>
+          <div class="flex flex-col items-end px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg">
+            <span class="text-sm font-bold text-gray-700">{{ wopNotYetInvoiced.totalCount }}</span>
+            <span class="text-[10px] text-gray-400 uppercase tracking-wider">Sites</span>
+          </div>
+          <svg class="w-4 h-4 text-gray-400 transition-transform ml-1 shrink-0"
+            :class="wopOpen ? 'rotate-180' : ''"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Collapsible body -->
+      <div v-show="wopOpen" class="divide-y divide-amber-50">
+        <div v-for="group in wopNotYetInvoiced.byScope" :key="group.scope">
+          <!-- Scope header -->
+          <div class="px-5 py-2 bg-amber-50/60 flex items-center justify-between">
+            <span class="text-xs font-bold text-amber-700 uppercase tracking-wider">{{ group.scope }}</span>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-gray-500">{{ group.items.length }} site{{ group.items.length !== 1 ? 's' : '' }}</span>
+              <span class="text-xs font-semibold text-amber-700">{{ formatCompact(group.total) }}</span>
+            </div>
+          </div>
+          <!-- Site rows -->
+          <table class="w-full text-xs table-fixed">
+            <thead class="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-20">Site ID</th>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-36">Site Name</th>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-28">Job No.</th>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-48">Description</th>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-28">PO Number</th>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-36">Invoice Status</th>
+                <th class="px-4 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider w-28">Amount</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              <tr v-for="vo in group.items" :key="vo.id" class="hover:bg-amber-50/30 transition">
+                <td class="px-4 py-2.5">
+                  <span class="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-semibold">{{ vo.siteId || '—' }}</span>
+                </td>
+                <td class="px-4 py-2.5 text-gray-700 font-medium truncate max-w-[140px]" :title="vo.siteName">{{ vo.siteName || '—' }}</td>
+                <td class="px-4 py-2.5 font-mono text-gray-400">{{ vo.jobNumber || '—' }}</td>
+                <td class="px-4 py-2.5 text-gray-600 truncate max-w-[200px]" :title="vo.voDescription">{{ vo.voDescription || '—' }}</td>
+                <td class="px-4 py-2.5">
+                  <span v-if="vo.poNumber" class="font-mono text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">{{ vo.poNumber }}</span>
+                  <span v-else class="text-gray-300">—</span>
+                </td>
+                <td class="px-4 py-2.5">
+                  <span v-if="vo.invoiceStatus" class="px-2 py-0.5 rounded-full font-semibold text-[10px]"
+                    :class="vo.invoiceStatus === 'To Be Sent to Nokia' ? 'bg-indigo-100 text-indigo-700'
+                      : vo.invoiceStatus === 'SIT Approved' ? 'bg-yellow-100 text-yellow-700'
+                      : vo.invoiceStatus === 'Request to Nokia' ? 'bg-blue-100 text-blue-700'
+                      : 'bg-gray-100 text-gray-500'">
+                    {{ vo.invoiceStatus }}
+                  </span>
+                  <span v-else class="text-gray-300">Not Set</span>
+                </td>
+                <td class="px-4 py-2.5 text-right font-semibold text-gray-800">{{ formatCompact(vo.voAmount || 0) }}</td>
+              </tr>
+            </tbody>
+            <tfoot class="border-t border-amber-100 bg-amber-50/40">
+              <tr>
+                <td colspan="6" class="px-4 py-1.5 text-right text-xs font-bold text-amber-600 uppercase tracking-wider">Scope Total</td>
+                <td class="px-4 py-1.5 text-right text-xs font-bold text-amber-700">{{ formatCompact(group.total) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <!-- Grand total footer -->
+        <div class="px-5 py-3 bg-amber-50 border-t border-amber-200 flex items-center justify-between">
+          <span class="text-xs font-bold text-amber-700 uppercase tracking-wider">Grand Total</span>
+          <span class="text-sm font-bold text-amber-800">{{ formatCompact(wopNotYetInvoiced.totalAmount) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Site Survey Not Yet Invoiced by Site ── -->
+    <div v-if="siteSurveyNotYetInvoiced.totalCount > 0" class="bg-white rounded-xl border border-amber-200 overflow-hidden">
+      <!-- Clickable header -->
+      <div @click="siteSurveyOpen = !siteSurveyOpen"
+        class="flex items-center justify-between px-5 py-4 cursor-pointer select-none transition"
+        :class="siteSurveyOpen ? 'bg-amber-50/60 border-b border-amber-100' : 'hover:bg-amber-50/40'">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-gray-700">Site Survey — Not Yet Invoiced by Site</h3>
+            <p class="text-xs text-gray-400">Base PO · Site Survey category · invoiceStatus ≠ SIT Completed — grouped by scope, sorted by Site ID</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+          <div class="flex flex-col items-end px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-lg">
+            <span class="text-sm font-bold text-amber-700">{{ formatCompact(siteSurveyNotYetInvoiced.totalAmount) }}</span>
+            <span class="text-[10px] text-amber-400 uppercase tracking-wider">Total Amount</span>
+          </div>
+          <div class="flex flex-col items-end px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg">
+            <span class="text-sm font-bold text-gray-700">{{ siteSurveyNotYetInvoiced.totalCount }}</span>
+            <span class="text-[10px] text-gray-400 uppercase tracking-wider">Sites</span>
+          </div>
+          <svg class="w-4 h-4 text-gray-400 transition-transform ml-1 shrink-0"
+            :class="siteSurveyOpen ? 'rotate-180' : ''"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Collapsible body -->
+      <div v-show="siteSurveyOpen" class="divide-y divide-amber-50">
+        <div v-for="group in siteSurveyNotYetInvoiced.byScope" :key="group.scope">
+          <!-- Scope header -->
+          <div class="px-5 py-2 bg-amber-50/60 flex items-center justify-between">
+            <span class="text-xs font-bold text-amber-700 uppercase tracking-wider">{{ group.scope }}</span>
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-gray-500">{{ group.items.length }} site{{ group.items.length !== 1 ? 's' : '' }}</span>
+              <span class="text-xs font-semibold text-amber-700">{{ formatCompact(group.total) }}</span>
+            </div>
+          </div>
+          <!-- Site rows -->
+          <table class="w-full text-xs table-fixed">
+            <thead class="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-20">Site ID</th>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-36">Site Name</th>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-28">Job No.</th>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-48">Description</th>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-28">PO Number</th>
+                <th class="px-4 py-2 text-left font-semibold text-gray-500 uppercase tracking-wider w-36">Invoice Status</th>
+                <th class="px-4 py-2 text-right font-semibold text-gray-500 uppercase tracking-wider w-28">Amount</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              <tr v-for="vo in group.items" :key="vo.id" class="hover:bg-amber-50/30 transition">
+                <td class="px-4 py-2.5">
+                  <span class="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-semibold">{{ vo.siteId || '—' }}</span>
+                </td>
+                <td class="px-4 py-2.5 text-gray-700 font-medium truncate max-w-[140px]" :title="vo.siteName">{{ vo.siteName || '—' }}</td>
+                <td class="px-4 py-2.5 font-mono text-gray-400">{{ vo.jobNumber || '—' }}</td>
+                <td class="px-4 py-2.5 text-gray-600 truncate max-w-[200px]" :title="vo.voDescription">{{ vo.voDescription || '—' }}</td>
+                <td class="px-4 py-2.5">
+                  <span v-if="vo.poNumber" class="font-mono text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">{{ vo.poNumber }}</span>
+                  <span v-else class="text-gray-300">—</span>
+                </td>
+                <td class="px-4 py-2.5">
+                  <span v-if="vo.invoiceStatus" class="px-2 py-0.5 rounded-full font-semibold text-[10px]"
+                    :class="vo.invoiceStatus === 'To Be Sent to Nokia' ? 'bg-indigo-100 text-indigo-700'
+                      : vo.invoiceStatus === 'SIT Approved' ? 'bg-yellow-100 text-yellow-700'
+                      : vo.invoiceStatus === 'Request to Nokia' ? 'bg-blue-100 text-blue-700'
+                      : 'bg-gray-100 text-gray-500'">
+                    {{ vo.invoiceStatus }}
+                  </span>
+                  <span v-else class="text-gray-300">Not Set</span>
+                </td>
+                <td class="px-4 py-2.5 text-right font-semibold text-gray-800">{{ formatCompact(vo.voAmount || 0) }}</td>
+              </tr>
+            </tbody>
+            <tfoot class="border-t border-amber-100 bg-amber-50/40">
+              <tr>
+                <td colspan="6" class="px-4 py-1.5 text-right text-xs font-bold text-amber-600 uppercase tracking-wider">Scope Total</td>
+                <td class="px-4 py-1.5 text-right text-xs font-bold text-amber-700">{{ formatCompact(group.total) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <!-- Grand total footer -->
+        <div class="px-5 py-3 bg-amber-50 border-t border-amber-200 flex items-center justify-between">
+          <span class="text-xs font-bold text-amber-700 uppercase tracking-wider">Grand Total</span>
+          <span class="text-sm font-bold text-amber-800">{{ formatCompact(siteSurveyNotYetInvoiced.totalAmount) }}</span>
         </div>
       </div>
     </div>
@@ -2399,6 +2597,8 @@ function voMatchesSiteFilter(vo) {
 const poInvoiceOpen  = ref(false)  // PO & Invoice Summary collapsed by default
 const basePOOpen     = ref(false)  // Base PO Summary collapsed by default
 const satSitOpen     = ref(false)  // SAT&SIT Not Yet Invoiced collapsed by default
+const wopOpen        = ref(false)  // WOP Not Yet Invoiced collapsed by default
+const siteSurveyOpen = ref(false)  // Site Survey Not Yet Invoiced collapsed by default
 const snagCiOpen     = ref(false)  // Snag Closure & C&I Not Yet Invoiced collapsed by default
 const notYetInvScope = ref(null)   // selected scope row for drill-down modal
 const notYetInvType  = ref(null)   // 'vo' | 'boq' | 'basePO' | null (all)
@@ -2621,10 +2821,9 @@ const basePOTotals = computed(() => basePOByScope.value.reduce(
   { total: 0, havePO: 0, noPO: 0, count: 0 }
 ))
 
-// ── SAT&SIT Not Yet Invoiced ──
-const satSitNotYetInvoiced = computed(() => {
+const buildBasePOCategoryNotYetInvoiced = (categoryName) => computed(() => {
   const items = basePOItems.value.filter(vo =>
-    vo.voCategory?.trim() === 'SAT&SIT' &&
+    vo.voCategory?.trim() === categoryName &&
     !(vo.invoiceStatus === 'SIT Completed' && !!vo.invoiceDate)
   )
   const sortBySiteId = (arr) =>
@@ -2637,6 +2836,7 @@ const satSitNotYetInvoiced = computed(() => {
     scopeMap[scope].items.push(vo)
     scopeMap[scope].total += vo.voAmount || 0
   }
+
   const byScope = Object.values(scopeMap)
     .sort((a, b) => a.scope.localeCompare(b.scope))
     .map(g => ({ ...g, items: sortBySiteId(g.items) }))
@@ -2647,6 +2847,10 @@ const satSitNotYetInvoiced = computed(() => {
     totalAmount: items.reduce((s, v) => s + (v.voAmount || 0), 0),
   }
 })
+
+const satSitNotYetInvoiced = buildBasePOCategoryNotYetInvoiced('SAT&SIT')
+const wopNotYetInvoiced = buildBasePOCategoryNotYetInvoiced('WOP')
+const siteSurveyNotYetInvoiced = buildBasePOCategoryNotYetInvoiced('Site Survey')
 
 // ── Snag Closure & C&I Not Yet Invoiced ──
 const snagCiNotYetInvoiced = computed(() => {

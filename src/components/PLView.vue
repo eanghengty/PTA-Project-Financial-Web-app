@@ -26,14 +26,43 @@
           <option value="">Select month</option>
           <option v-for="month in costToCompleteMonths" :key="month.value" :value="month.value">{{ month.label }}</option>
         </select>
-        <button @click="exportToExcel"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition shadow-sm">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          Export
-        </button>
+        <div class="relative" ref="exportMenuRootRef">
+          <button ref="exportBtnRef" @click.stop="toggleExportMenu"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            Export
+            <svg class="w-3.5 h-3.5 transition-transform" :class="showExportMenu ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+
+          <div v-if="showExportMenu" class="absolute right-0 z-50 mt-2 w-72 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+            <button @click="exportToExcel(); showExportMenu = false"
+              class="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition text-left">
+              <svg class="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              <div>
+                <p class="text-sm font-semibold text-gray-800">Export Default (.xlsx)</p>
+                <p class="text-xs text-gray-400 mt-0.5">Current P&amp;L data export</p>
+              </div>
+            </button>
+            <div class="border-t border-gray-100 mx-1"></div>
+            <button @click="exportStyledTableView(); showExportMenu = false"
+              class="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition text-left">
+              <svg class="w-4 h-4 text-blue-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/>
+              </svg>
+              <div>
+                <p class="text-sm font-semibold text-gray-800">Export Current View Styled (.xls)</p>
+                <p class="text-xs text-gray-400 mt-0.5">Filtered + sorted table with visual styling</p>
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -124,8 +153,8 @@
         <span class="text-sm text-gray-400 whitespace-nowrap">{{ filteredRows.length }} row{{ filteredRows.length !== 1 ? 's' : '' }}</span>
       </div>
 
-      <div class="overflow-auto" style="max-height: calc(100vh - 360px);">
-        <table class="border-collapse w-full" style="min-width: 2150px;">
+      <div ref="plTableRef" class="overflow-auto" style="max-height: calc(100vh - 360px);">
+        <table class="border-collapse w-full" style="min-width: 2520px;">
           <thead class="sticky top-0 z-40">
             <tr>
               <th v-for="col in columns" :key="col.key"
@@ -161,7 +190,14 @@
                 <div class="max-w-[220px] truncate" :title="row.scopeLabel">{{ row.scopeLabel || '-' }}</div>
               </td>
               <td class="px-5 py-3.5 text-xs text-right text-gray-500 whitespace-nowrap">{{ row.voCount }} VO{{ row.voCount !== 1 ? 's' : '' }}</td>
-              <td class="px-5 py-3.5 text-sm text-right font-bold text-blue-700 whitespace-nowrap">{{ formatCurrency(row.totalVOAmount) }}</td>
+              <td class="px-5 py-3.5 text-sm text-right whitespace-nowrap">
+                <button @click.stop="openDetail(row, 'totalVO')"
+                  :disabled="row.vos.length === 0"
+                  class="font-bold text-blue-700 rounded-lg px-2 py-1 transition"
+                  :class="row.vos.length ? 'hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 cursor-pointer' : 'opacity-40 cursor-default'">
+                  {{ formatCurrency(row.totalVOAmount) }}
+                </button>
+              </td>
               <td class="px-5 py-3.5 text-sm text-right whitespace-nowrap">
                 <button @click.stop="openCategoryDetail(row, 'service')"
                   :disabled="row.serviceItems.length === 0"
@@ -187,6 +223,14 @@
                 </button>
               </td>
               <td class="px-5 py-3.5 text-sm text-right whitespace-nowrap">
+                <button @click.stop="openCategoryDetail(row, 'basePO')"
+                  :disabled="row.basePOItems.length === 0"
+                  class="font-semibold text-amber-700 rounded-lg px-2 py-1 transition"
+                  :class="row.basePOItems.length ? 'hover:bg-amber-50 hover:ring-1 hover:ring-amber-200 cursor-pointer' : 'opacity-40 cursor-default'">
+                  {{ row.basePOAmount > 0 ? formatCurrency(row.basePOAmount) : '-' }}
+                </button>
+              </td>
+              <td class="px-5 py-3.5 text-sm text-right whitespace-nowrap">
                 <button @click.stop="openDetail(row, 'invoiced')"
                   :disabled="row.invoiceItems.length === 0"
                   class="font-bold text-green-700 rounded-lg px-2 py-1 transition"
@@ -200,6 +244,22 @@
                   class="font-semibold text-orange-600 rounded-lg px-2 py-1 transition"
                   :class="row.notYetInvoiceItems.length ? 'hover:bg-orange-50 hover:ring-1 hover:ring-orange-200 cursor-pointer' : 'opacity-40 cursor-default'">
                   {{ formatCurrency(row.notYetInvoiceAmount) }}
+                </button>
+              </td>
+              <td class="px-5 py-3.5 text-sm text-right whitespace-nowrap">
+                <button @click.stop="openDetail(row, 'notYetHavePO')"
+                  :disabled="row.notYetInvoiceHavePOItems.length === 0"
+                  class="font-semibold text-teal-700 rounded-lg px-2 py-1 transition"
+                  :class="row.notYetInvoiceHavePOItems.length ? 'hover:bg-teal-50 hover:ring-1 hover:ring-teal-200 cursor-pointer' : 'opacity-40 cursor-default'">
+                  {{ formatCurrency(row.notYetInvoiceHavePOAmount) }}
+                </button>
+              </td>
+              <td class="px-5 py-3.5 text-sm text-right whitespace-nowrap">
+                <button @click.stop="openDetail(row, 'notYetNoPO')"
+                  :disabled="row.notYetInvoiceNoPOItems.length === 0"
+                  class="font-semibold text-gray-700 rounded-lg px-2 py-1 transition"
+                  :class="row.notYetInvoiceNoPOItems.length ? 'hover:bg-gray-50 hover:ring-1 hover:ring-gray-200 cursor-pointer' : 'opacity-40 cursor-default'">
+                  {{ formatCurrency(row.notYetInvoiceNoPOAmount) }}
                 </button>
               </td>
               <td class="px-5 py-3.5 text-sm text-right font-semibold whitespace-nowrap"
@@ -242,8 +302,11 @@
               <td class="px-5 py-3 text-sm text-right font-bold text-blue-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.serviceAmount) }}</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-sky-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.thirdPartyAmount) }}</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-emerald-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.boqAmount) }}</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-amber-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.basePOAmount) }}</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-green-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.invoiceAmount) }}</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-orange-600 whitespace-nowrap">{{ formatCurrency(filteredTotals.notYetInvoiceAmount) }}</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-teal-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.notYetInvoiceHavePOAmount) }}</td>
+              <td class="px-5 py-3 text-sm text-right font-bold text-gray-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.notYetInvoiceNoPOAmount) }}</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-violet-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.labourCost) }}</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-blue-700 whitespace-nowrap">{{ formatCurrency(filteredTotals.thirdPartyCost) }}</td>
               <td class="px-5 py-3 text-sm text-right font-bold text-gray-900 whitespace-nowrap">{{ formatCurrency(filteredTotals.costToDate) }}</td>
@@ -262,7 +325,7 @@
         <div class="absolute inset-0 bg-black/40" @click="categoryDrawer = null"></div>
         <div class="relative ml-auto h-full w-full max-w-5xl bg-white shadow-2xl flex flex-col">
           <div class="px-6 py-4 border-b border-gray-100 shrink-0"
-            :class="categoryDrawer.type === 'boq' ? 'bg-emerald-700' : categoryDrawer.type === 'thirdParty' ? 'bg-sky-700' : 'bg-blue-700'">
+            :class="categoryDrawer.type === 'boq' ? 'bg-emerald-700' : categoryDrawer.type === 'thirdParty' ? 'bg-sky-700' : categoryDrawer.type === 'basePO' ? 'bg-amber-700' : 'bg-blue-700'">
             <div class="flex items-start justify-between gap-4">
               <div>
                 <h3 class="text-base font-bold text-white">{{ categoryDrawer.title }}</h3>
@@ -270,12 +333,21 @@
                   {{ categoryDrawer.row.siteId || '-' }} · {{ categoryDrawer.row.siteName || '-' }} · Job {{ categoryDrawer.row.jobNumber || '-' }}
                 </p>
               </div>
-              <button @click="categoryDrawer = null"
-                class="w-8 h-8 flex items-center justify-center rounded-xl bg-white/15 text-white hover:bg-white/25 transition">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
+              <div class="flex items-center gap-2">
+                <button @click="exportCategoryDetail()"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 text-white text-xs font-semibold hover:bg-white/25 transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  Export
+                </button>
+                <button @click="categoryDrawer = null"
+                  class="w-8 h-8 flex items-center justify-center rounded-xl bg-white/15 text-white hover:bg-white/25 transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -287,7 +359,7 @@
             <div class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-100 rounded-xl">
               <span class="text-xs text-gray-500">Total</span>
               <span class="text-sm font-bold"
-                :class="categoryDrawer.type === 'boq' ? 'text-emerald-700' : categoryDrawer.type === 'thirdParty' ? 'text-sky-700' : 'text-blue-700'">
+                :class="categoryDrawer.type === 'boq' ? 'text-emerald-700' : categoryDrawer.type === 'thirdParty' ? 'text-sky-700' : categoryDrawer.type === 'basePO' ? 'text-amber-700' : 'text-blue-700'">
                 {{ formatCurrency(categoryDrawer.total) }}
               </span>
             </div>
@@ -301,6 +373,7 @@
                   <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Category</th>
                   <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Scope</th>
                   <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">PO Number</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Ticket Number</th>
                   <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Invoice Status</th>
                   <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Invoice Date</th>
                   <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-right text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Amount</th>
@@ -315,6 +388,10 @@
                   <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.scope || '-' }}</td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <span v-if="vo.poNumber" class="font-mono text-xs text-teal-700 bg-teal-50 px-2 py-0.5 rounded">{{ vo.poNumber }}</span>
+                    <span v-else class="text-gray-300 text-xs">-</span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span v-if="vo.ticketNumber" class="font-mono text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">{{ vo.ticketNumber }}</span>
                     <span v-else class="text-gray-300 text-xs">-</span>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
@@ -368,14 +445,21 @@
                 {{ formatCurrency(detailModal.total) }}
               </span>
             </div>
-            <div v-if="detailModal.type === 'notYet'" class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-teal-100 rounded-xl">
+            <div v-if="detailModal.type === 'notYet' || detailModal.type === 'notYetHavePO'" class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-teal-100 rounded-xl">
               <span class="text-xs text-gray-500">Has PO</span>
               <span class="text-sm font-bold text-teal-700">{{ formatCurrency(detailModal.havePO) }}</span>
             </div>
-            <div v-if="detailModal.type === 'notYet'" class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-xl">
+            <div v-if="detailModal.type === 'notYet' || detailModal.type === 'notYetNoPO'" class="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-xl">
               <span class="text-xs text-gray-500">No PO</span>
               <span class="text-sm font-bold text-gray-700">{{ formatCurrency(detailModal.noPO) }}</span>
             </div>
+            <button @click="exportDetailModalItems()"
+              class="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition">
+              <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              Export
+            </button>
           </div>
 
           <div class="flex-1 overflow-auto">
@@ -386,6 +470,7 @@
                   <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Category</th>
                   <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Scope</th>
                   <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">PO Number</th>
+                  <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Ticket Number</th>
                   <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Invoice Status</th>
                   <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Invoice Date</th>
                   <th class="px-4 py-3 bg-gray-100 border-b border-gray-200 text-right text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Amount</th>
@@ -400,6 +485,10 @@
                   <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.scope || '-' }}</td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <span v-if="vo.poNumber" class="font-mono text-xs text-teal-700 bg-teal-50 px-2 py-0.5 rounded">{{ vo.poNumber }}</span>
+                    <span v-else class="text-gray-300 text-xs">-</span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span v-if="vo.ticketNumber" class="font-mono text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">{{ vo.ticketNumber }}</span>
                     <span v-else class="text-gray-300 text-xs">-</span>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
@@ -449,6 +538,10 @@ const selectedScopes = ref(new Set())
 const includeCostToComplete = ref(false)
 const costToCompleteMonth = ref('')
 const siteStatusRevision = ref(0)
+const showExportMenu = ref(false)
+const exportBtnRef = ref(null)
+const exportMenuRootRef = ref(null)
+const plTableRef = ref(null)
 
 const MANUAL_DEDUCTION_KEY = 'plManualDeductions'
 const MANUAL_COMMENT_KEY = 'plManualComments'
@@ -478,8 +571,11 @@ const columns = [
   { key: 'serviceAmount',       label: 'VO Service',              align: 'right' },
   { key: 'thirdPartyAmount',    label: 'VO 3rd Party',            align: 'right' },
   { key: 'boqAmount',           label: 'BOQ Related',             align: 'right' },
+  { key: 'basePOAmount',        label: 'Base PO',                 align: 'right' },
   { key: 'invoiceAmount',       label: 'Total Invoice Amount',    align: 'right' },
   { key: 'notYetInvoiceAmount', label: 'Not Yet Invoice Amount',  align: 'right' },
+  { key: 'notYetInvoiceHavePOAmount', label: 'Not Yet Inv. (Have PO)', align: 'right' },
+  { key: 'notYetInvoiceNoPOAmount',   label: 'Not Yet Inv. (No PO)',   align: 'right' },
   { key: 'labourCost',          label: 'Labour Cost',             align: 'right' },
   { key: 'thirdPartyCost',      label: 'Third Party Cost',        align: 'right' },
   { key: 'costToDate',          label: 'Cost to Date',            align: 'right' },
@@ -578,24 +674,42 @@ const plRows = computed(() => {
     map.set(key, existing)
   }
 
-  return [...map.values()].map(row => ({
-    ...row,
-    scopeList: [...row.scopes].sort((a, b) => a.localeCompare(b)),
-    scopeLabel: [...row.scopes].sort((a, b) => a.localeCompare(b)).join(', '),
-    manualComment: manualComments.value[row.costKey] || '',
-    serviceItems: row.vos.filter(isStandardService),
-    thirdPartyItems: row.vos.filter(isStandardThirdParty),
-    boqItems: row.vos.filter(isBOQ),
-    serviceAmount: row.vos.filter(isStandardService).reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
-    thirdPartyAmount: row.vos.filter(isStandardThirdParty).reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
-    boqAmount: row.vos.filter(isBOQ).reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
-    invoiceItems: row.vos.filter(vo => vo.invoiceStatus === 'SIT Completed' && !!vo.invoiceDate),
-    notYetInvoiceItems: row.vos.filter(vo => !(vo.invoiceStatus === 'SIT Completed' && !!vo.invoiceDate)),
-    notYetInvoiceAmount: row.totalVOAmount - row.invoiceAmount,
-    manualDeduction: Number(manualDeductions.value[row.costKey]) || 0,
-    costToComplete: costToCompleteBySiteJob.value[row.costKey] || 0,
-    profitLoss: row.totalVOAmount - row.costToDate - (Number(manualDeductions.value[row.costKey]) || 0) - (costToCompleteBySiteJob.value[row.costKey] || 0),
-  }))
+  return [...map.values()].map(row => {
+    const scopeList = [...row.scopes].sort((a, b) => a.localeCompare(b))
+    const serviceItems = row.vos.filter(isStandardService)
+    const thirdPartyItems = row.vos.filter(isStandardThirdParty)
+    const boqItems = row.vos.filter(isBOQ)
+    const basePOItems = row.vos.filter(isBasePO)
+    const invoiceItems = row.vos.filter(vo => vo.invoiceStatus === 'SIT Completed' && !!vo.invoiceDate)
+    const notYetInvoiceItems = row.vos.filter(vo => !(vo.invoiceStatus === 'SIT Completed' && !!vo.invoiceDate))
+    const notYetInvoiceHavePOItems = notYetInvoiceItems.filter(vo => !!vo.poNumber?.trim())
+    const notYetInvoiceNoPOItems = notYetInvoiceItems.filter(vo => !vo.poNumber?.trim())
+
+    return {
+      ...row,
+      scopeList,
+      scopeLabel: scopeList.join(', '),
+      manualComment: manualComments.value[row.costKey] || '',
+      serviceItems,
+      thirdPartyItems,
+      boqItems,
+      basePOItems,
+      serviceAmount: serviceItems.reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
+      thirdPartyAmount: thirdPartyItems.reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
+      boqAmount: boqItems.reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
+      basePOAmount: basePOItems.reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
+      invoiceItems,
+      notYetInvoiceItems,
+      notYetInvoiceHavePOItems,
+      notYetInvoiceNoPOItems,
+      notYetInvoiceAmount: row.totalVOAmount - row.invoiceAmount,
+      notYetInvoiceHavePOAmount: notYetInvoiceHavePOItems.reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
+      notYetInvoiceNoPOAmount: notYetInvoiceNoPOItems.reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
+      manualDeduction: Number(manualDeductions.value[row.costKey]) || 0,
+      costToComplete: costToCompleteBySiteJob.value[row.costKey] || 0,
+      profitLoss: row.totalVOAmount - row.costToDate - (Number(manualDeductions.value[row.costKey]) || 0) - (costToCompleteBySiteJob.value[row.costKey] || 0),
+    }
+  })
 })
 
 const siteOptions = computed(() =>
@@ -657,8 +771,11 @@ function summarize(rows) {
     acc.serviceAmount += row.serviceAmount
     acc.thirdPartyAmount += row.thirdPartyAmount
     acc.boqAmount += row.boqAmount
+    acc.basePOAmount += row.basePOAmount
     acc.invoiceAmount += row.invoiceAmount
     acc.notYetInvoiceAmount += row.notYetInvoiceAmount
+    acc.notYetInvoiceHavePOAmount += row.notYetInvoiceHavePOAmount
+    acc.notYetInvoiceNoPOAmount += row.notYetInvoiceNoPOAmount
     acc.labourCost += row.labourCost
     acc.thirdPartyCost += row.thirdPartyCost
     acc.costToDate += row.costToDate
@@ -672,8 +789,11 @@ function summarize(rows) {
     serviceAmount: 0,
     thirdPartyAmount: 0,
     boqAmount: 0,
+    basePOAmount: 0,
     invoiceAmount: 0,
     notYetInvoiceAmount: 0,
+    notYetInvoiceHavePOAmount: 0,
+    notYetInvoiceNoPOAmount: 0,
     labourCost: 0,
     thirdPartyCost: 0,
     costToDate: 0,
@@ -688,6 +808,7 @@ function openCategoryDetail(row, type) {
     service: { title: 'VO Service Detail', items: row.serviceItems },
     thirdParty: { title: 'VO 3rd Party Detail', items: row.thirdPartyItems },
     boq: { title: 'BOQ Related Detail', items: row.boqItems },
+    basePO: { title: 'Base PO Detail', items: row.basePOItems },
   }
   const config = map[type]
   if (!config?.items?.length) return
@@ -707,6 +828,10 @@ function toggleSort(key) {
     sortCol.value = key
     sortDir.value = 'asc'
   }
+}
+
+function toggleExportMenu() {
+  showExportMenu.value = !showExportMenu.value
 }
 
 function toggleSite(siteId) {
@@ -757,18 +882,223 @@ function setManualComment(rowKey, value) {
 }
 
 function openDetail(row, type) {
-  const isInvoiced = type === 'invoiced'
-  const items = isInvoiced ? row.invoiceItems : row.notYetInvoiceItems
+  const itemMap = {
+    totalVO: row.vos,
+    invoiced: row.invoiceItems,
+    notYet: row.notYetInvoiceItems,
+    notYetHavePO: row.notYetInvoiceHavePOItems,
+    notYetNoPO: row.notYetInvoiceNoPOItems,
+  }
+  const titleMap = {
+    totalVO: 'Total VO Amount Detail',
+    invoiced: 'Total Invoice Amount Detail',
+    notYet: 'Not Yet Invoice Amount Detail',
+    notYetHavePO: 'Not Yet Invoice (Have PO) Detail',
+    notYetNoPO: 'Not Yet Invoice (No PO) Detail',
+  }
+  const items = itemMap[type] || []
   if (!items.length) return
   detailModal.value = {
     row,
     type,
-    title: isInvoiced ? 'Total Invoice Amount Detail' : 'Not Yet Invoice Amount Detail',
+    title: titleMap[type] || 'Detail',
     items,
     total: items.reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
     havePO: items.filter(vo => vo.poNumber?.trim()).reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
     noPO: items.filter(vo => !vo.poNumber?.trim()).reduce((sum, vo) => sum + (Number(vo.voAmount) || 0), 0),
   }
+}
+
+function safeFilePart(value) {
+  return String(value || 'NA')
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
+function mapDetailRows(items) {
+  return (items || []).map(vo => ({
+    'Site ID': vo.siteId || '',
+    'Site Name': vo.siteName || '',
+    'Job Number': vo.jobNumber || '',
+    'Description': vo.voDescription || '',
+    'Category': vo.voCategory || '',
+    'Scope': vo.scope || '',
+    'VO Status': vo.voStatus || '',
+    'PO Number': vo.poNumber || '',
+    'Ticket Number': vo.ticketNumber || '',
+    'Invoice Status': vo.invoiceStatus || '',
+    'Invoice Date': vo.invoiceDate ? new Date(vo.invoiceDate).toLocaleDateString('en-AU') : '',
+    'Amount': Number(vo.voAmount) || 0,
+  }))
+}
+
+function exportDetailRows({ items, rowContext, sourceType }) {
+  if (!items?.length) return
+  const rows = mapDetailRows(items)
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = [
+    { wch: 12 }, { wch: 24 }, { wch: 18 }, { wch: 42 }, { wch: 18 },
+    { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 },
+  ]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'P&L Detail')
+
+  const date = new Date().toLocaleDateString('en-AU').replace(/\//g, '-')
+  const site = safeFilePart(rowContext?.siteId || 'Site')
+  const job = safeFilePart(rowContext?.jobNumber || 'Job')
+  const src = safeFilePart(sourceType || 'Detail')
+  XLSX.writeFile(wb, `PL_Detail_${src}_${site}_${job}_${date}.xlsx`)
+}
+
+function exportCategoryDetail() {
+  if (!categoryDrawer.value) return
+  const typeMap = {
+    service: 'VO_Service',
+    thirdParty: 'VO_3rd_Party',
+    boq: 'BOQ_Related',
+    basePO: 'Base_PO',
+  }
+  exportDetailRows({
+    items: categoryDrawer.value.items,
+    rowContext: categoryDrawer.value.row,
+    sourceType: typeMap[categoryDrawer.value.type] || 'Category',
+  })
+}
+
+function exportDetailModalItems() {
+  if (!detailModal.value) return
+  const typeMap = {
+    totalVO: 'Total_VO_Amount',
+    invoiced: 'Total_Invoice_Amount',
+    notYet: 'Not_Yet_Invoice_Amount',
+    notYetHavePO: 'Not_Yet_Invoice_Have_PO',
+    notYetNoPO: 'Not_Yet_Invoice_No_PO',
+  }
+  exportDetailRows({
+    items: detailModal.value.items,
+    rowContext: detailModal.value.row,
+    sourceType: typeMap[detailModal.value.type] || 'Detail',
+  })
+}
+
+function escapeHtml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function renderCellValue(row, key) {
+  switch (key) {
+    case 'siteId':
+    case 'siteName':
+    case 'jobNumber':
+    case 'scopeLabel':
+      return row[key] || '-'
+    case 'voCount':
+      return `${row.voCount} VO${row.voCount !== 1 ? 's' : ''}`
+    case 'manualComment':
+      return row.manualComment || ''
+    case 'costToComplete':
+      return includeCostToComplete.value
+        ? (row.costToComplete > 0 ? formatCurrency(row.costToComplete) : '-')
+        : 'Not included'
+    case 'serviceAmount':
+    case 'thirdPartyAmount':
+    case 'boqAmount':
+    case 'basePOAmount':
+    case 'labourCost':
+    case 'thirdPartyCost':
+      return row[key] > 0 ? formatCurrency(row[key]) : '-'
+    default:
+      return formatCurrency(row[key] || 0)
+  }
+}
+
+function cellStyleForColumn(row, key) {
+  const right = 'text-align:right;'
+  switch (key) {
+    case 'siteId': return 'font-weight:700;'
+    case 'totalVOAmount': return `${right}color:#1d4ed8;font-weight:700;`
+    case 'serviceAmount': return `${right}color:#1d4ed8;font-weight:700;`
+    case 'thirdPartyAmount': return `${right}color:#0369a1;font-weight:700;`
+    case 'boqAmount': return `${right}color:#047857;font-weight:700;`
+    case 'basePOAmount': return `${right}color:#b45309;font-weight:700;`
+    case 'invoiceAmount': return `${right}color:#15803d;font-weight:700;`
+    case 'notYetInvoiceAmount': return `${right}color:#ea580c;font-weight:700;`
+    case 'notYetInvoiceHavePOAmount': return `${right}color:#0f766e;font-weight:700;`
+    case 'notYetInvoiceNoPOAmount': return `${right}color:#374151;font-weight:700;`
+    case 'labourCost': return `${right}color:${row.labourCost > 0 ? '#6d28d9' : '#d1d5db'};font-weight:700;`
+    case 'thirdPartyCost': return `${right}color:${row.thirdPartyCost > 0 ? '#1d4ed8' : '#d1d5db'};font-weight:700;`
+    case 'costToDate': return `${right}color:#111827;font-weight:700;`
+    case 'manualDeduction': return `${right}color:#334155;font-weight:700;`
+    case 'costToComplete': return `${right}color:${row.costToComplete > 0 ? '#047857' : '#9ca3af'};font-weight:700;`
+    case 'profitLoss': return `${right}color:${row.profitLoss >= 0 ? '#047857' : '#dc2626'};font-weight:700;`
+    case 'manualComment': return ''
+    default: return right
+  }
+}
+
+function exportStyledTableView() {
+  void plTableRef.value
+  const date = new Date().toLocaleDateString('en-AU').replace(/\//g, '-')
+  const visibleColumns = columns
+  const headerHtml = visibleColumns
+    .map(col => `<th style="background:#047857;color:#fff;border:1px solid #065f46;padding:8px 10px;text-transform:uppercase;font-size:11px;letter-spacing:0.04em;text-align:${col.align === 'right' ? 'right' : 'left'};">${escapeHtml(col.label)}</th>`)
+    .join('')
+
+  const bodyHtml = sortedRows.value.map((row, index) => {
+    const bg = index % 2 ? '#f9fafb' : '#ffffff'
+    const cells = visibleColumns.map(col => {
+      if (col.key === 'siteId') {
+        const badge = `<span style="display:inline-block;background:#e0e7ff;color:#4338ca;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;">${escapeHtml(row.siteId || '-')}</span>`
+        return `<td style="border:1px solid #e5e7eb;padding:7px 10px;background:${bg};">${badge}</td>`
+      }
+      const style = cellStyleForColumn(row, col.key)
+      const value = escapeHtml(renderCellValue(row, col.key))
+      return `<td style="border:1px solid #e5e7eb;padding:7px 10px;background:${bg};${style}">${value}</td>`
+    }).join('')
+    return `<tr>${cells}</tr>`
+  }).join('')
+
+  const footerHtml = filteredRows.value.length > 0
+    ? `<tr>
+      ${visibleColumns.map(col => {
+        const base = 'border:1px solid #d1d5db;padding:8px 10px;background:#f3f4f6;font-weight:700;'
+        if (col.key === 'siteId') return `<td style="${base}text-transform:uppercase;">Totals</td>`
+        if (col.key === 'siteName') return `<td style="${base}">${escapeHtml(`${filteredRows.value.length} rows`)}</td>`
+        if (col.key === 'jobNumber' || col.key === 'scopeLabel') return `<td style="${base}"></td>`
+        if (col.key === 'voCount') return `<td style="${base}text-align:right;color:#6b7280;">${escapeHtml(`${filteredTotals.value.voCount} VOs`)}</td>`
+        const val = renderCellValue(filteredTotals.value, col.key)
+        return `<td style="${base}${cellStyleForColumn(filteredTotals.value, col.key)}">${escapeHtml(val)}</td>`
+      }).join('')}
+    </tr>`
+    : ''
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8" />
+    <style>
+      table { border-collapse: collapse; width: 100%; font-family: Calibri, Arial, sans-serif; }
+    </style>
+    </head><body>
+      <table>
+        <thead><tr>${headerHtml}</tr></thead>
+        <tbody>${bodyHtml}</tbody>
+        <tfoot>${footerHtml}</tfoot>
+      </table>
+    </body></html>`
+
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = `P&L_TableView_Styled_${date}.xls`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(link.href)
 }
 
 function exportToExcel() {
@@ -782,8 +1112,11 @@ function exportToExcel() {
     'VO Service': row.serviceAmount,
     'VO 3rd Party': row.thirdPartyAmount,
     'BOQ Related': row.boqAmount,
+    'Base PO': row.basePOAmount,
     'Total Invoice Amount': row.invoiceAmount,
     'Not Yet Invoice Amount': row.notYetInvoiceAmount,
+    'Not Yet Inv. (Have PO)': row.notYetInvoiceHavePOAmount,
+    'Not Yet Inv. (No PO)': row.notYetInvoiceNoPOAmount,
     'Labour Cost': row.labourCost,
     'Third Party Cost': row.thirdPartyCost,
     'Cost to Date': row.costToDate,
@@ -795,8 +1128,8 @@ function exportToExcel() {
   const ws = XLSX.utils.json_to_sheet(rows)
   ws['!cols'] = [
     { wch: 14 }, { wch: 28 }, { wch: 18 }, { wch: 28 }, { wch: 14 }, { wch: 18 },
-    { wch: 16 }, { wch: 16 }, { wch: 16 },
-    { wch: 22 }, { wch: 24 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 18 },
+    { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 },
+    { wch: 22 }, { wch: 24 }, { wch: 22 }, { wch: 22 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 18 },
     { wch: 18 }, { wch: 16 }, { wch: 36 },
   ]
   const wb = XLSX.utils.book_new()
@@ -809,6 +1142,19 @@ function onSiteStatusUpdated() {
   siteStatusRevision.value++
 }
 
+function onGlobalPointerDown(event) {
+  if (!showExportMenu.value) return
+  if (!exportMenuRootRef.value?.contains(event.target)) {
+    showExportMenu.value = false
+  }
+}
+
+function onGlobalKeyDown(event) {
+  if (event.key === 'Escape') {
+    showExportMenu.value = false
+  }
+}
+
 watch(includeCostToComplete, value => {
   localStorage.setItem(PL_CTC_INCLUDE_KEY, value ? 'true' : 'false')
 })
@@ -819,9 +1165,13 @@ watch(costToCompleteMonth, value => {
 
 onMounted(() => {
   window.addEventListener('siteStatusUpdated', onSiteStatusUpdated)
+  document.addEventListener('mousedown', onGlobalPointerDown)
+  document.addEventListener('keydown', onGlobalKeyDown)
 })
 
 onUnmounted(() => {
   window.removeEventListener('siteStatusUpdated', onSiteStatusUpdated)
+  document.removeEventListener('mousedown', onGlobalPointerDown)
+  document.removeEventListener('keydown', onGlobalKeyDown)
 })
 </script>

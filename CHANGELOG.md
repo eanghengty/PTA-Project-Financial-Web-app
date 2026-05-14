@@ -5,6 +5,30 @@ Format: `## YYYY-MM-DD — <summary>` with sub-sections for **Added**, **Fixed**
 
 ---
 
+## 2026-05-12 - P&L split not-yet columns and expanded export actions
+
+### Added
+- **P&L not-yet split columns** (`PLView.vue`): added `Not Yet Inv. (Have PO)` and `Not Yet Inv. (No PO)` columns alongside the existing `Not Yet Invoice Amount` total.
+- **P&L split drill-down interactions** (`PLView.vue`): both split not-yet columns are now clickable and open filtered detail views for the selected site/job:
+  - `Not Yet Inv. (Have PO)` -> only items where `poNumber?.trim()` is truthy
+  - `Not Yet Inv. (No PO)` -> only items where `poNumber?.trim()` is empty/falsy
+- **P&L export menu** (`PLView.vue`): replaced the single export action with two options:
+  - `Export Default (.xlsx)`
+  - `Export Current View Styled (.xls)` (Excel-compatible styled HTML export of the current filtered/sorted table view)
+- **P&L detail-level export actions** (`PLView.vue`): added in-panel `.xlsx` export buttons for:
+  - VO Service detail drawer
+  - VO 3rd Party detail drawer
+  - BOQ Related detail drawer
+  - Total Invoice detail modal
+  - Not Yet Invoice detail modal
+  - Not Yet Invoice (Have PO) detail modal
+  - Not Yet Invoice (No PO) detail modal
+
+### Changed
+- **P&L detail export filenames** (`PLView.vue`): detail exports now follow `PL_Detail_<Type>_<Site>_<Job>_<DD-MM-YYYY>.xlsx` to preserve source context in each file.
+
+---
+
 ## 2026-05-12 - Cost to Date import loading, cancel, and rollback
 
 ### Added
