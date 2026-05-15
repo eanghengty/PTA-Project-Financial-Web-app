@@ -822,7 +822,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useVOStore } from '../stores/voStore'
 import { formatCurrency, formatStatus, formatDate } from '../utils/formatters'
 import * as XLSX from 'xlsx'
@@ -947,10 +947,22 @@ function isDetailSiteSurveyVO(vo) {
   return vo?.voCategory?.trim()?.toLowerCase() === 'detail site survey'
 }
 
+function normaliseMatchValue(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
+function sameSiteId(a, b) {
+  return normaliseMatchValue(a) === normaliseMatchValue(b)
+}
+
+function sameJobNumber(a, b) {
+  return normaliseMatchValue(a) === normaliseMatchValue(b)
+}
+
 function hasDetailSiteSurveyFor(row) {
   if (!row || row.siteId === 'Downtime') return false
   return (store.vos.value || []).some(vo =>
-    vo.siteId === row.siteId &&
+    sameSiteId(vo.siteId, row.siteId) &&
     isDetailSiteSurveyVO(vo)
   )
 }
@@ -958,8 +970,18 @@ function hasDetailSiteSurveyFor(row) {
 function detailSiteSurveyVOsFor(row) {
   if (!row || row.siteId === 'Downtime') return []
   return (store.vos.value || []).filter(vo =>
-    vo.siteId === row.siteId &&
+    sameSiteId(vo.siteId, row.siteId) &&
     isDetailSiteSurveyVO(vo)
+  )
+}
+
+function isDetailSurveyOnlyRow(row) {
+  if (!row || row.siteId === 'Downtime') return false
+  if (!hasDetailSiteSurveyFor(row)) return false
+  return !(store.vos.value || []).some(vo =>
+    sameSiteId(vo.siteId, row.siteId) &&
+    sameJobNumber(vo.jobNumber, row.jobNumber) &&
+    !isDetailSiteSurveyVO(vo)
   )
 }
 
@@ -1063,8 +1085,8 @@ function voItemsFor(row) {
     return vos.filter(v => v.siteId === 'Downtime')
   }
   const items = vos.filter(v =>
-    (v.siteId === row.siteId && v.jobNumber === row.jobNumber) ||
-    (v.siteId === row.siteId && isDetailSiteSurveyVO(v))
+    (sameSiteId(v.siteId, row.siteId) && sameJobNumber(v.jobNumber, row.jobNumber)) ||
+    (sameSiteId(v.siteId, row.siteId) && isDetailSiteSurveyVO(v))
   )
   return [...new Map(items.map(vo => [vo.id, vo])).values()]
 }
@@ -1094,6 +1116,52 @@ function rowKey(siteId, jobNumber) {
   return `${siteId || ''}|${jobNumber || ''}`
 }
 
+function mergeRowData(target, source) {
+  const targetEntries = Array.isArray(target.costEntries) ? target.costEntries : []
+  const sourceEntries = Array.isArray(source.costEntries) ? source.costEntries : []
+  target.costEntries = [...targetEntries, ...sourceEntries.map(e => ({ ...e }))]
+  target.scopes = [...new Set([
+    ...(Array.isArray(target.scopes) ? target.scopes : []),
+    ...(Array.isArray(source.scopes) ? source.scopes : []),
+  ].filter(Boolean))].sort()
+  if ((source.status || 'not-started') === 'started') target.status = 'started'
+  if (source.comment && !target.comment) {
+    target.comment = source.comment
+  } else if (source.comment && target.comment && !target.comment.includes(source.comment)) {
+    target.comment = `${target.comment}; ${source.comment}`
+  }
+}
+
+function mergeDetailSurveyRowsIntoSiteRows() {
+  let merged = 0
+  for (const [key, row] of Object.entries(siteData.value)) {
+    if (!siteData.value[key] || !isDetailSurveyOnlyRow(row)) continue
+
+    const sameSiteRows = Object.entries(siteData.value).filter(([otherKey, other]) =>
+      otherKey !== key && sameSiteId(other.siteId, row.siteId)
+    )
+    const primary = sameSiteRows.find(([, other]) => !isDetailSurveyOnlyRow(other))
+    const canonicalKey = rowKey(row.siteId, '')
+    const canonical = key !== canonicalKey ? siteData.value[canonicalKey] : null
+    const targetKey = primary?.[0] || (canonical ? canonicalKey : null)
+    if (!targetKey) continue
+
+    mergeRowData(siteData.value[targetKey], row)
+    delete siteData.value[key]
+    merged++
+  }
+  return merged
+}
+
+watch(
+  () => store.vos.value?.length || 0,
+  () => {
+    const merged = mergeDetailSurveyRowsIntoSiteRows()
+    if (merged > 0) save(siteData.value)
+  },
+  { immediate: true }
+)
+
 function isNA(val) {
   const s = (val || '').toString().trim().toUpperCase()
   return s === '' || s === 'NA' || s === 'N/A'
@@ -1110,16 +1178,21 @@ async function syncFromVOs() {
   const seen = new Set()
   let added = 0
 
-  // Collect all "Downtime" VOs and other VOs separately
+  // Collect special rows separately. Detail Site Survey follows the site row
+  // and should not create its own Site Status line when a normal site row exists.
   const downtimeVOs = []
+  const detailSurveyVOs = []
   const otherVOs = []
 
   vos.forEach(vo => {
-    // Skip rows where site ID or job number is NA / blank (except Downtime)
-    if (vo.siteId !== 'Downtime' && (isNA(vo.siteId) || isNA(vo.jobNumber))) return
+    // Normal VOs need site + job. Detail Site Survey can attach by site only.
+    if (vo.siteId !== 'Downtime' && isNA(vo.siteId)) return
+    if (vo.siteId !== 'Downtime' && !isDetailSiteSurveyVO(vo) && isNA(vo.jobNumber)) return
 
     if (vo.siteId === 'Downtime') {
       downtimeVOs.push(vo)
+    } else if (isDetailSiteSurveyVO(vo)) {
+      detailSurveyVOs.push(vo)
     } else {
       otherVOs.push(vo)
     }
@@ -1180,11 +1253,51 @@ async function syncFromVOs() {
     }
   })
 
+  // If a site only has Detail Site Survey records, keep one site-level row so it
+  // can still be tracked. Once a normal VO exists for that site, the merge below
+  // folds this row into the normal site line.
+  const sitesWithNormalRows = new Set(otherVOs.map(vo => normaliseMatchValue(vo.siteId)))
+  const detailSurveyFallbacks = new Map()
+  detailSurveyVOs.forEach(vo => {
+    const siteKey = normaliseMatchValue(vo.siteId)
+    if (sitesWithNormalRows.has(siteKey) || detailSurveyFallbacks.has(siteKey)) return
+    detailSurveyFallbacks.set(siteKey, vo)
+  })
+
+  detailSurveyFallbacks.forEach(vo => {
+    const key = rowKey(vo.siteId, '')
+    const scopes = [...new Set(detailSurveyVOs
+      .filter(v => sameSiteId(v.siteId, vo.siteId))
+      .map(v => v.scope)
+      .filter(Boolean))].sort()
+    if (!siteData.value[key]) {
+      siteData.value[key] = {
+        siteId:      vo.siteId,
+        siteName:    vo.siteName,
+        jobNumber:   '',
+        status:      'not-started',
+        scopes,
+        costEntries: [],
+        comment:     '',
+      }
+      added++
+    } else {
+      siteData.value[key].siteId    = vo.siteId
+      siteData.value[key].siteName  = vo.siteName
+      siteData.value[key].jobNumber = ''
+      siteData.value[key].scopes    = scopes
+    }
+  })
+
+  const merged = mergeDetailSurveyRowsIntoSiteRows()
+
   save(siteData.value)
   syncing.value = false
   syncMessage.value = added > 0
-    ? `Synced ${added} new site${added !== 1 ? 's' : ''} from Variations.`
-    : 'All sites already up to date — no new sites found.'
+    ? `Synced ${added} new site${added !== 1 ? 's' : ''} from Variations${merged ? ` and merged ${merged} Detail Survey row${merged !== 1 ? 's' : ''}` : ''}.`
+    : merged > 0
+      ? `Merged ${merged} Detail Survey row${merged !== 1 ? 's' : ''} into the main site line.`
+      : 'All sites already up to date — no new sites found.'
 }
 
 function confirmDeleteAll() {
@@ -1206,7 +1319,7 @@ function toggleStatus(row) {
   d.status = nextStatus
   if (shouldLinkDetailSurvey && d.siteId && d.siteId !== 'Downtime') {
     Object.values(siteData.value).forEach(entry => {
-      if (entry.siteId === d.siteId && hasDetailSiteSurveyFor(entry)) {
+      if (sameSiteId(entry.siteId, d.siteId) && hasDetailSiteSurveyFor(entry)) {
         entry.status = nextStatus
       }
     })
