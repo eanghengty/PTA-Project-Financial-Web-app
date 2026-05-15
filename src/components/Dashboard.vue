@@ -680,7 +680,7 @@
         :class="poInvoiceOpen ? 'bg-blue-50/40 border-b border-blue-100' : 'hover:bg-blue-50/40'">
         <div>
           <h3 class="text-sm font-semibold text-gray-700">PO &amp; Invoice Summary by Scope</h3>
-          <p class="text-xs text-gray-400">Have PO breakdown (VO · BOQ · Base PO), outstanding PO, and invoice progress per scope</p>
+          <p class="text-xs text-gray-400">Have PO breakdown (VO · BOQ · Base PO · Detail Survey), outstanding PO, and invoice progress per scope</p>
         </div>
         <!-- Site status filter toggle + month filter -->
         <div class="flex items-center gap-2 mx-2 shrink-0" @click.stop>
@@ -774,17 +774,17 @@
             <tr>
               <th rowspan="2" class="pb-3 text-left font-semibold text-gray-500 uppercase tracking-wider pr-4 w-20 align-bottom sticky left-0 z-20 bg-white" style="box-shadow: 2px 0 4px -2px rgba(0,0,0,0.08)">Scope</th>
               <!-- Have PO group -->
-              <th colspan="6" class="pb-1 text-center font-semibold text-teal-600 uppercase tracking-wider border-b border-teal-200 px-1">
+              <th colspan="7" class="pb-1 text-center font-semibold text-teal-600 uppercase tracking-wider border-b border-teal-200 px-1">
                 Have PO
               </th>
               <!-- No PO group -->
-              <th colspan="5" class="pb-1 text-center font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200 px-1">
+              <th colspan="6" class="pb-1 text-center font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200 px-1">
                 No PO
               </th>
               <!-- Grand Total -->
               <th rowspan="2" class="pb-3 text-right font-semibold text-gray-600 uppercase tracking-wider px-3 align-bottom">Total</th>
-              <!-- Invoice group: Invoiced + 5 Not Yet Inv. sub-cols + Total Service Not Inv. + Total 3rd Party Not Inv. + Inv. Progress = 9 -->
-              <th colspan="9" class="pb-1 text-center font-semibold text-blue-600 uppercase tracking-wider border-b border-blue-100 px-1">
+              <!-- Invoice group: Invoiced + 6 Not Yet Inv. sub-cols + Total Service Not Inv. + Total 3rd Party Not Inv. + Inv. Progress = 10 -->
+              <th colspan="10" class="pb-1 text-center font-semibold text-blue-600 uppercase tracking-wider border-b border-blue-100 px-1">
                 Invoice
               </th>
               <!-- Cost group -->
@@ -803,12 +803,14 @@
               <th class="pt-1 pb-2 text-right font-semibold text-slate-500 px-2 whitespace-nowrap">Downtime</th>
               <th class="pt-1 pb-2 text-right font-semibold text-emerald-600 px-2 whitespace-nowrap">BOQ</th>
               <th class="pt-1 pb-2 text-right font-semibold text-amber-600 px-2 whitespace-nowrap">Base PO</th>
+              <th class="pt-1 pb-2 text-right font-semibold text-cyan-600 px-2 whitespace-nowrap">Detail Survey</th>
               <th class="pt-1 pb-2 text-right font-bold text-teal-700 px-2 whitespace-nowrap">Total</th>
               <!-- No PO sub-cols -->
               <th class="pt-1 pb-2 text-right font-semibold text-blue-300 px-2 whitespace-nowrap">VO Service</th>
               <th class="pt-1 pb-2 text-right font-semibold text-blue-300 px-2 whitespace-nowrap">VO 3rd Party</th>
               <th class="pt-1 pb-2 text-right font-semibold text-emerald-300 px-2 whitespace-nowrap">BOQ</th>
               <th class="pt-1 pb-2 text-right font-semibold text-amber-300 px-2 whitespace-nowrap">Base PO</th>
+              <th class="pt-1 pb-2 text-right font-semibold text-cyan-300 px-2 whitespace-nowrap">Detail Survey</th>
               <th class="pt-1 pb-2 text-right font-bold text-gray-500 px-2 whitespace-nowrap">Total</th>
               <!-- Invoice sub-cols -->
               <th class="pt-1 pb-2 text-right font-semibold text-green-600 px-2 whitespace-nowrap">Invoiced</th>
@@ -818,6 +820,7 @@
               <th class="pt-1 pb-2 text-right font-semibold text-orange-400 px-2 whitespace-nowrap">Not Inv. Service</th>
               <th class="pt-1 pb-2 text-right font-semibold text-orange-400 px-2 whitespace-nowrap">Not Inv. BOQ Svc</th>
               <th class="pt-1 pb-2 text-right font-semibold text-orange-400 px-2 whitespace-nowrap">Not Inv. Base</th>
+              <th class="pt-1 pb-2 text-right font-semibold text-orange-400 px-2 whitespace-nowrap">Not Inv. Detail</th>
               <th class="pt-1 pb-2 text-right font-bold text-orange-600 px-2 whitespace-nowrap">Total Service Not Inv.</th>
               <th class="pt-1 pb-2 text-right font-bold text-orange-600 px-2 whitespace-nowrap">Total 3rd Party Not Inv.</th>
               <th class="pt-1 pb-2 text-left font-semibold text-gray-400 px-2 w-28 whitespace-nowrap">Inv. Progress</th>
@@ -867,6 +870,11 @@
                 @click="row.basePOAmt > 0 && openHavePODetail(row, 'basePO')"
                 :title="row.basePOAmt > 0 ? 'Click to view Base PO detail' : ''">
                 {{ row.basePOAmt ? formatCompact(row.basePOAmt) : '—' }}
+              </td>              <td class="py-2.5 text-right px-2 transition"
+                :class="row.detailSurveyPO > 0 ? 'text-cyan-600 font-semibold cursor-pointer hover:text-cyan-800 underline decoration-dotted' : 'text-gray-300'"
+                @click="row.detailSurveyPO > 0 && openHavePODetail(row, 'detailSurvey')"
+                :title="row.detailSurveyPO > 0 ? 'Click to view Detail Site Survey detail' : ''">
+                {{ row.detailSurveyPO ? formatCompact(row.detailSurveyPO) : '—' }}
               </td>
               <td class="py-2.5 text-right font-bold text-teal-700 px-2 bg-teal-50/40">{{ row.totalHavePO ? formatCompact(row.totalHavePO) : '—' }}</td>
               <!-- No PO breakdown — clickable -->
@@ -893,6 +901,11 @@
                 @click="row.baseNoPO > 0 && openNoPODetail(row, 'basePO')"
                 :title="row.baseNoPO > 0 ? 'Click to view Base PO detail' : ''">
                 {{ row.baseNoPO ? formatCompact(row.baseNoPO) : '—' }}
+              </td>              <td class="py-2.5 text-right px-2 transition"
+                :class="row.detailSurveyNoPO > 0 ? 'text-cyan-400 font-semibold cursor-pointer hover:text-cyan-600 underline decoration-dotted' : 'text-gray-300'"
+                @click="row.detailSurveyNoPO > 0 && openNoPODetail(row, 'detailSurvey')"
+                :title="row.detailSurveyNoPO > 0 ? 'Click to view Detail Site Survey detail' : ''">
+                {{ row.detailSurveyNoPO ? formatCompact(row.detailSurveyNoPO) : '—' }}
               </td>
               <td class="py-2.5 text-right font-bold text-gray-500 px-2 bg-gray-50">{{ row.totalNoPO ? formatCompact(row.totalNoPO) : '—' }}</td>
               <!-- Grand Total -->
@@ -929,6 +942,11 @@
                 @click="row.baseNotYetInv > 0 && openNotYetInvDetail(row, 'basePO')"
                 :title="row.baseNotYetInv > 0 ? 'Click to view Base PO detail' : ''">
                 {{ row.baseNotYetInv > 0 ? formatCompact(row.baseNotYetInv) : '—' }}
+              </td>              <td class="py-2.5 text-right px-2 transition"
+                :class="row.detailSurveyNotYetInv > 0 ? 'text-orange-500 font-semibold cursor-pointer hover:text-orange-700 underline decoration-dotted' : 'text-gray-300'"
+                @click="row.detailSurveyNotYetInv > 0 && openNotYetInvDetail(row, 'detailSurvey')"
+                :title="row.detailSurveyNotYetInv > 0 ? 'Click to view Detail Site Survey detail' : ''">
+                {{ row.detailSurveyNotYetInv > 0 ? formatCompact(row.detailSurveyNotYetInv) : '—' }}
               </td>
               <td class="py-2.5 text-right font-bold px-2 whitespace-nowrap"
                 :class="row.totalNotYetInv > 0 ? 'text-orange-600' : 'text-gray-300'">
@@ -971,12 +989,14 @@
               <td class="pt-2.5 text-right text-slate-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.downtimePO,0)) }}</td>
               <td class="pt-2.5 text-right text-emerald-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.boqPO,0)) }}</td>
               <td class="pt-2.5 text-right text-amber-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.basePOAmt,0)) }}</td>
+              <td class="pt-2.5 text-right text-cyan-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.detailSurveyPO,0)) }}</td>
               <td class="pt-2.5 text-right font-bold text-teal-700 px-2 bg-teal-50/40">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.totalHavePO,0)) }}</td>
               <!-- No PO totals -->
               <td class="pt-2.5 text-right text-blue-300 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.voServiceNoPO,0)) }}</td>
               <td class="pt-2.5 text-right text-blue-300 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.vo3rdPartyNoPO,0)) }}</td>
               <td class="pt-2.5 text-right text-emerald-300 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.boqNoPO,0)) }}</td>
               <td class="pt-2.5 text-right text-amber-300 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.baseNoPO,0)) }}</td>
+              <td class="pt-2.5 text-right text-cyan-300 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.detailSurveyNoPO,0)) }}</td>
               <td class="pt-2.5 text-right font-bold text-gray-500 px-2 bg-gray-50">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.totalNoPO,0)) }}</td>
               <!-- Grand Total -->
               <td class="pt-2.5 text-right font-bold text-gray-800 px-3">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.total,0)) }}</td>
@@ -987,6 +1007,7 @@
               <td class="pt-2.5 text-right text-orange-500 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.voServiceNotYetInv,0)) }}</td>
               <td class="pt-2.5 text-right text-orange-500 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.boqServiceNotYetInv,0)) }}</td>
               <td class="pt-2.5 text-right text-orange-500 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.baseNotYetInv,0)) }}</td>
+              <td class="pt-2.5 text-right text-orange-500 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.detailSurveyNotYetInv,0)) }}</td>
               <td class="pt-2.5 text-right font-bold text-orange-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+r.totalNotYetInv,0)) }}</td>
               <td class="pt-2.5 text-right font-bold text-orange-600 px-2">{{ formatCompact(poInvoiceSummary.reduce((s,r)=>s+(r.vo3rdPartyNotYetInv+r.boq3rdPartyNotYetInv),0)) }}</td>
               <td class="pt-2.5 px-2">
@@ -1464,12 +1485,12 @@
           <button @click="sitePage = 1" :disabled="sitePage === 1"
             class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
           <button @click="sitePage--" :disabled="sitePage === 1"
-            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">‹</button>
+            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
           <span class="px-3 py-1 text-xs font-semibold text-gray-700">{{ sitePage }} / {{ siteTotalPages }}</span>
           <button @click="sitePage++" :disabled="sitePage === siteTotalPages"
-            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">›</button>
+            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
           <button @click="sitePage = siteTotalPages" :disabled="sitePage === siteTotalPages"
-            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">»</button>
+            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
         </div>
       </div>
     </div>
@@ -1552,12 +1573,12 @@
           <button @click="invoiceSitePage = 1" :disabled="invoiceSitePage === 1"
             class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
           <button @click="invoiceSitePage--" :disabled="invoiceSitePage === 1"
-            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">‹</button>
+            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
           <span class="px-3 py-1 text-xs font-semibold text-gray-700">{{ invoiceSitePage }} / {{ invoiceSiteTotalPages }}</span>
           <button @click="invoiceSitePage++" :disabled="invoiceSitePage === invoiceSiteTotalPages"
-            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">›</button>
+            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
           <button @click="invoiceSitePage = invoiceSiteTotalPages" :disabled="invoiceSitePage === invoiceSiteTotalPages"
-            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">»</button>
+            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
         </div>
       </div>
     </div>
@@ -1821,12 +1842,12 @@
           <button @click="voCatPage = 1" :disabled="voCatPage === 1"
             class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
           <button @click="voCatPage--" :disabled="voCatPage === 1"
-            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">‹</button>
+            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
           <span class="px-3 py-1 text-xs font-semibold text-gray-700">{{ voCatPage }} / {{ voCatTotalPages }}</span>
           <button @click="voCatPage++" :disabled="voCatPage === voCatTotalPages"
-            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">›</button>
+            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
           <button @click="voCatPage = voCatTotalPages" :disabled="voCatPage === voCatTotalPages"
-            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">»</button>
+            class="px-2 py-1 text-xs rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
         </div>
       </div>
     </div>
@@ -2021,6 +2042,7 @@
                 <span v-if="notYetInvType === 'boqService'"  class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">BOQ Service only</span>
                 <span v-if="notYetInvType === 'boq3rdParty'" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">BOQ 3rd Party only</span>
                 <span v-if="notYetInvType === 'basePO'"   class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">Base PO only</span>
+                <span v-if="notYetInvType === 'detailSurvey'" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-100 text-cyan-700">Detail Survey only</span>
               </div>
               <div class="flex items-center gap-3 mt-0.5 flex-wrap">
                 <span class="text-xs text-gray-400">{{ notYetInvItems.all.length }} items with PO not yet invoiced</span>
@@ -2030,6 +2052,7 @@
                   <span v-if="notYetInvItems.vo.length"     class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">VO ×{{ notYetInvItems.vo.length }}</span>
                   <span v-if="notYetInvItems.boq.length"    class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-700">BOQ ×{{ notYetInvItems.boq.length }}</span>
                   <span v-if="notYetInvItems.basePO.length" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700">Base PO ×{{ notYetInvItems.basePO.length }}</span>
+                  <span v-if="notYetInvItems.detailSurvey.length" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-100 text-cyan-700">Detail Survey x{{ notYetInvItems.detailSurvey.length }}</span>
                 </div>
               </div>
             </div>
@@ -2264,6 +2287,38 @@
                 </tr>
               </template>
 
+              <!-- Detail Site Survey rows -->
+              <template v-if="notYetInvItems.detailSurvey.length > 0 && (!notYetInvType || notYetInvType === 'detailSurvey')">
+                <tr class="sticky top-[41px] z-10">
+                  <td colspan="7" class="px-4 py-2 bg-cyan-600 text-white font-bold text-xs uppercase tracking-wider">
+                    <div class="flex items-center justify-between">
+                      <span>Detail Site Survey - {{ notYetInvItems.detailSurvey.length }} items</span>
+                      <span>{{ formatCurrency(notYetInvItems.detailSurvey.reduce((s,v)=>s+(v.voAmount||0),0)) }}</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-for="vo in notYetInvItems.detailSurvey" :key="vo.id"
+                  class="border-b border-gray-100 hover:bg-cyan-50/50 transition">
+                  <td class="px-4 py-2 font-bold text-gray-800 whitespace-nowrap">{{ vo.siteId || '—' }}</td>
+                  <td class="px-4 py-2 text-gray-600 whitespace-nowrap">{{ vo.siteName || '—' }}</td>
+                  <td class="px-4 py-2 text-gray-600 overflow-hidden" :style="{ width: descColWidth + 'px', maxWidth: descColWidth + 'px' }">
+                    <div class="truncate" :title="vo.voDescription">{{ vo.voDescription || '—' }}</div>
+                  </td>
+                  <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ vo.voCategory || '—' }}</td>
+                  <td class="px-4 py-2 font-medium text-teal-700 whitespace-nowrap">{{ vo.poNumber || '—' }}</td>
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    <span v-if="vo.invoiceStatus" class="px-2 py-0.5 rounded-full text-xs font-semibold"
+                      :class="notYetInvStatusClass(vo.invoiceStatus)">{{ vo.invoiceStatus }}</span>
+                    <span v-else class="text-gray-300">Not Set</span>
+                  </td>
+                  <td class="px-4 py-2 text-right font-semibold text-gray-800 whitespace-nowrap">{{ formatCurrency(vo.voAmount) }}</td>
+                </tr>
+                <tr class="border-b-2 border-cyan-200">
+                  <td colspan="6" class="px-4 py-1.5 text-right text-xs font-bold text-cyan-600 bg-cyan-50 uppercase tracking-wider">Detail Site Survey Subtotal</td>
+                  <td class="px-4 py-1.5 text-right text-xs font-bold text-cyan-700 bg-cyan-50">{{ formatCurrency(notYetInvItems.detailSurvey.reduce((s,v)=>s+(v.voAmount||0),0)) }}</td>
+                </tr>
+              </template>
+
               <!-- ── Base PO rows ── -->
               <template v-if="notYetInvItems.basePO.length > 0 && (!notYetInvType || notYetInvType === 'basePO')">
                 <tr class="sticky top-[41px] z-10">
@@ -2339,6 +2394,7 @@
                 <span v-if="noPOType === 'downtime'" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">Downtime only</span>
                 <span v-if="noPOType === 'boq'"    class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">BOQ only</span>
                 <span v-if="noPOType === 'basePO'" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700">Base PO only</span>
+                <span v-if="noPOType === 'detailSurvey'" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-100 text-cyan-700">Detail Survey only</span>
               </div>
               <div class="flex items-center gap-3 mt-0.5 flex-wrap">
                 <span class="text-xs text-gray-400">{{ noPOItems.all.length }} items {{ noPOMode === 'havePO' ? 'with a PO number' : 'without a PO number' }}</span>
@@ -2347,6 +2403,7 @@
                   <span v-if="noPOItems.vo.length"     class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">VO ×{{ noPOItems.vo.length }}</span>
                   <span v-if="noPOItems.boq.length"    class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-700">BOQ ×{{ noPOItems.boq.length }}</span>
                   <span v-if="noPOItems.basePO.length" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-700">Base PO ×{{ noPOItems.basePO.length }}</span>
+                  <span v-if="noPOItems.detailSurvey.length" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-100 text-cyan-700">Detail Survey x{{ noPOItems.detailSurvey.length }}</span>
                 </div>
               </div>
             </div>
@@ -2364,11 +2421,12 @@
           <div v-if="noPOItems.all.length === 0" class="flex items-center justify-center h-40 text-gray-400 text-sm">
             No {{ noPOMode === 'havePO' ? 'Have PO' : 'No PO' }} items found for this scope.
           </div>
-          <table v-else class="w-full text-xs border-collapse" style="min-width: 700px;">
+          <table v-else class="w-full text-xs border-collapse" style="min-width: 820px;">
             <thead class="sticky top-0 z-10">
               <tr>
                 <th class="px-4 py-2.5 text-left font-semibold text-white uppercase tracking-wider whitespace-nowrap bg-gray-600 w-16">Site ID</th>
                 <th class="px-4 py-2.5 text-left font-semibold text-white uppercase tracking-wider bg-gray-600">Site Name</th>
+                <th class="px-4 py-2.5 text-left font-semibold text-white uppercase tracking-wider whitespace-nowrap bg-gray-600 w-32">Job #</th>
                 <th class="px-4 py-2.5 text-left font-semibold text-white uppercase tracking-wider bg-gray-600">Description</th>
                 <th class="px-4 py-2.5 text-left font-semibold text-white uppercase tracking-wider whitespace-nowrap bg-gray-600 w-24">Category</th>
                 <th class="px-4 py-2.5 text-left font-semibold text-white uppercase tracking-wider whitespace-nowrap bg-gray-600 w-32">PO Number</th>
@@ -2379,9 +2437,9 @@
             <tbody>
 
               <!-- ── VO rows ── -->
-              <template v-if="noPOItems.vo.length > 0 && (!noPOType || noPOType === 'vo' || noPOType === 'service' || noPOType === '3rdParty')">
+              <template v-if="noPOItems.vo.length > 0 && (!noPOType || noPOType === 'vo' || noPOType === 'service' || noPOType === '3rdParty' || noPOType === 'downtime')">
                 <tr class="sticky top-[41px] z-10">
-                  <td colspan="7" class="px-4 py-2 bg-blue-600 text-white font-bold text-xs uppercase tracking-wider">
+                  <td colspan="8" class="px-4 py-2 bg-blue-600 text-white font-bold text-xs uppercase tracking-wider">
                     <div class="flex items-center justify-between">
                       <span>Variation Orders (VO) — {{ noPOItems.vo.length }} items</span>
                       <span>{{ formatCurrency(noPOItems.vo.reduce((s,v)=>s+(v.voAmount||0),0)) }}</span>
@@ -2391,6 +2449,7 @@
                 <tr v-for="vo in noPOItems.vo" :key="vo.id" class="border-b border-gray-100 hover:bg-blue-50/50 transition">
                   <td class="px-4 py-2 font-bold text-gray-800 whitespace-nowrap">{{ vo.siteId || '—' }}</td>
                   <td class="px-4 py-2 text-gray-600 whitespace-nowrap">{{ vo.siteName || '—' }}</td>
+                  <td class="px-4 py-2 font-mono text-gray-500 whitespace-nowrap">{{ vo.jobNumber || '—' }}</td>
                   <td class="px-4 py-2 text-gray-600 max-w-xs"><div class="truncate" :title="vo.voDescription">{{ vo.voDescription || '—' }}</div></td>
                   <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ vo.voCategory || '—' }}</td>
                   <td class="px-4 py-2 whitespace-nowrap">
@@ -2403,7 +2462,7 @@
                   <td class="px-4 py-2 text-right font-semibold text-gray-800 whitespace-nowrap">{{ formatCurrency(vo.voAmount) }}</td>
                 </tr>
                 <tr class="border-b-2 border-blue-200">
-                  <td colspan="6" class="px-4 py-1.5 text-right text-xs font-bold text-blue-600 bg-blue-50 uppercase tracking-wider">VO Subtotal</td>
+                  <td colspan="7" class="px-4 py-1.5 text-right text-xs font-bold text-blue-600 bg-blue-50 uppercase tracking-wider">VO Subtotal</td>
                   <td class="px-4 py-1.5 text-right text-xs font-bold text-blue-700 bg-blue-50">{{ formatCurrency(noPOItems.vo.reduce((s,v)=>s+(v.voAmount||0),0)) }}</td>
                 </tr>
               </template>
@@ -2411,7 +2470,7 @@
               <!-- ── BOQ rows ── -->
               <template v-if="noPOItems.boq.length > 0 && (!noPOType || noPOType === 'boq')">
                 <tr class="sticky top-[41px] z-10">
-                  <td colspan="7" class="px-4 py-2 bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider">
+                  <td colspan="8" class="px-4 py-2 bg-emerald-600 text-white font-bold text-xs uppercase tracking-wider">
                     <div class="flex items-center justify-between">
                       <span>BOQ Related — {{ noPOItems.boq.length }} items</span>
                       <span>{{ formatCurrency(noPOItems.boq.reduce((s,v)=>s+(v.voAmount||0),0)) }}</span>
@@ -2421,6 +2480,7 @@
                 <tr v-for="vo in noPOItems.boq" :key="vo.id" class="border-b border-gray-100 hover:bg-emerald-50/50 transition">
                   <td class="px-4 py-2 font-bold text-gray-800 whitespace-nowrap">{{ vo.siteId || '—' }}</td>
                   <td class="px-4 py-2 text-gray-600 whitespace-nowrap">{{ vo.siteName || '—' }}</td>
+                  <td class="px-4 py-2 font-mono text-gray-500 whitespace-nowrap">{{ vo.jobNumber || '—' }}</td>
                   <td class="px-4 py-2 text-gray-600 max-w-xs"><div class="truncate" :title="vo.voDescription">{{ vo.voDescription || '—' }}</div></td>
                   <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ vo.voCategory || '—' }}</td>
                   <td class="px-4 py-2 whitespace-nowrap">
@@ -2433,15 +2493,46 @@
                   <td class="px-4 py-2 text-right font-semibold text-gray-800 whitespace-nowrap">{{ formatCurrency(vo.voAmount) }}</td>
                 </tr>
                 <tr class="border-b-2 border-emerald-200">
-                  <td colspan="6" class="px-4 py-1.5 text-right text-xs font-bold text-emerald-600 bg-emerald-50 uppercase tracking-wider">BOQ Subtotal</td>
+                  <td colspan="7" class="px-4 py-1.5 text-right text-xs font-bold text-emerald-600 bg-emerald-50 uppercase tracking-wider">BOQ Subtotal</td>
                   <td class="px-4 py-1.5 text-right text-xs font-bold text-emerald-700 bg-emerald-50">{{ formatCurrency(noPOItems.boq.reduce((s,v)=>s+(v.voAmount||0),0)) }}</td>
                 </tr>
               </template>
 
-              <!-- ── Base PO rows ── -->
+              <!-- Detail Site Survey rows -->
+              <template v-if="noPOItems.detailSurvey.length > 0 && (!noPOType || noPOType === 'detailSurvey')">
+                <tr class="sticky top-[41px] z-10">
+                  <td colspan="8" class="px-4 py-2 bg-cyan-600 text-white font-bold text-xs uppercase tracking-wider">
+                    <div class="flex items-center justify-between">
+                      <span>Detail Site Survey - {{ noPOItems.detailSurvey.length }} items</span>
+                      <span>{{ formatCurrency(noPOItems.detailSurvey.reduce((s,v)=>s+(v.voAmount||0),0)) }}</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-for="vo in noPOItems.detailSurvey" :key="vo.id" class="border-b border-gray-100 hover:bg-cyan-50/50 transition">
+                  <td class="px-4 py-2 font-bold text-gray-800 whitespace-nowrap">{{ vo.siteId || '—' }}</td>
+                  <td class="px-4 py-2 text-gray-600 whitespace-nowrap">{{ vo.siteName || '—' }}</td>
+                  <td class="px-4 py-2 font-mono text-gray-500 whitespace-nowrap">{{ vo.jobNumber || '—' }}</td>
+                  <td class="px-4 py-2 text-gray-600 max-w-xs"><div class="truncate" :title="vo.voDescription">{{ vo.voDescription || '—' }}</div></td>
+                  <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ vo.voCategory || '—' }}</td>
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    <span v-if="vo.poNumber" class="font-mono text-xs text-teal-700 bg-teal-50 px-2 py-0.5 rounded">{{ vo.poNumber }}</span>
+                    <span v-else class="text-gray-300">—</span>
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold" :class="notYetInvStatusClass(vo.voStatus)">{{ formatStatus(vo.voStatus) }}</span>
+                  </td>
+                  <td class="px-4 py-2 text-right font-semibold text-gray-800 whitespace-nowrap">{{ formatCurrency(vo.voAmount) }}</td>
+                </tr>
+                <tr class="border-b-2 border-cyan-200">
+                  <td colspan="7" class="px-4 py-1.5 text-right text-xs font-bold text-cyan-600 bg-cyan-50 uppercase tracking-wider">Detail Site Survey Subtotal</td>
+                  <td class="px-4 py-1.5 text-right text-xs font-bold text-cyan-700 bg-cyan-50">{{ formatCurrency(noPOItems.detailSurvey.reduce((s,v)=>s+(v.voAmount||0),0)) }}</td>
+                </tr>
+              </template>
+
+              <!-- Base PO rows -->
               <template v-if="noPOItems.basePO.length > 0 && (!noPOType || noPOType === 'basePO')">
                 <tr class="sticky top-[41px] z-10">
-                  <td colspan="7" class="px-4 py-2 bg-amber-500 text-white font-bold text-xs uppercase tracking-wider">
+                  <td colspan="8" class="px-4 py-2 bg-amber-500 text-white font-bold text-xs uppercase tracking-wider">
                     <div class="flex items-center justify-between">
                       <span>Base PO — {{ noPOItems.basePO.length }} items</span>
                       <span>{{ formatCurrency(noPOItems.basePO.reduce((s,v)=>s+(v.voAmount||0),0)) }}</span>
@@ -2451,6 +2542,12 @@
                 <tr v-for="vo in noPOItems.basePO" :key="vo.id" class="border-b border-gray-100 hover:bg-amber-50/50 transition">
                   <td class="px-4 py-2 font-bold text-gray-800 whitespace-nowrap">{{ vo.siteId || '—' }}</td>
                   <td class="px-4 py-2 text-gray-600 whitespace-nowrap">{{ vo.siteName || '—' }}</td>
+                  <td class="px-4 py-2 whitespace-nowrap">
+                    <div class="flex flex-col gap-1">
+                      <span class="font-mono text-gray-500">{{ vo.jobNumber || '—' }}</span>
+                      <span v-if="isDetailSiteSurvey(vo)" class="inline-flex w-fit px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider">Detail Survey</span>
+                    </div>
+                  </td>
                   <td class="px-4 py-2 text-gray-600 max-w-xs"><div class="truncate" :title="vo.voDescription">{{ vo.voDescription || '—' }}</div></td>
                   <td class="px-4 py-2 text-gray-500 whitespace-nowrap">{{ vo.voCategory || '—' }}</td>
                   <td class="px-4 py-2 whitespace-nowrap">
@@ -2463,7 +2560,7 @@
                   <td class="px-4 py-2 text-right font-semibold text-gray-800 whitespace-nowrap">{{ formatCurrency(vo.voAmount) }}</td>
                 </tr>
                 <tr class="border-b-2 border-amber-200">
-                  <td colspan="6" class="px-4 py-1.5 text-right text-xs font-bold text-amber-600 bg-amber-50 uppercase tracking-wider">Base PO Subtotal</td>
+                  <td colspan="7" class="px-4 py-1.5 text-right text-xs font-bold text-amber-600 bg-amber-50 uppercase tracking-wider">Base PO Subtotal</td>
                   <td class="px-4 py-1.5 text-right text-xs font-bold text-amber-700 bg-amber-50">{{ formatCurrency(noPOItems.basePO.reduce((s,v)=>s+(v.voAmount||0),0)) }}</td>
                 </tr>
               </template>
@@ -2587,10 +2684,22 @@ const filteredSiteKeys = computed(() => {
   return keys
 })
 
+const filteredSiteIds = computed(() => {
+  void siteStatusRevision.value
+  if (poInvoiceSiteFilter.value === 'all') return null
+  const data = getSiteStatusMap()
+  const ids = new Set()
+  for (const entry of Object.values(data)) {
+    if (entry.status === poInvoiceSiteFilter.value && entry.siteId) ids.add(entry.siteId)
+  }
+  return ids
+})
+
 function voMatchesSiteFilter(vo) {
   if (!filteredSiteKeys.value) return true
   const key = `${vo.siteId || ''}|${vo.jobNumber || ''}`
-  return filteredSiteKeys.value.has(key)
+  if (filteredSiteKeys.value.has(key)) return true
+  return isDetailSiteSurvey(vo) && filteredSiteIds.value?.has(vo.siteId)
 }
 
 // ── Collapsible section state ──
@@ -2658,7 +2767,7 @@ const notYetInvStatusClass = (status) => {
 
 // VOs that have a PO but are NOT yet fully invoiced (SIT Completed + invoiceDate)
 const notYetInvItems = computed(() => {
-  if (!notYetInvScope.value) return { vo: [], boq: [], basePO: [], service: [], thirdParty: [], boqService: [], boq3rdParty: [], all: [] }
+  if (!notYetInvScope.value) return { vo: [], boq: [], basePO: [], detailSurvey: [], service: [], thirdParty: [], boqService: [], boq3rdParty: [], all: [] }
   const targetScope = notYetInvScope.value.scope
 
   const isNotYetInv = (vo) =>
@@ -2670,13 +2779,15 @@ const notYetInvItems = computed(() => {
   const scopeMatch = (vo) => (vo.scope?.trim() || '(No Scope)') === targetScope
 
   const allInScope = [
-    ...voItems.value.filter(scopeMatch),
+    ...voItems.value.filter(v => scopeMatch(v) && !isDetailSiteSurvey(v)),
     ...basePOItems.value.filter(scopeMatch),
+    ...detailSiteSurveyItems.value.filter(scopeMatch),
   ].filter(v => isNotYetInv(v) && voMatchesSiteFilter(v))
 
-  const vo       = sortBySiteId(allInScope.filter(v => !isBasePO(v) && !(v.boqRelated === true || v.boqRelated === 'yes')))
-  const boq      = sortBySiteId(allInScope.filter(v => !isBasePO(v) && (v.boqRelated === true || v.boqRelated === 'yes')))
+  const vo       = sortBySiteId(allInScope.filter(v => !isBasePO(v) && !isDetailSiteSurvey(v) && !(v.boqRelated === true || v.boqRelated === 'yes')))
+  const boq      = sortBySiteId(allInScope.filter(v => !isBasePO(v) && !isDetailSiteSurvey(v) && (v.boqRelated === true || v.boqRelated === 'yes')))
   const basePO   = sortBySiteId(allInScope.filter(v => isBasePO(v)))
+  const detailSurvey = sortBySiteId(allInScope.filter(v => isDetailSiteSurvey(v)))
   const service      = sortBySiteId(vo.filter(v => v.voCategory?.trim() === 'Service'))
   const thirdParty   = sortBySiteId(vo.filter(v => v.voCategory?.trim() === 'Third Party'))
   const boqService   = sortBySiteId(boq.filter(v => v.voCategory?.trim() === 'Service'))
@@ -2684,15 +2795,15 @@ const notYetInvItems = computed(() => {
 
   // 'all' respects the type filter for header counts/totals
   const type = notYetInvType.value
-  const filtered = type === 'vo' ? vo : type === 'boq' ? boq : type === 'basePO' ? basePO
+  const filtered = type === 'vo' ? vo : type === 'boq' ? boq : type === 'basePO' ? basePO : type === 'detailSurvey' ? detailSurvey
     : type === 'service' ? service : type === '3rdParty' ? thirdParty
     : type === 'boqService' ? boqService : type === 'boq3rdParty' ? boq3rdParty
     : allInScope
-  return { vo, boq, basePO, service, thirdParty, boqService, boq3rdParty, all: filtered }
+  return { vo, boq, basePO, detailSurvey, service, thirdParty, boqService, boq3rdParty, all: filtered }
 })
 // VOs that have NO PO — for drill-down modal
 const noPOItems = computed(() => {
-  if (!noPOScope.value) return { vo: [], boq: [], basePO: [], all: [] }
+  if (!noPOScope.value) return { vo: [], boq: [], basePO: [], detailSurvey: [], all: [] }
   const targetScope = noPOScope.value.scope
 
   const scopeMatch = (vo) => (vo.scope?.trim() || '(No Scope)') === targetScope
@@ -2704,22 +2815,28 @@ const noPOItems = computed(() => {
     [...arr].sort((a, b) => (a.siteId || '').localeCompare(b.siteId || '', undefined, { numeric: true }))
 
   const allInScope = [
-    ...voItems.value.filter(scopeMatch),
+    ...voItems.value.filter(v => scopeMatch(v) && !isDetailSiteSurvey(v)),
     ...basePOItems.value.filter(scopeMatch),
+    ...detailSiteSurveyItems.value.filter(scopeMatch),
   ].filter(v => matchesPOState(v) && voMatchesSiteFilter(v))
 
-  const voAll  = sortBySiteId(allInScope.filter(v => !isBasePO(v) && !(v.boqRelated === true || v.boqRelated === 'yes')))
-  const boqAll = sortBySiteId(allInScope.filter(v => !isBasePO(v) && (v.boqRelated === true || v.boqRelated === 'yes')))
+  const voAll  = sortBySiteId(allInScope.filter(v => !isBasePO(v) && !isDetailSiteSurvey(v) && !(v.boqRelated === true || v.boqRelated === 'yes')))
+  const boqAll = sortBySiteId(allInScope.filter(v => !isBasePO(v) && !isDetailSiteSurvey(v) && (v.boqRelated === true || v.boqRelated === 'yes')))
   const basePOAll = sortBySiteId(allInScope.filter(v => isBasePO(v)))
+  const detailSurveyAll = sortBySiteId(allInScope.filter(v => isDetailSiteSurvey(v)))
 
   const type = noPOType.value
+  const isDowntimeCategory = (v) => v.voCategory?.trim()?.toLowerCase() === 'downtime'
   const vo = type === 'service'
     ? voAll.filter(v => v.voCategory?.trim() === 'Service')
     : type === '3rdParty'
       ? voAll.filter(v => v.voCategory?.trim() === 'Third Party')
-      : voAll
+      : type === 'downtime'
+        ? voAll.filter(isDowntimeCategory)
+        : voAll
   const boq = type === 'boq' ? boqAll : boqAll
   const basePO = type === 'basePO' ? basePOAll : basePOAll
+  const detailSurvey = type === 'detailSurvey' ? detailSurveyAll : detailSurveyAll
 
   const filtered = type === 'vo'
     ? voAll
@@ -2728,22 +2845,27 @@ const noPOItems = computed(() => {
       : type === '3rdParty'
         ? voAll.filter(v => v.voCategory?.trim() === 'Third Party')
         : type === 'downtime'
-          ? voAll.filter(v => v.voCategory?.trim()?.toLowerCase() === 'downtime')
+          ? voAll.filter(isDowntimeCategory)
           : type === 'boq'
             ? boqAll
             : type === 'basePO'
               ? basePOAll
-              : allInScope
-  return { vo, boq, basePO, all: filtered }
+              : type === 'detailSurvey'
+                ? detailSurveyAll
+                : allInScope
+  return { vo, boq, basePO, detailSurvey, all: filtered }
 })
 
 const invoicePrepSummary = store.invoicePrepSummary
 
 // ── Base PO category split ──
 const BASE_PO_CATEGORIES = new Set(['Site Survey', 'WOP', 'C&I', 'SAT&SIT', 'Snag Closure'])
-const isBasePO = (vo) => BASE_PO_CATEGORIES.has(vo.voCategory?.trim())
+const BASE_PO_CATEGORY_KEYS = new Set([...BASE_PO_CATEGORIES].map(c => c.toLowerCase()))
+const isBasePO = (vo) => BASE_PO_CATEGORY_KEYS.has(vo.voCategory?.trim()?.toLowerCase())
+const isDetailSiteSurvey = (vo) => vo.voCategory?.trim()?.toLowerCase() === 'detail site survey'
 const voItems   = computed(() => (store.vos.value || []).filter(vo => !isBasePO(vo)))
 const basePOItems = computed(() => (store.vos.value || []).filter(isBasePO))
+const detailSiteSurveyItems = computed(() => (store.vos.value || []).filter(isDetailSiteSurvey))
 
 const totalVOs = computed(() => voItems.value.length)
 
@@ -2958,10 +3080,10 @@ const poInvoiceSummary = computed(() => {
   const ensure = (scope) => {
     if (!map[scope]) map[scope] = {
       scope,
-      voPO: 0, boqPO: 0, basePOAmt: 0,          // have PO by type
+      voPO: 0, boqPO: 0, basePOAmt: 0, detailSurveyPO: 0,          // have PO by type
       downtimePO: 0,
-      voNoPO: 0, boqNoPO: 0, baseNoPO: 0,        // no PO by type
-      voInvoiced: 0, boqInvoiced: 0, baseInvoiced: 0, // invoiced by type
+      voNoPO: 0, boqNoPO: 0, baseNoPO: 0, detailSurveyNoPO: 0,        // no PO by type
+      voInvoiced: 0, boqInvoiced: 0, baseInvoiced: 0, detailSurveyInvoiced: 0, // invoiced by type
       voServicePO: 0, vo3rdPartyPO: 0,
       voServiceNoPO: 0, vo3rdPartyNoPO: 0,
       voServiceInvoiced: 0, vo3rdPartyInvoiced: 0,
@@ -2973,6 +3095,7 @@ const poInvoiceSummary = computed(() => {
 
   // Standard VOs and BOQ VOs (both are in voItems)
   for (const vo of voItems.value.filter(voMatchesSiteFilter)) {
+    if (isDetailSiteSurvey(vo)) continue
     const isBoq = vo.boqRelated === true || vo.boqRelated === 'yes'
     const scope  = vo.scope?.trim() || '(No Scope)'
     ensure(scope)
@@ -2994,9 +3117,10 @@ const poInvoiceSummary = computed(() => {
         map[scope].voPO += amt
         if (isInvoiced) map[scope].voInvoiced += amt
         const cat = vo.voCategory?.trim()
+        const catLower = cat?.toLowerCase()
         if (cat === 'Service')      { map[scope].voServicePO  += amt; if (isInvoiced) map[scope].voServiceInvoiced  += amt }
         if (cat === 'Third Party')  { map[scope].vo3rdPartyPO += amt; if (isInvoiced) map[scope].vo3rdPartyInvoiced += amt }
-        if (cat?.toLowerCase() === 'downtime') map[scope].downtimePO += amt
+        if (catLower === 'downtime') map[scope].downtimePO += amt
       } else {
         map[scope].voNoPO += amt
         const cat = vo.voCategory?.trim()
@@ -3021,22 +3145,40 @@ const poInvoiceSummary = computed(() => {
     map[scope].thirdPartyCost += vo.thirdPartyCost || 0
   }
 
+  // Detail Site Survey is shown separately from Base PO.
+  for (const vo of detailSiteSurveyItems.value.filter(voMatchesSiteFilter)) {
+    const scope  = vo.scope?.trim() || '(No Scope)'
+    ensure(scope)
+    const amt        = vo.voAmount || 0
+    const hasPO      = !!vo.poNumber?.trim()
+    const isInvoiced = vo.invoiceStatus === 'SIT Completed' && !!vo.invoiceDate
+    if (hasPO) {
+      map[scope].detailSurveyPO += amt
+      if (isInvoiced) map[scope].detailSurveyInvoiced += amt
+    } else {
+      map[scope].detailSurveyNoPO += amt
+    }
+    map[scope].labourCost     += vo.labourCost     || 0
+    map[scope].thirdPartyCost += vo.thirdPartyCost || 0
+  }
+
   return Object.values(map).map(r => {
-    const totalHavePO      = r.voServicePO + r.vo3rdPartyPO + r.downtimePO + r.boqPO + r.basePOAmt
-    const totalNoPO        = r.voServiceNoPO + r.vo3rdPartyNoPO + r.boqNoPO + r.baseNoPO
+    const totalHavePO      = r.voServicePO + r.vo3rdPartyPO + r.downtimePO + r.boqPO + r.basePOAmt + r.detailSurveyPO
+    const totalNoPO        = r.voServiceNoPO + r.vo3rdPartyNoPO + r.boqNoPO + r.baseNoPO + r.detailSurveyNoPO
     const total            = totalHavePO + totalNoPO
-    const invoiced         = r.voInvoiced + r.boqInvoiced + r.baseInvoiced
+    const invoiced         = r.voInvoiced + r.boqInvoiced + r.baseInvoiced + r.detailSurveyInvoiced
     const voNotYetInv         = r.voPO     - r.voInvoiced
     const boqNotYetInv        = r.boqPO    - r.boqInvoiced
     const baseNotYetInv       = r.basePOAmt - r.baseInvoiced
+    const detailSurveyNotYetInv = r.detailSurveyPO - r.detailSurveyInvoiced
     const notYetInvoiced      = totalHavePO - invoiced
     const voServiceNotYetInv   = r.voServicePO   - r.voServiceInvoiced
     const vo3rdPartyNotYetInv  = r.vo3rdPartyPO  - r.vo3rdPartyInvoiced
     const boqServiceNotYetInv  = r.boqServicePO  - r.boqServiceInvoiced
     const boq3rdPartyNotYetInv = r.boq3rdPartyPO - r.boq3rdPartyInvoiced
-    const totalNotYetInv       = voServiceNotYetInv + boqServiceNotYetInv + baseNotYetInv
+    const totalNotYetInv       = voServiceNotYetInv + boqServiceNotYetInv + baseNotYetInv + detailSurveyNotYetInv
     const totalCost            = r.labourCost + r.thirdPartyCost
-    return { ...r, totalHavePO, totalNoPO, total, invoiced, notYetInvoiced, voNotYetInv, boqNotYetInv, baseNotYetInv, voServiceNotYetInv, vo3rdPartyNotYetInv, boqServiceNotYetInv, boq3rdPartyNotYetInv, totalNotYetInv, totalCost }
+    return { ...r, totalHavePO, totalNoPO, total, invoiced, notYetInvoiced, voNotYetInv, boqNotYetInv, baseNotYetInv, detailSurveyNotYetInv, voServiceNotYetInv, vo3rdPartyNotYetInv, boqServiceNotYetInv, boq3rdPartyNotYetInv, totalNotYetInv, totalCost }
   }).sort((a, b) => b.total - a.total)
 })
 
@@ -3443,15 +3585,29 @@ const invoiceSiteModalGroups = computed(() => {
       havePO: 0,
       noPO: 0,
     },
+    {
+      key: 'detailSurvey',
+      label: 'Detail Site Survey',
+      description: 'Detail Site Survey records shown separately from Base PO',
+      headerClass: 'bg-cyan-50',
+      borderClass: 'border-cyan-100',
+      titleClass: 'text-cyan-700',
+      items: [],
+      total: 0,
+      havePO: 0,
+      noPO: 0,
+    },
   ]
   const byKey = Object.fromEntries(groups.map(group => [group.key, group]))
 
   for (const vo of invoiceSiteModal.value?.vos || []) {
     const category = vo.voCategory?.trim() || ''
-    const isBasePO = BASE_PO_CATEGORIES.has(category)
-    const isBOQ = !isBasePO && (vo.boqRelated === true || vo.boqRelated === 'yes')
+    const isBasePOItem = isBasePO(vo)
+    const isDetailSurveyItem = isDetailSiteSurvey(vo)
+    const isBOQ = !isBasePOItem && !isDetailSurveyItem && (vo.boqRelated === true || vo.boqRelated === 'yes')
     const group =
-      isBasePO ? byKey.basePO :
+      isBasePOItem ? byKey.basePO :
+      isDetailSurveyItem ? byKey.detailSurvey :
       isBOQ ? byKey.boq :
       category === 'Third Party' ? byKey.thirdParty :
       byKey.service
@@ -3489,7 +3645,7 @@ const voCategorySummary = computed(() => {
     const cat = vo.voCategory?.trim() || '(No Category)'
     if (!map[cat]) map[cat] = {
       category: cat,
-      isBasePO: BASE_PO_CATEGORIES.has(cat),
+      isBasePO: isBasePO(vo),
       total: 0, invoiced: 0, uninvoiced: 0,
       invoicedAmt: 0, uninvoicedAmt: 0, totalAmt: 0,
       vos: []

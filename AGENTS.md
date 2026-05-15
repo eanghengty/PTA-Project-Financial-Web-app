@@ -86,13 +86,23 @@ Dedicated view (`issue-log`) for tracking site issues independently from VOs. Da
 The following VO categories are treated as **Base PO**, not variation orders:
 `Site Survey`, `WOP`, `C&I`, `SAT&SIT`, `Snag Closure`
 
-- Defined as `BASE_PO_CATEGORIES` (a `Set`) in both `Dashboard.vue` (script) and `VOForm.vue` (script).
+- Defined as `BASE_PO_CATEGORIES` in `Dashboard.vue`; matching is case-insensitive via normalized category keys.
 - `Dashboard.vue` splits `store.vos.value` into `voItems` (non-base PO) and `basePOItems` (base PO) using `isBasePO(vo)`. All VO-specific computeds (status cards, financial cards, charts, site summary, etc.) use `voItems` only.
 - Base PO items have their own **Base PO Summary** card (amber-themed) in the dashboard showing total amount, Has PO / No PO split, and a scope × category breakdown table.
 - The **financial KPI row** has 6 cards: Total Approved, Total Pending, Total VO Value, **Total Base PO** (amber), Total Submitted, Draft Value.
 - In `VOForm.vue`, `isBasePOForm` computed hides the **Status** and **Ticket** sections for Base PO categories and shows an amber info notice instead. Invoice and PO fields remain visible.
 - On app load (`loadAllVOs`), status is auto-corrected for all records: has PO or ticket approval date → `approved`; has ticket number + submission date → `submitted` (from `draft`/`pending-approval`). `rejected` and `cancelled` are never overridden.
 - In the edit modal watcher, the same auto-status logic fires live as fields change.
+
+## Detail Site Survey
+
+`Detail Site Survey` is **not included in Dashboard Base PO totals**. Dashboard tracks it as a separate Detail Survey category:
+- `Dashboard.vue` keeps Detail Site Survey out of `basePOItems` and exposes a separate `detailSiteSurveyItems` computed.
+- In **PO & Invoice Summary by Scope**, Detail Survey has its own Have PO, No PO, and Not Yet Invoiced columns. Clickable cells open the shared detail slide-over using type `'detailSurvey'`.
+- `voMatchesSiteFilter(vo)` includes Detail Site Survey records by matching `siteId` against started/not-started Site Status rows, so Detail Survey records follow the site-level status filter even when their `jobNumber` differs.
+- Invoice/site and category drill-downs should show Detail Site Survey as its own group, separate from Base PO.
+
+`VOForm.vue` may still treat Detail Site Survey as a Base-PO-form category for form behavior (Status/Ticket hidden), but dashboard reporting must not roll it into Base PO.
 
 ## BOQ Related VOs
 
@@ -191,11 +201,11 @@ All currency in Dashboard uses `formatCompact()` (e.g., $1.23M, $456.7K, $999).
 5. **Status doughnut + Amount by status bar** — visual VO-only status breakdown
 6. **PO & Invoice Summary by Scope** — **collapsible** (collapsed by default, `poInvoiceOpen = ref(false)`). Full-width table combining PO status, invoice progress, cost-to-date, and cost-to-complete in one view. Computed: `poInvoiceSummary`.
    - **Card header filter bar** — site status toggle ("All Sites" / "Started" / "Not Started", `poInvoiceSiteFilter = ref('all')`) **and** a single month `<select>` (`ctcMonth = ref('')`, calendar icon, turns emerald when active) placed directly to the right of the site toggle. Both wrapped in `@click.stop` so they don't collapse the accordion. The month filter controls the Cost to Complete column only.
-   - **Site status filter** — filters both VO and Base PO items by matching `siteId|jobNumber` against `siteStatusData` in localStorage via `filteredSiteKeys` computed (a `Set` of `"siteId|jobNumber"` strings, or `null` for "all"). All amounts and pills update accordingly.
+   - **Site status filter** — filters VO, BOQ, Base PO, and Detail Survey items. Standard records match `siteId|jobNumber` against `siteStatusData` via `filteredSiteKeys`; Detail Site Survey records also match by `siteId` via `filteredSiteIds`, so they follow the linked site status even when their job number differs. All amounts and pills update accordingly.
    - **Sticky Scope column** — the Scope header (`rowspan=2`) and every Scope `<td>` in tbody/tfoot are `position: sticky; left: 0` with a subtle right-side `box-shadow`, so the column stays pinned during horizontal scroll.
-   - **Have PO** group (teal, `colspan=6`): VO Service · VO 3rd Party · Downtime · BOQ · Base PO · Total. All five amount cells are clickable and open the shared PO detail slide-over in `havePO` mode. Downtime is identified by `voCategory.trim().toLowerCase() === 'downtime'` and is included in Total Have PO.
-   - **No PO** group (gray, `colspan=5`): VO Service · VO 3rd Party · BOQ · Base PO · Total. The four amount cells are clickable and open the shared PO detail slide-over in `noPO` mode. Supported `noPOType` values: `'vo'` · `'service'` · `'3rdParty'` · `'downtime'` · `'boq'` · `'basePO'` · `null` (all). The `noPOItems` computed applies `voMatchesSiteFilter` so the slide-over only shows items matching the active Started / Not Started toggle. **Total** column. **Cost to Date** (violet, `colspan=3`): Labour · 3rd Party · Total.
-   - **Invoice group** (`colspan=9`) has **9 sub-columns**: Invoiced (green) · **Not Inv. 3rd Party** · **Not Inv. BOQ 3rd** · **Not Inv. Service** · **Not Inv. BOQ Svc** · **Not Inv. Base** · **Total Service Not Inv.** (bold orange) · **Total 3rd Party Not Inv.** (bold orange) · Inv. Progress bar. The "VO" not-yet-invoiced is split by `voCategory`: `'Service'` → Not Inv. Service, `'Third Party'` → Not Inv. 3rd Party. The "BOQ" not-yet-invoiced splits the same way. **Total Service Not Inv.** = Not Inv. Service + Not Inv. BOQ Svc + Not Inv. Base (excludes 3rd Party). All six clickable Not Inv. cells open the `notYetInvItems` drill-down slide-over (`notYetInvScope` / `notYetInvType` refs). Supported types: `'vo'` · `'service'` · `'3rdParty'` · `'boqService'` · `'boq3rdParty'` · `'boq'` · `'basePO'` · `null` (all). The `notYetInvItems` computed applies `voMatchesSiteFilter` so the slide-over only shows items matching the active Started / Not Started toggle.
+   - **Have PO** group (teal, `colspan=7`): VO Service · VO 3rd Party · Downtime · BOQ · Base PO · **Detail Survey** · Total. Clickable amount cells open the shared PO detail slide-over in `havePO` mode. Downtime is identified by `voCategory.trim().toLowerCase() === 'downtime'`.
+   - **No PO** group (gray, `colspan=6`): VO Service · VO 3rd Party · BOQ · Base PO · **Detail Survey** · Total. Clickable amount cells open the shared PO detail slide-over in `noPO` mode. Supported `noPOType` values: `'vo'` · `'service'` · `'3rdParty'` · `'downtime'` · `'boq'` · `'basePO'` · `'detailSurvey'` · `null` (all). The `noPOItems` computed applies `voMatchesSiteFilter` so the slide-over only shows items matching the active Started / Not Started toggle. Base PO detail rows include a Job # column; Detail Site Survey has its own cyan detail section. **Total** column. **Cost to Date** (violet, `colspan=3`): Labour · 3rd Party · Total.
+   - **Invoice group** (`colspan=10`) has **10 sub-columns**: Invoiced (green) · **Not Inv. 3rd Party** · **Not Inv. BOQ 3rd** · **Not Inv. Service** · **Not Inv. BOQ Svc** · **Not Inv. Base** · **Not Inv. Detail** · **Total Service Not Inv.** (bold orange) · **Total 3rd Party Not Inv.** (bold orange) · Inv. Progress bar. The "VO" not-yet-invoiced is split by `voCategory`: `'Service'` → Not Inv. Service, `'Third Party'` → Not Inv. 3rd Party. The "BOQ" not-yet-invoiced splits the same way. **Total Service Not Inv.** = Not Inv. Service + Not Inv. BOQ Svc + Not Inv. Base + Not Inv. Detail (excludes 3rd Party). Clickable Not Inv. cells open the `notYetInvItems` drill-down slide-over (`notYetInvScope` / `notYetInvType` refs). Supported types: `'vo'` · `'service'` · `'3rdParty'` · `'boqService'` · `'boq3rdParty'` · `'boq'` · `'basePO'` · `'detailSurvey'` · `null` (all). The `notYetInvItems` computed applies `voMatchesSiteFilter` so the slide-over only shows items matching the active Started / Not Started toggle.
    - **Cost to Complete column** (emerald, single column, left-bordered) — reads `siteStatusData` from localStorage via `costToCompleteByScope` computed (object keyed by scope). Distributes each site's cost evenly across its scopes; filtered by both `ctcMonth` and `filteredSiteKeys` (the site status toggle — Started / Not Started / All). The column and the header pill therefore update when the site filter changes. The column sub-header shows a **read-only chip** with the active month label (or "All Months" in gray). Both the group and sub-headers use `text-right` to align with data cells.
    - **Summary pills in the header (8):** Total Have PO (teal) · No PO (gray) · Invoiced (green) · Not Yet Inv. (orange) · Labour Cost (violet) · 3rd Party (blue) · Total Cost (gray) · **Cost to Complete** (emerald, read-only value, no embedded dropdown). Table scrolls horizontally (`overflow-x-auto`).
    - **Live reactivity** — `SiteStatusView.save()` dispatches `window.dispatchEvent(new Event('siteStatusUpdated'))` after every write. Dashboard registers a listener in `onMounted` (removed in `onUnmounted`) that increments `siteStatusRevision = ref(0)`. All localStorage-reading computeds (`ctcAllMonths`, `costToCompleteByScope`, `filteredSiteKeys`, `monthlyCostToCompleteData`) declare `void siteStatusRevision.value` so Vue re-runs them automatically without a page reload.
@@ -311,7 +321,7 @@ In the table, `Total Invoice Amount`, `Not Yet Invoice Amount`, `Not Yet Inv. (H
 
 Dedicated view (`site-status`, emerald-themed) for tracking construction progress per site. Data persists entirely in `localStorage` under `siteStatusData` — a plain object keyed by `"siteId|jobNumber"`.
 
-**Data model per entry:** `siteId`, `siteName`, `jobNumber`, `status` (`'started'|'not-started'`, default `'not-started'`), `scopes` (string array — synced from VOs, never manually edited), `costEntries` (array — see below), `comment` (string). `costToComplete` is **not stored** — computed at runtime as the sum of all cost entries.
+**Data model per entry:** `siteId`, `siteName`, `jobNumber`, `status` (`'started'|'not-started'`, default `'not-started'`), `scopes` (string array — synced from VOs plus linked Detail Site Survey scopes, never manually edited), `costEntries` (array — see below), `comment` (string). `costToComplete` is **not stored** — computed at runtime as the sum of all cost entries. `hasDetailSiteSurvey` is also not stored; rows compute it from matching VOs where `siteId` matches and `voCategory.trim().toLowerCase() === 'detail site survey'`.
 
 **Cost entries model** — each entry in `costEntries`: `{ id` (timestamp), `label` (string, optional), `date` (ISO date string, optional), `qtyDays`, `qtyHours`, `qtyPeople`, `rate` (all numeric) `}`. Cost per entry = `qtyDays × qtyHours × qtyPeople × rate`. Total `costToComplete` for a site = sum of all entries. Multiple entries allow non-uniform manhour calculations to be accumulated. **Migration:** on first load, existing single-field records (`qtyDays/qtyHours/qtyPeople/rate`) are auto-converted to a one-item `costEntries` array via `migrate()` — old fields are then removed.
 
@@ -327,17 +337,16 @@ Dedicated view (`site-status`, emerald-themed) for tracking construction progres
 **Copy-from-last-site banner** — when opening a different site's modal, a blue banner appears at the top (if the previous site was just saved with entries). Banner shows: site ID badge, entry formula preview (days x hours x people x rate = cost), and two buttons. Copy button appends the entry to the current site's list (with a new ID and cleared date); Dismiss button hides the banner for this session. State refs: `lastSavedInfo = ref(null)` (tracks site key, ID, name, and the last entry from the previously saved site); `copyBannerDismissed = ref(false)` (reset each time a modal opens). Computed: `showCopyBanner` — true when another site was saved, the current site is different, and the banner hasn't been dismissed yet.
 
 **Sync from Variations** button — async with a 3-second loading delay. Button disables and shows a spinning icon + `"Syncing…"` label while running. Rules:
-- `voCategory` is `"Detail Site Survey"` (case-insensitive) → excluded
 - `siteId` or `jobNumber` is blank, `"NA"`, or `"N/A"` (via `isNA()` helper) → excluded, **except** Downtime
 - **Downtime special case:** all VOs where `siteId === 'Downtime'` are consolidated into a single row with key `"Downtime|"` (empty `jobNumber`). On re-sync the row is preserved; only `scopes` is refreshed.
-- **All other VOs:** one row per unique `siteId + jobNumber`. New rows initialised with empty `costEntries`; existing rows refresh `siteName`, `jobNumber`, and `scopes` only — `status`, `costEntries`, and `comment` are always preserved.
+- **All other VOs:** one row per unique `siteId + jobNumber`, including Detail Site Survey VOs. New rows initialised with empty `costEntries`; existing rows refresh `siteName`, `jobNumber`, and `scopes` only — `status`, `costEntries`, and `comment` are always preserved.
 - `scopes` is always re-derived from VOs on every sync; it is read-only in the table.
 
 **Delete All** button — red-bordered, disabled when no sites exist. Opens a confirmation modal showing the count of entries to be removed. Confirming wipes all entries from `siteStatusData` in localStorage immediately.
 
-**Status toggle** — clicking the Started / Not Started pill flips `status` immediately and persists. Emerald = started, amber = not started. Left border accent matches.
+**Status toggle** — clicking the Started / Not Started pill flips `status` immediately and persists. Emerald = started, amber = not started. Left border accent matches. If the row has linked Detail Site Survey VOs, the toggle also applies the same status to other Site Status entries for the same `siteId` that have linked Detail Site Survey records, so the site and its detail survey stay in sync.
 
-**Table columns (11):** Site ID · Site Name · Job # · Status · Scope · **Entries** (badge showing count of cost entries, click opens edit modal) · **Total Hours** · VO Qty · Cost to Complete · Comment · Actions. Total Hours is calculated from cost entries as `qtyDays × qtyHours × qtyPeople` and respects the active month filter.
+**Table columns (11):** Site ID · Site Name · Job # · Status · Scope · **Entries** (badge showing count of cost entries, click opens edit modal) · **Total Hours** · VO Qty · Cost to Complete · Comment · Actions. The Job # cell shows a `Detail Survey` badge when the site has Detail Site Survey VOs. `voItemsFor(row)` joins Detail Site Survey records into the VO detail drawer by matching the same `siteId`, even when `jobNumber` differs. Total Hours is calculated from cost entries as `qtyDays × qtyHours × qtyPeople` and respects the active month filter.
 
 **KPI cards (4):** Total Sites · Started (count + cost to complete) · Not Started (count + cost to complete) · Total Cost to Complete. All KPI values respect the active month filter.
 
@@ -361,7 +370,7 @@ Dedicated view (`site-status`, emerald-themed) for tracking construction progres
   - Shows old status struck through → new status for updated rows; raw unrecognised value in monospace for skipped rows
   - Summary pills: X updated · Y not found · Z skipped; each entry shows original file row number
 
-**Export:** Downloads filtered view as `Site_Status_YYYY-MM-DD.xlsx` with columns matching the displayed data columns: Site ID, Site Name, Job Number, Status, Scope, Cost Entries, Total Hours, VO Qty, Cost to Complete, Comment.
+**Export:** Downloads filtered view as `Site_Status_YYYY-MM-DD.xlsx` with columns matching the displayed data columns plus the computed Detail Site Survey flag: Site ID, Site Name, Job Number, Detail Site Survey, Status, Scope, Cost Entries, Total Hours, VO Qty, Cost to Complete, Comment.
 
 ## Admin View Features
 

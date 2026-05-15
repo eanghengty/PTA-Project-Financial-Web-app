@@ -1828,10 +1828,19 @@ const applyTicketUpdates = async () => {
           continue
         }
         const nextStatus = resolveImportedStatus(vo, diff.newTicketNumber, diff.newSubmissionDate)
+        const currentTicketNumber = normalizeTicketNumber(vo.ticketNumber)
+        const nextTicketNumber = normalizeTicketNumber(diff.newTicketNumber)
+        const shouldAutoFillEmailApproval =
+          !!nextTicketNumber &&
+          !currentTicketNumber &&
+          !!vo.emailSentToNokia &&
+          !vo.emailApprovedFromNokia
+
         await store.editVO(diff.voId, {
           ...vo,
           ticketNumber: diff.newTicketNumber,
           ticketSubmissionDate: new Date(diff.newSubmissionDate),
+          emailApprovedFromNokia: shouldAutoFillEmailApproval ? new Date() : vo.emailApprovedFromNokia,
           voStatus: nextStatus,
         })
         updatedCount += 1

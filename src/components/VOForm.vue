@@ -693,8 +693,9 @@ const formatLogDateTime = (d) => {
   return new Date(d).toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-const BASE_PO_FORM_CATEGORIES = new Set(['Site Survey', 'WOP', 'C&I', 'SAT&SIT', 'Snag Closure'])
-const isBasePOForm = computed(() => BASE_PO_FORM_CATEGORIES.has(form.value.voCategory?.trim()))
+const BASE_PO_FORM_CATEGORIES = new Set(['Site Survey', 'WOP', 'C&I', 'SAT&SIT', 'Snag Closure', 'Detail Site Survey'])
+const BASE_PO_FORM_CATEGORY_KEYS = new Set([...BASE_PO_FORM_CATEGORIES].map(c => c.toLowerCase()))
+const isBasePOForm = computed(() => BASE_PO_FORM_CATEGORY_KEYS.has(form.value.voCategory?.trim()?.toLowerCase()))
 const isBOQForm    = computed(() => form.value.boqRelated === true && !isBasePOForm.value)
 
 // Prevents the auto-status watcher from firing during initial form population

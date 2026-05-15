@@ -716,7 +716,15 @@
               </span>
             </td>
             <td class="px-4 py-3 text-gray-800 font-medium">{{ row.siteName }}</td>
-            <td class="px-4 py-3 text-gray-600">{{ row.jobNumber || '—' }}</td>
+            <td class="px-4 py-3 text-gray-600">
+              <div class="flex flex-col gap-1">
+                <span>{{ row.jobNumber || '—' }}</span>
+                <span v-if="row.hasDetailSiteSurvey"
+                  class="inline-flex w-fit px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider border border-amber-200">
+                  Detail Survey
+                </span>
+              </div>
+            </td>
             <td class="px-4 py-3 text-center">
               <button @click="toggleStatus(row)"
                 class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition"
@@ -924,8 +932,9 @@ const rows = computed(() => {
       siteId:        d.siteId,
       siteName:      d.siteName,
       jobNumber:     d.jobNumber,
+      hasDetailSiteSurvey: hasDetailSiteSurveyFor(d),
       status:        d.status || 'not-started',
-      scopes:        Array.isArray(d.scopes) ? d.scopes : [],
+      scopes:        mergedScopesFor(d),
       costEntries:   entries,
       totalHours,
       costToComplete,
@@ -933,6 +942,34 @@ const rows = computed(() => {
     }
   }).sort((a, b) => (a.siteId || '').localeCompare(b.siteId || ''))
 })
+
+function isDetailSiteSurveyVO(vo) {
+  return vo?.voCategory?.trim()?.toLowerCase() === 'detail site survey'
+}
+
+function hasDetailSiteSurveyFor(row) {
+  if (!row || row.siteId === 'Downtime') return false
+  return (store.vos.value || []).some(vo =>
+    vo.siteId === row.siteId &&
+    isDetailSiteSurveyVO(vo)
+  )
+}
+
+function detailSiteSurveyVOsFor(row) {
+  if (!row || row.siteId === 'Downtime') return []
+  return (store.vos.value || []).filter(vo =>
+    vo.siteId === row.siteId &&
+    isDetailSiteSurveyVO(vo)
+  )
+}
+
+function mergedScopesFor(row) {
+  const scopes = new Set(Array.isArray(row.scopes) ? row.scopes : [])
+  detailSiteSurveyVOsFor(row).forEach(vo => {
+    if (vo.scope) scopes.add(vo.scope)
+  })
+  return [...scopes].sort()
+}
 
 const allScopes = computed(() => {
   const set = new Set()
@@ -1025,7 +1062,11 @@ function voItemsFor(row) {
   if (row.siteId === 'Downtime') {
     return vos.filter(v => v.siteId === 'Downtime')
   }
-  return vos.filter(v => v.siteId === row.siteId && v.jobNumber === row.jobNumber)
+  const items = vos.filter(v =>
+    (v.siteId === row.siteId && v.jobNumber === row.jobNumber) ||
+    (v.siteId === row.siteId && isDetailSiteSurveyVO(v))
+  )
+  return [...new Map(items.map(vo => [vo.id, vo])).values()]
 }
 
 function voCountFor(row) {
@@ -1074,8 +1115,6 @@ async function syncFromVOs() {
   const otherVOs = []
 
   vos.forEach(vo => {
-    // Skip Detail Site Survey category
-    if ((vo.voCategory || '').trim().toLowerCase() === 'detail site survey') return
     // Skip rows where site ID or job number is NA / blank (except Downtime)
     if (vo.siteId !== 'Downtime' && (isNA(vo.siteId) || isNA(vo.jobNumber))) return
 
@@ -1162,7 +1201,16 @@ function deleteAll() {
 function toggleStatus(row) {
   const d = siteData.value[row.key]
   if (!d) return
-  d.status = d.status === 'started' ? 'not-started' : 'started'
+  const nextStatus = d.status === 'started' ? 'not-started' : 'started'
+  const shouldLinkDetailSurvey = hasDetailSiteSurveyFor(d)
+  d.status = nextStatus
+  if (shouldLinkDetailSurvey && d.siteId && d.siteId !== 'Downtime') {
+    Object.values(siteData.value).forEach(entry => {
+      if (entry.siteId === d.siteId && hasDetailSiteSurveyFor(entry)) {
+        entry.status = nextStatus
+      }
+    })
+  }
   save(siteData.value)
 }
 
@@ -1370,6 +1418,7 @@ function exportToExcel() {
     'Site ID':          r.siteId,
     'Site Name':        r.siteName,
     'Job Number':       r.jobNumber || '',
+    'Detail Site Survey': r.hasDetailSiteSurvey ? 'Yes' : '',
     'Status':           r.status === 'started' ? 'Started' : 'Not Started',
     'Scope':            r.scopes.length ? r.scopes.join(', ') : '',
     'Cost Entries':     r.costEntries.length,
@@ -1383,6 +1432,7 @@ function exportToExcel() {
     { wch: 18 },
     { wch: 28 },
     { wch: 16 },
+    { wch: 20 },
     { wch: 14 },
     { wch: 28 },
     { wch: 14 },
