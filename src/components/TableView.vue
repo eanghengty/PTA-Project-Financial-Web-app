@@ -880,25 +880,84 @@ const exportMenuStyle = computed(() => {
   }
 })
 
+const escapeExcelHtml = (value) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+
+const formatExportDate = (value) => value ? new Date(value).toLocaleDateString('en-AU') : ''
+
+const formatExportAmount = (value) => {
+  const amount = Number(value) || 0
+  return `$ ${amount.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function downloadStyledVariationExport(rows, filename) {
+  const columns = [
+    { key: 'siteName', label: 'Site Name', width: 200, align: 'left' },
+    { key: 'description', label: 'Description', width: 320, align: 'left' },
+    { key: 'scope', label: 'Scope', width: 250, align: 'left' },
+    { key: 'amount', label: 'Amount', width: 130, align: 'right' },
+    { key: 'ticketSubmissionDate', label: 'Ticket Submission Date', width: 190, align: 'left' },
+    { key: 'ticketNumber', label: 'Ticket Number', width: 150, align: 'left' },
+  ]
+
+  const colGroupHtml = columns.map(col => `<col style="width:${col.width}px">`).join('')
+  const headerHtml = columns
+    .map(col => `<th style="background:#0b2a66;color:#ffffff;border:1px solid #7f7f7f;padding:4px 6px;font-family:Tahoma, Arial, sans-serif;font-size:10pt;font-weight:400;text-align:left;white-space:nowrap;">${escapeExcelHtml(col.label)}</th>`)
+    .join('')
+
+  const bodyHtml = rows.map(row => {
+    const cells = columns.map(col => {
+      const align = col.align === 'right' ? 'right' : 'left'
+      return `<td style="border:1px solid #b7b7b7;padding:4px 6px;font-family:Tahoma, Arial, sans-serif;font-size:10pt;text-align:${align};vertical-align:middle;white-space:nowrap;">${escapeExcelHtml(row[col.key])}</td>`
+    }).join('')
+    return `<tr>${cells}</tr>`
+  }).join('')
+
+  const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      table { border-collapse: collapse; }
+    </style>
+  </head>
+  <body>
+    <table>
+      <colgroup>${colGroupHtml}</colgroup>
+      <thead><tr>${headerHtml}</tr></thead>
+      <tbody>${bodyHtml}</tbody>
+    </table>
+  </body>
+</html>`
+
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(link.href)
+}
+
 const exportDefault = () => {
   const vosToExport = filteredVOs.value.filter(vo => selectedRows.value.has(vo.id))
   if (vosToExport.length === 0) return
 
   const rows = vosToExport.map(vo => ({
-    'Site Name':              vo.siteName || '',
-    'Description':            vo.voDescription || '',
-    'Scope':                  vo.scope || '',
-    'Amount':                 vo.voAmount || 0,
-    'Ticket Submission Date': vo.ticketSubmissionDate ? new Date(vo.ticketSubmissionDate).toLocaleDateString('en-AU') : '',
-    'Ticket Number':          vo.ticketNumber || ''
+    siteName:             vo.siteName || '',
+    description:          vo.voDescription || '',
+    scope:                vo.scope || '',
+    amount:               formatExportAmount(vo.voAmount),
+    ticketSubmissionDate: formatExportDate(vo.ticketSubmissionDate),
+    ticketNumber:         vo.ticketNumber || ''
   }))
 
-  const worksheet = XLSX.utils.json_to_sheet(rows)
-  worksheet['!cols'] = [{ wch: 22 }, { wch: 35 }, { wch: 28 }, { wch: 14 }, { wch: 22 }, { wch: 16 }]
-  const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Variation Orders')
   const date = new Date().toLocaleDateString('en-AU').replace(/\//g, '-')
-  XLSX.writeFile(workbook, `Variation_Orders_${date}.xlsx`)
+  downloadStyledVariationExport(rows, `Variation_Orders_${date}.xls`)
 }
 
 const exportTableView = () => {

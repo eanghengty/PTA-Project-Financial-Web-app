@@ -719,6 +719,18 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
           </div>
+          <button
+            @click="exportPOInvoiceSummaryToExcel"
+            :disabled="poInvoiceSummary.length === 0"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition"
+            :class="poInvoiceSummary.length > 0
+              ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:border-blue-700'
+              : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 12l-4-4m4 4l4-4M4 20h16"/>
+            </svg>
+            Export Excel
+          </button>
         </div>
         <!-- Summary pills -->
         <div class="flex items-center gap-2 flex-wrap justify-end">
@@ -3249,12 +3261,181 @@ const poInvoiceSummary = computed(() => {
     const boqServiceNotYetInv  = r.boqServicePO  - r.boqServiceInvoiced
     const boq3rdPartyNotYetInv = r.boq3rdPartyPO - r.boq3rdPartyInvoiced
     const totalNotYetInv       = voServiceNotYetInv + boqServiceNotYetInv + baseNotYetInv + detailSurveyNotYetInv
+    const total3rdPartyNotYetInv = vo3rdPartyNotYetInv + boq3rdPartyNotYetInv
     const totalCost            = r.labourCost + r.thirdPartyCost
-    return { ...r, totalHavePO, totalNoPO, total, invoiced, notYetInvoiced, voNotYetInv, boqNotYetInv, baseNotYetInv, detailSurveyNotYetInv, voServiceNotYetInv, vo3rdPartyNotYetInv, boqServiceNotYetInv, boq3rdPartyNotYetInv, totalNotYetInv, totalCost }
+    const invoiceProgress      = totalHavePO > 0 ? invoiced / totalHavePO : 0
+    return { ...r, totalHavePO, totalNoPO, total, invoiced, notYetInvoiced, voNotYetInv, boqNotYetInv, baseNotYetInv, detailSurveyNotYetInv, voServiceNotYetInv, vo3rdPartyNotYetInv, boqServiceNotYetInv, boq3rdPartyNotYetInv, totalNotYetInv, total3rdPartyNotYetInv, totalCost, invoiceProgress }
   }).sort((a, b) => b.total - a.total)
 })
 
 // ── Monthly Invoice Summary ──
+const poInvoiceSummaryTotals = computed(() => {
+  const rows = poInvoiceSummary.value
+  const totalHavePO = rows.reduce((s, r) => s + r.totalHavePO, 0)
+  const invoiced = rows.reduce((s, r) => s + r.invoiced, 0)
+
+  return {
+    scope: 'Total',
+    voServicePO: rows.reduce((s, r) => s + r.voServicePO, 0),
+    vo3rdPartyPO: rows.reduce((s, r) => s + r.vo3rdPartyPO, 0),
+    downtimePO: rows.reduce((s, r) => s + r.downtimePO, 0),
+    boqPO: rows.reduce((s, r) => s + r.boqPO, 0),
+    basePOAmt: rows.reduce((s, r) => s + r.basePOAmt, 0),
+    detailSurveyPO: rows.reduce((s, r) => s + r.detailSurveyPO, 0),
+    totalHavePO,
+    voServiceNoPO: rows.reduce((s, r) => s + r.voServiceNoPO, 0),
+    vo3rdPartyNoPO: rows.reduce((s, r) => s + r.vo3rdPartyNoPO, 0),
+    boqNoPO: rows.reduce((s, r) => s + r.boqNoPO, 0),
+    baseNoPO: rows.reduce((s, r) => s + r.baseNoPO, 0),
+    detailSurveyNoPO: rows.reduce((s, r) => s + r.detailSurveyNoPO, 0),
+    totalNoPO: rows.reduce((s, r) => s + r.totalNoPO, 0),
+    total: rows.reduce((s, r) => s + r.total, 0),
+    invoiced,
+    vo3rdPartyNotYetInv: rows.reduce((s, r) => s + r.vo3rdPartyNotYetInv, 0),
+    boq3rdPartyNotYetInv: rows.reduce((s, r) => s + r.boq3rdPartyNotYetInv, 0),
+    voServiceNotYetInv: rows.reduce((s, r) => s + r.voServiceNotYetInv, 0),
+    boqServiceNotYetInv: rows.reduce((s, r) => s + r.boqServiceNotYetInv, 0),
+    baseNotYetInv: rows.reduce((s, r) => s + r.baseNotYetInv, 0),
+    detailSurveyNotYetInv: rows.reduce((s, r) => s + r.detailSurveyNotYetInv, 0),
+    totalNotYetInv: rows.reduce((s, r) => s + r.totalNotYetInv, 0),
+    total3rdPartyNotYetInv: rows.reduce((s, r) => s + r.vo3rdPartyNotYetInv + r.boq3rdPartyNotYetInv, 0),
+    invoiceProgress: totalHavePO > 0 ? invoiced / totalHavePO : 0,
+    labourCost: rows.reduce((s, r) => s + r.labourCost, 0),
+    thirdPartyCost: rows.reduce((s, r) => s + r.thirdPartyCost, 0),
+    totalCost: rows.reduce((s, r) => s + r.totalCost, 0),
+    costToComplete: Object.values(costToCompleteByScope.value).reduce((s, v) => s + v, 0),
+  }
+})
+
+const poInvoiceSummaryExportColumns = [
+  { key: 'scope', label: 'Scope', width: 180, align: 'left' },
+  { key: 'totalHavePO', label: 'Have PO - Total', width: 150, align: 'right' },
+  { key: 'voServiceNoPO', label: 'No PO - VO Service', width: 150, align: 'right' },
+  { key: 'vo3rdPartyNoPO', label: 'No PO - VO 3rd Party', width: 170, align: 'right' },
+  { key: 'boqNoPO', label: 'No PO - BOQ', width: 140, align: 'right' },
+  { key: 'baseNoPO', label: 'No PO - Base PO', width: 150, align: 'right' },
+  { key: 'detailSurveyNoPO', label: 'No PO - Detail Survey', width: 170, align: 'right' },
+  { key: 'totalNoPO', label: 'No PO - Total', width: 140, align: 'right' },
+  { key: 'total', label: 'Grand Total', width: 140, align: 'right' },
+  { key: 'invoiced', label: 'Invoice - Invoiced', width: 150, align: 'right' },
+  { key: 'vo3rdPartyNotYetInv', label: 'Invoice - Not Inv. 3rd Party', width: 190, align: 'right' },
+  { key: 'boq3rdPartyNotYetInv', label: 'Invoice - Not Inv. BOQ 3rd', width: 180, align: 'right' },
+  { key: 'voServiceNotYetInv', label: 'Invoice - Not Inv. Service', width: 180, align: 'right' },
+  { key: 'boqServiceNotYetInv', label: 'Invoice - Not Inv. BOQ Svc', width: 180, align: 'right' },
+  { key: 'baseNotYetInv', label: 'Invoice - Not Inv. Base', width: 170, align: 'right' },
+  { key: 'detailSurveyNotYetInv', label: 'Invoice - Not Inv. Detail', width: 170, align: 'right' },
+  { key: 'totalNotYetInv', label: 'Invoice - Total Service Not Inv.', width: 210, align: 'right' },
+  { key: 'total3rdPartyNotYetInv', label: 'Invoice - Total 3rd Party Not Inv.', width: 220, align: 'right' },
+  { key: 'invoiceProgress', label: 'Invoice - Progress %', width: 150, align: 'right' },
+  { key: 'labourCost', label: 'Cost to Date - Labour', width: 160, align: 'right' },
+  { key: 'thirdPartyCost', label: 'Cost to Date - 3rd Party', width: 170, align: 'right' },
+  { key: 'totalCost', label: 'Cost to Date - Total', width: 160, align: 'right' },
+  { key: 'costToComplete', label: 'Cost to Complete', width: 160, align: 'right' },
+]
+
+const escapeExcelHtml = (value) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
+
+function formatDashboardExportAmount(value, { dashZero = true } = {}) {
+  const amount = Number(value) || 0
+  if (dashZero && amount === 0) return '-'
+  return amount.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function formatDashboardExportPercent(value) {
+  const ratio = Number(value) || 0
+  if (ratio <= 0) return '-'
+  return `${(ratio * 100).toFixed(0)}%`
+}
+
+function buildPOInvoiceSummaryExportRows() {
+  return [...poInvoiceSummary.value, poInvoiceSummaryTotals.value].map(row => ({
+    isTotal: row.scope === 'Total',
+    scope: row.scope,
+    totalHavePO: formatDashboardExportAmount(row.totalHavePO),
+    voServiceNoPO: formatDashboardExportAmount(row.voServiceNoPO),
+    vo3rdPartyNoPO: formatDashboardExportAmount(row.vo3rdPartyNoPO),
+    boqNoPO: formatDashboardExportAmount(row.boqNoPO),
+    baseNoPO: formatDashboardExportAmount(row.baseNoPO),
+    detailSurveyNoPO: formatDashboardExportAmount(row.detailSurveyNoPO),
+    totalNoPO: formatDashboardExportAmount(row.totalNoPO),
+    total: formatDashboardExportAmount(row.total, { dashZero: false }),
+    invoiced: formatDashboardExportAmount(row.invoiced),
+    vo3rdPartyNotYetInv: formatDashboardExportAmount(row.vo3rdPartyNotYetInv),
+    boq3rdPartyNotYetInv: formatDashboardExportAmount(row.boq3rdPartyNotYetInv),
+    total3rdPartyNotYetInv: formatDashboardExportAmount(row.total3rdPartyNotYetInv),
+    voServiceNotYetInv: formatDashboardExportAmount(row.voServiceNotYetInv),
+    boqServiceNotYetInv: formatDashboardExportAmount(row.boqServiceNotYetInv),
+    baseNotYetInv: formatDashboardExportAmount(row.baseNotYetInv),
+    detailSurveyNotYetInv: formatDashboardExportAmount(row.detailSurveyNotYetInv),
+    totalNotYetInv: formatDashboardExportAmount(row.totalNotYetInv),
+    invoiceProgress: formatDashboardExportPercent(row.invoiceProgress),
+    labourCost: formatDashboardExportAmount(row.labourCost),
+    thirdPartyCost: formatDashboardExportAmount(row.thirdPartyCost),
+    totalCost: formatDashboardExportAmount(row.totalCost),
+    costToComplete: formatDashboardExportAmount(row.costToComplete),
+  }))
+}
+
+function exportPOInvoiceSummaryToExcel() {
+  if (!poInvoiceSummary.value.length) return
+
+  const rows = buildPOInvoiceSummaryExportRows()
+  const colGroupHtml = poInvoiceSummaryExportColumns
+    .map(col => `<col style="width:${col.width}px">`)
+    .join('')
+  const headerHtml = poInvoiceSummaryExportColumns
+    .map(col => `<th style="background:#0b2a66;color:#ffffff;border:1px solid #000000;padding:4px 6px;font-family:Tahoma, Arial, sans-serif;font-size:11pt;font-weight:700;text-align:${col.align === 'right' ? 'right' : 'left'};white-space:nowrap;">${escapeExcelHtml(col.label)}</th>`)
+    .join('')
+
+  const bodyHtml = rows.map(row => {
+    const rowBg = row.isTotal ? '#f2f2f2' : '#ffffff'
+    const rowWeight = row.isTotal ? '700' : '400'
+    const cells = poInvoiceSummaryExportColumns.map(col => {
+      const align = col.align === 'right' ? 'right' : 'left'
+      return `<td style="border:1px solid #000000;padding:4px 6px;font-family:Tahoma, Arial, sans-serif;font-size:11pt;font-weight:${rowWeight};text-align:${align};vertical-align:middle;white-space:nowrap;background:${rowBg};">${escapeExcelHtml(row[col.key])}</td>`
+    }).join('')
+    return `<tr>${cells}</tr>`
+  }).join('')
+
+  const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      table { border-collapse: collapse; }
+    </style>
+  </head>
+  <body>
+    <table>
+      <colgroup>${colGroupHtml}</colgroup>
+      <thead><tr>${headerHtml}</tr></thead>
+      <tbody>${bodyHtml}</tbody>
+    </table>
+  </body>
+</html>`
+
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  const date = new Date().toISOString().slice(0, 10)
+  const siteFilterLabel = poInvoiceSiteFilter.value === 'started'
+    ? 'Started'
+    : poInvoiceSiteFilter.value === 'not-started'
+      ? 'Not_Started'
+      : 'All_Sites'
+  const monthLabel = ctcMonth.value || 'All_Months'
+  link.download = `Dashboard_PO_Invoice_Summary_By_Scope_${siteFilterLabel}_${monthLabel}_${date}.xls`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(link.href)
+}
+
 const monthlyInvoiceData = computed(() => {
   const voMap = {}, basePOMap = {}, boqMap = {}
   const buildMap = (list, map, boqOnly = false, excludeBoq = false) => {

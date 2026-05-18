@@ -25,6 +25,7 @@ No test runner or linter is configured.
 **Persistence split:**
 - `src/db/indexdb.js` — IndexedDB ("VariationTrackerDB" v4) with store `variations` for VO records and store `issueLogs` for Issue Log records. All operations return Promises.
 - `localStorage` — UI state (active view/tab), invoice prep IDs, flagged VO IDs (`flaggedVOIds`), flagged VO notes (`flaggedVONotes`), activity log (no cap — all entries preserved), global admin data (sites, categories, scopes, settings), site status data (`siteStatusData`).
+- `DATABASE_DIAGRAM.md` — schema reference for IndexedDB stores/indexes plus the localStorage-backed persistence map.
 
 **VO data model** (key fields): `id` (UUID), `siteId`, `siteName`, `jobNumber`, `voDescription`, `voAmount`, `voCategory`, `scope`, `boqRelated` (boolean `true`/`false`), `voStatus` (`draft|submitted|pending-approval|approved|rejected|cancelled`), invoice fields (`poNumber`, `invoiceStatus`, `invoiceDate`, `invoiceLog`, `poLog`), tracking fields (`emailSentToNokia`, `emailApprovedFromNokia`, `ticketNumber`, `ticketSubmissionDate`, `ticketApprovalDate`), cost fields (`labourCost`, `thirdPartyCost` — both numeric, default `0`), `comment`, and `createdAt`/`updatedAt`.
 
@@ -255,6 +256,11 @@ The primary UI chrome uses `blue-600/700` for action buttons and table headers, 
 **Column Visibility:** Toggle columns via "Columns" button. Persisted to localStorage. Reset to defaults via modal button.
 
 **Row Selection:** Cleared automatically when search text or filters change (prevents stale multi-page selections).
+
+**Export Menu:** When rows are selected, the toolbar export dropdown offers:
+- **Export Default** — exports the selected rows as a styled Excel-compatible `.xls` file with fixed columns `Site Name`, `Description`, `Scope`, `Amount`, `Ticket Submission Date`, and `Ticket Number`.
+- The default export styling is baked into the file: navy header, white text, full cell borders, `Tahoma` font, and `10pt` size.
+- **Export Table View** — exports the selected rows as `.xlsx` using the current visible-column configuration and table order.
 
 **Flag with Description:** Each row has an amber flag icon button.
 - **Unflagged:** clicking opens a modal to enter a reason/note, then flags the VO.

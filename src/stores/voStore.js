@@ -357,7 +357,7 @@ export function useVOStore() {
       console.error('Error updating VO:', err)
       throw err
     } finally {
-      loading.value = false
+      if (!suppressLoadingToggle) loading.value = false
     }
   }
 
@@ -495,7 +495,7 @@ export function useVOStore() {
       error.value = err.message
       console.error('Error loading issue logs:', err)
     } finally {
-      if (!suppressLoadingToggle) loading.value = false
+      loading.value = false
     }
   }
 
