@@ -1053,11 +1053,11 @@ const restoreLocalStorageData = (data) => {
 
 // ── backup meta ──
 const backupContents = computed(() => [
-  { label: 'Variations',     desc: `${store.vos.value?.length || 0} records (all fields, IDs, invoice log & PO log preserved)` },
+  { label: 'Variations',     desc: `${store.vos.value?.length || 0} records (all fields, IDs, PO received dates, invoice log & PO log preserved)` },
   { label: 'Invoice Prep',   desc: 'which VOs are queued for invoicing' },
   { label: 'Admin Data',     desc: 'sites, categories, scopes & settings' },
   { label: 'Site Status',    desc: 'started/not-started state, cost entries, hours, comments & status imports' },
-  { label: 'View Data',      desc: 'flagged VOs, manual invoice entries, cost import history & table preferences' },
+  { label: 'View Data',      desc: 'flagged VOs, manual invoice entries, cost import history, current view & table preferences' },
   { label: 'Activity Log',   desc: 'full audit trail' },
 ])
 

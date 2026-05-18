@@ -146,10 +146,11 @@ import CostToDate        from './components/CostToDate.vue'
 import PLView            from './components/PLView.vue'
 import SiteStatusView    from './components/SiteStatusView.vue'
 import IssueLogView      from './components/IssueLogView.vue'
+import POReceivedSummary from './components/POReceivedSummary.vue'
 import { useVOStore } from './stores/voStore'
 import { downloadFullBackup } from './utils/backup'
 
-const VALID_VIEWS = ['dashboard', 'table', 'invoice-list', 'monthly-invoice', 'reminders', 'cost-to-date', 'pl', 'site-status', 'issue-log', 'import-export', 'admin']
+const VALID_VIEWS = ['dashboard', 'table', 'invoice-list', 'monthly-invoice', 'po-received-summary', 'reminders', 'cost-to-date', 'pl', 'site-status', 'issue-log', 'import-export', 'admin']
 const saved = localStorage.getItem('currentView')
 const currentView = ref(VALID_VIEWS.includes(saved) ? saved : 'dashboard')
 
@@ -159,7 +160,7 @@ const store = useVOStore()
 watch(currentView, v => localStorage.setItem('currentView', v))
 
 // Map view key → component (used by <component :is>)
-const viewMap = { dashboard: Dashboard, table: TableView, 'invoice-list': InvoiceList, 'monthly-invoice': MonthlyInvoicing, reminders: ReminderView, 'cost-to-date': CostToDate, pl: PLView, 'site-status': SiteStatusView, 'issue-log': IssueLogView, 'import-export': ImportExport, admin: AdminView }
+const viewMap = { dashboard: Dashboard, table: TableView, 'invoice-list': InvoiceList, 'monthly-invoice': MonthlyInvoicing, 'po-received-summary': POReceivedSummary, reminders: ReminderView, 'cost-to-date': CostToDate, pl: PLView, 'site-status': SiteStatusView, 'issue-log': IssueLogView, 'import-export': ImportExport, admin: AdminView }
 const currentComponent = computed(() => viewMap[currentView.value] ?? Dashboard)
 
 const voCount = computed(() => store.vos.value?.length || 0)
@@ -320,6 +321,14 @@ const IconMonthly = {
   ])
 }
 
+const IconPOReceived = {
+  render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+    h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2',
+      d: 'M9 12h6m-6 4h6M9 8h6m-9 12h12a2 2 0 002-2V8.828a2 2 0 00-.586-1.414l-3.828-3.828A2 2 0 0014.172 3H6a2 2 0 00-2 2v13a2 2 0 002 2z' }),
+    h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M14 3v4a1 1 0 001 1h4' })
+  ])
+}
+
 const IconCost = {
   render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
     h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2',
@@ -354,6 +363,7 @@ const navItems = [
   { key: 'table',           label: 'Variations',     icon: IconTable     },
   { key: 'invoice-list',    label: 'Invoice Prep',   icon: IconInvoice   },
   { key: 'monthly-invoice', label: 'Monthly',        icon: IconMonthly   },
+  { key: 'po-received-summary', label: 'PO Received', icon: IconPOReceived },
   { key: 'reminders',       label: 'Reminders',      icon: IconReminder  },
   { key: 'cost-to-date',    label: 'Cost to Date',   icon: IconCost        },
   { key: 'pl',              label: 'P&L',            icon: IconPL          },

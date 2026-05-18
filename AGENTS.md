@@ -14,7 +14,7 @@ No test runner or linter is configured.
 
 ## Architecture
 
-**Vue 3 SPA — no Vue Router.** Views are swapped via `<component :is="currentComponent">` in `App.vue`, with the active view persisted to `localStorage` as `currentView`. Available views: `dashboard`, `table`, `invoice-list`, `monthly-invoice`, `reminders`, `cost-to-date`, `pl`, `site-status`, `issue-log`, `import-export`, `admin`.
+**Vue 3 SPA — no Vue Router.** Views are swapped via `<component :is="currentComponent">` in `App.vue`, with the active view persisted to `localStorage` as `currentView`. Available views: `dashboard`, `table`, `invoice-list`, `monthly-invoice`, `po-received-summary`, `reminders`, `cost-to-date`, `pl`, `site-status`, `issue-log`, `import-export`, `admin`.
 
 **State:** A single composable store in `src/stores/voStore.js` (`useVOStore()`) holds all reactive state — no Pinia or Vuex. Key refs: `vos`, `issueLogs`, `loading`, `error`, `invoicePrepIds` (a `Set`), `selectedFilters`. Key computed: `filteredVOs`, `statusSummary`, `financialSummary`, `categoryDistribution`, `timelineMetrics`, `invoicePrepItems`, `issueLogSummary`. All components import this composable directly.
 
@@ -24,12 +24,13 @@ No test runner or linter is configured.
 
 **Persistence split:**
 - `src/db/indexdb.js` — IndexedDB ("VariationTrackerDB" v4) with store `variations` for VO records and store `issueLogs` for Issue Log records. All operations return Promises.
-- `localStorage` — UI state (active view/tab), invoice prep IDs, flagged VO IDs (`flaggedVOIds`), flagged VO notes (`flaggedVONotes`), activity log (no cap — all entries preserved), global admin data (sites, categories, scopes, settings), site status data (`siteStatusData`).
+- `localStorage` — UI state (active view/tab, including `currentView`), invoice prep IDs, flagged VO IDs (`flaggedVOIds`), flagged VO notes (`flaggedVONotes`), activity log (no cap — all entries preserved), global admin data (sites, categories, scopes, settings), site status data (`siteStatusData`).
 - `DATABASE_DIAGRAM.md` — schema reference for IndexedDB stores/indexes plus the localStorage-backed persistence map.
 
-**VO data model** (key fields): `id` (UUID), `siteId`, `siteName`, `jobNumber`, `voDescription`, `voAmount`, `voCategory`, `scope`, `boqRelated` (boolean `true`/`false`), `voStatus` (`draft|submitted|pending-approval|approved|rejected|cancelled`), invoice fields (`poNumber`, `invoiceStatus`, `invoiceDate`, `invoiceLog`, `poLog`), tracking fields (`emailSentToNokia`, `emailApprovedFromNokia`, `ticketNumber`, `ticketSubmissionDate`, `ticketApprovalDate`), cost fields (`labourCost`, `thirdPartyCost` — both numeric, default `0`), `comment`, and `createdAt`/`updatedAt`.
+**VO data model** (key fields): `id` (UUID), `siteId`, `siteName`, `jobNumber`, `voDescription`, `voAmount`, `voCategory`, `scope`, `boqRelated` (boolean `true`/`false`), `voStatus` (`draft|submitted|pending-approval|approved|rejected|cancelled`), PO / invoice fields (`poNumber`, `poReceivedDate`, `invoiceStatus`, `invoiceDate`, `invoiceLog`, `poLog`), tracking fields (`emailSentToNokia`, `emailApprovedFromNokia`, `ticketNumber`, `ticketSubmissionDate`, `ticketApprovalDate`), cost fields (`labourCost`, `thirdPartyCost` — both numeric, default `0`), `comment`, and `createdAt`/`updatedAt`.
 
 - `invoiceLog` — append-only array of `{ status, date, loggedAt, source? }`. Written by `bulkUpdateInvoiceStatus` (bulk ops) and by `VOForm` on manual status change (`source: 'manual'`).
+- `poReceivedDate` — explicit PO received date stored on the VO record, shown in TableView, import/export, backup/restore, and used as the primary grouping field in the PO Received Summary view.
 - `poLog` — append-only array of `{ from, to, loggedAt }`. Written by `VOForm` on every `poNumber` change, including initial assignment on new VOs (`from: null`). `from`/`to` are trimmed strings or `null` if cleared/unset.
 - `boqRelated` is stored as a boolean — always check `=== true` or `=== 'yes'`, never compare as string alone.
 
@@ -43,7 +44,7 @@ No test runner or linter is configured.
 
 **Ticket Update Import** (`ImportExport.vue` â€” `parseTicketImportFile`): Bulk-updates ticket fields from `.xlsx/.xls/.csv` using template columns `VO Description`, `VO Amount`, `Ticket Submission Date`, and `Ticket Number`. Match is by VO description only (trimmed, case-insensitive) and `VO Amount` must match the existing VO amount (tolerance 0.01). Rows are skipped with row-level warnings for missing/invalid values, unmatched descriptions, ambiguous description matches, amount mismatches, duplicate ticket numbers inside the file, or ticket numbers that already exist on another VO. Preview is multi-select (Select All / Clear), and only selected rows are applied. On apply, `ticketNumber` and `ticketSubmissionDate` are updated via `store.editVO`. `rejected` and `cancelled` statuses are protected from override; other rows follow existing Base PO / BOQ / standard status rules. Final outcome is shown in a result modal (`success` / `partial` / `failed`) with detail lines.
 
-**Backup & Restore:** Full restore-ready JSON backup creation is shared in `src/utils/backup.js` (`createFullBackupPayload`, `downloadFullBackup`). `ImportExport.vue` and the Admin routine backup both use the same payload. Format has `_version: 3` and `exportedAt` ISO timestamp. The snapshot contains `vos` (all fields including `invoiceLog` and `poLog`, original IDs/dates), `invoicePrepIds`, `adminData` (`globalData`), `activityLog`, `siteStatusData`, `flaggedVOIds`, `flaggedVONotes`, `costImportHistory` (`ctdImportHistory`), `manualInvoiceEntries`, and a `localStorageData` string snapshot that includes view state/preferences such as `currentView`, `admin_activeTab`, `routineBackupLastRunDate`, and `tv_*` table settings. Restore clears IndexedDB via `clearAllData()`, re-inserts via `bulkInsertVOs()` (preserving original IDs), restores localStorage-backed view data, then calls `store.loadAllVOs()`, `store.reloadInvoicePrepIds()`, `store.reloadFlaggedData()`, and dispatches `siteStatusUpdated`. Version guard: restoring a file with `_version < 1` (corrupt) or `_version > BACKUP_VERSION` (too new) throws a descriptive error. Older v1/v2 backups remain supported but only contain the fields they originally exported.
+**Backup & Restore:** Full restore-ready JSON backup creation is shared in `src/utils/backup.js` (`createFullBackupPayload`, `downloadFullBackup`). `ImportExport.vue` and the Admin routine backup both use the same payload. Format has `_version: 3` and `exportedAt` ISO timestamp. The snapshot contains `vos` (all fields including `poReceivedDate`, `invoiceLog`, and `poLog`, with original IDs/dates), `invoicePrepIds`, `adminData` (`globalData`), `activityLog`, `siteStatusData`, `flaggedVOIds`, `flaggedVONotes`, `costImportHistory` (`ctdImportHistory`), `manualInvoiceEntries`, and a `localStorageData` string snapshot that includes view state/preferences such as `currentView`, `admin_activeTab`, `routineBackupLastRunDate`, and `tv_*` table settings. Restore clears IndexedDB via `clearAllData()`, re-inserts via `bulkInsertVOs()` (preserving original IDs), restores localStorage-backed view data, then calls `store.loadAllVOs()`, `store.reloadInvoicePrepIds()`, `store.reloadFlaggedData()`, and dispatches `siteStatusUpdated`. The restored `currentView` can therefore reopen the app on `po-received-summary` as well as the older screens. Version guard: restoring a file with `_version < 1` (corrupt) or `_version > BACKUP_VERSION` (too new) throws a descriptive error. Older v1/v2 backups remain supported but only contain the fields they originally exported.
 
 **Invoice statuses** (ordered): `Not Yet Sent` → `To Be Sent to Nokia` (indigo) → `Request to Nokia` (blue) → `SIT Approved` (yellow) → `SIT Completed` (green). A VO is only counted as **invoiced** when `invoiceStatus === 'SIT Completed'` **and** `invoiceDate` is set. The `invoiceLog` field is an append-only array of `{ status, date, loggedAt, source? }`.
 
@@ -231,6 +232,21 @@ Dedicated view (`monthly-invoice`) for reviewing invoices per calendar month. Mo
 **Detail table columns:** Site ID · Site Name · Job No. · Description · Category · Scope · PO Number · Invoice Status · Invoice Date · Amount. Footer row shows combined total with "(X this month + Y carried over)" note.
 
 **Export:** Includes "Carry Over" and "Invoice Month" columns in addition to the detail columns; filename `Monthly_Invoicing_YYYY-MM.xlsx`.
+
+## PO Received Summary View (`src/components/POReceivedSummary.vue`)
+
+Dedicated view (`po-received-summary`, teal-themed) for reviewing received POs day by day. It reads directly from `store.vos.value`, includes only records with a non-empty `poNumber`, and groups rows by PO received date.
+
+**Date grouping logic:**
+- Primary source is `vo.poReceivedDate`.
+- Fallback for older rows is the latest `poLog` entry whose `to` value is non-empty; the group date uses that entry's `loggedAt`.
+- Rows with a PO number but no `poReceivedDate` and no usable `poLog` fallback appear under **Missing PO Received Date**.
+
+**UI behavior:**
+- Each date group is a collapsible accordion section with its own pagination (`PAGE_SIZE = 10`).
+- Header cards show Have PO count, unique date-group count, total PO value, and count of rows missing a PO received date.
+- Search matches `siteId`, `siteName`, `jobNumber`, `voDescription`, `poNumber`, and `scope`.
+- Each row exposes an **Edit** action that reopens the original VO in `VOForm.vue`.
 
 ## Color Palette
 

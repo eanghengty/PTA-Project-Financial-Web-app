@@ -527,6 +527,7 @@
             <div>
               <p class="text-sm font-semibold text-gray-900">Routine JSON Backup</p>
               <p class="text-xs text-gray-400 mt-0.5">Automatically export a full restore backup once per day while the app is open</p>
+              <p class="text-xs text-gray-400 mt-0.5">Uses the same JSON snapshot as Backup &amp; Restore, including PO received dates, PO history, settings and current view state</p>
               <p class="text-xs font-semibold mt-1"
                 :class="routineBackupStatusClass">
                 {{ routineBackupStatusText }}
