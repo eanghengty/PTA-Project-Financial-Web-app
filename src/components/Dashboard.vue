@@ -2947,9 +2947,11 @@ const BASE_PO_CATEGORIES = new Set(['Site Survey', 'WOP', 'C&I', 'SAT&SIT', 'Sna
 const BASE_PO_CATEGORY_KEYS = new Set([...BASE_PO_CATEGORIES].map(c => c.toLowerCase()))
 const isBasePO = (vo) => BASE_PO_CATEGORY_KEYS.has(vo.voCategory?.trim()?.toLowerCase())
 const isDetailSiteSurvey = (vo) => vo.voCategory?.trim()?.toLowerCase() === 'detail site survey'
-const voItems   = computed(() => (store.vos.value || []).filter(vo => !isBasePO(vo)))
-const basePOItems = computed(() => (store.vos.value || []).filter(isBasePO))
-const detailSiteSurveyItems = computed(() => (store.vos.value || []).filter(isDetailSiteSurvey))
+const isDashboardIncluded = (vo) => vo?.isDuplicate !== true
+const dashboardVOs = computed(() => (store.vos.value || []).filter(isDashboardIncluded))
+const voItems   = computed(() => dashboardVOs.value.filter(vo => !isBasePO(vo)))
+const basePOItems = computed(() => dashboardVOs.value.filter(isBasePO))
+const detailSiteSurveyItems = computed(() => dashboardVOs.value.filter(isDetailSiteSurvey))
 
 const totalVOs = computed(() => voItems.value.length)
 
@@ -3556,7 +3558,7 @@ const monthlyCostToCompleteData = computed(() => {
 
   for (const d of Object.values(raw)) {
     const entries = Array.isArray(d.costEntries) ? d.costEntries : []
-    const isStarted = (d.status || 'not-started') === 'started'
+    const status = d.status || 'not-started'
     for (const e of entries) {
       if (!e.date) continue
       const dt = new Date(e.date)
@@ -3564,7 +3566,8 @@ const monthlyCostToCompleteData = computed(() => {
       const key   = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`
       const label = dt.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })
       const cost  = calcEntryCostDash(e)
-      const map   = isStarted ? startedMap : notStartedMap
+      const map   = status === 'started' ? startedMap : status === 'not-started' ? notStartedMap : null
+      if (!map) continue
       if (!map[key]) map[key] = { key, label, cost: 0, count: 0 }
       map[key].cost  += cost
       map[key].count += 1
@@ -3735,7 +3738,7 @@ const invoiceSiteModal   = ref(null)
 const invoiceSiteSearch  = ref('')
 
 const invoiceBySite = computed(() => {
-  const allVOs = store.vos.value || []
+  const allVOs = dashboardVOs.value
   const map = {}
   for (const vo of allVOs) {
     const key = `${vo.siteId || ''}|${vo.siteName || ''}|${vo.jobNumber || ''}`
@@ -3892,7 +3895,7 @@ const voCatModal   = ref(null)
 const voCatModalTab = ref('All')
 
 const voCategorySummary = computed(() => {
-  const allVOs = (store.vos.value || []).filter(vo => !(vo.boqRelated === true || vo.boqRelated === 'yes'))
+  const allVOs = dashboardVOs.value.filter(vo => !(vo.boqRelated === true || vo.boqRelated === 'yes'))
   const map = {}
   for (const vo of allVOs) {
     const cat = vo.voCategory?.trim() || '(No Category)'

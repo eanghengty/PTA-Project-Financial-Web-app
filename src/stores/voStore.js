@@ -56,6 +56,9 @@ const selectedFilters = ref({
   boqRelated: null
 })
 
+const isDashboardIncluded = (vo) => vo?.isDuplicate !== true
+const dashboardVOs = computed(() => vos.value.filter(isDashboardIncluded))
+
 // Computed
 const filteredVOs = computed(() => {
   let result = [...vos.value]
@@ -110,7 +113,7 @@ const statusSummary = computed(() => {
     rejected: 0
   }
 
-  vos.value.forEach(vo => {
+  dashboardVOs.value.forEach(vo => {
     if (summary.hasOwnProperty(vo.voStatus)) {
       summary[vo.voStatus]++
     }
@@ -120,30 +123,30 @@ const statusSummary = computed(() => {
 })
 
 const financialSummary = computed(() => {
-  const approved = vos.value
+  const approved = dashboardVOs.value
     .filter(vo => vo.voStatus === 'approved')
     .reduce((sum, vo) => sum + (vo.voAmount || 0), 0)
 
-  const pending = vos.value
+  const pending = dashboardVOs.value
     .filter(vo => vo.voStatus === 'pending-approval')
     .reduce((sum, vo) => sum + (vo.voAmount || 0), 0)
 
-  const draft = vos.value
+  const draft = dashboardVOs.value
     .filter(vo => vo.voStatus === 'draft')
     .reduce((sum, vo) => sum + (vo.voAmount || 0), 0)
 
-  const submitted = vos.value
+  const submitted = dashboardVOs.value
     .filter(vo => vo.voStatus === 'submitted')
     .reduce((sum, vo) => sum + (vo.voAmount || 0), 0)
 
-  const total = vos.value.reduce((sum, vo) => sum + (vo.voAmount || 0), 0)
+  const total = dashboardVOs.value.reduce((sum, vo) => sum + (vo.voAmount || 0), 0)
 
   return { approved, pending, draft, submitted, total }
 })
 
 const categoryDistribution = computed(() => {
   const distribution = {}
-  const voList = vos.value || []
+  const voList = dashboardVOs.value || []
   voList.forEach(vo => {
     const category = vo.voCategory || 'Uncategorized'
     distribution[category] = (distribution[category] || 0) + 1
@@ -166,7 +169,7 @@ const invoicePrepSummary = computed(() => ({
 
 const timelineMetrics = computed(() => {
   // Avg days: emailApprovedFromNokia → ticketApprovalDate, only VOs with both dates
-  const vosBothDates = vos.value.filter(vo => vo.emailApprovedFromNokia && vo.ticketApprovalDate)
+  const vosBothDates = dashboardVOs.value.filter(vo => vo.emailApprovedFromNokia && vo.ticketApprovalDate)
   let averageDaysToApproval = 0
   if (vosBothDates.length > 0) {
     const totalDays = vosBothDates.reduce((sum, vo) => {
@@ -177,7 +180,7 @@ const timelineMetrics = computed(() => {
     averageDaysToApproval = Math.round(totalDays / vosBothDates.length)
   }
 
-  const pendingVOs = vos.value.filter(vo => vo.voStatus === 'pending-approval')
+  const pendingVOs = dashboardVOs.value.filter(vo => vo.voStatus === 'pending-approval')
   const overduePending = pendingVOs.filter(vo => {
     if (!vo.emailSentToNokia) return false
     const sent = new Date(vo.emailSentToNokia)
@@ -187,8 +190,8 @@ const timelineMetrics = computed(() => {
   }).length
 
   // Approval rate: has ticketApprovalDate / (has ticketApprovalDate + has ticketNumber but no ticketApprovalDate)
-  const withTicketApproval = vos.value.filter(vo => vo.ticketApprovalDate).length
-  const withTicketNoApproval = vos.value.filter(vo => vo.ticketNumber && !vo.ticketApprovalDate).length
+  const withTicketApproval = dashboardVOs.value.filter(vo => vo.ticketApprovalDate).length
+  const withTicketNoApproval = dashboardVOs.value.filter(vo => vo.ticketNumber && !vo.ticketApprovalDate).length
   const approvalRate = (withTicketApproval + withTicketNoApproval) > 0
     ? Math.round((withTicketApproval / (withTicketApproval + withTicketNoApproval)) * 100)
     : 0

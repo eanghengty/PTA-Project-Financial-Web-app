@@ -23,11 +23,12 @@ export const TRACKED_FIELDS = {
   invoiceStatus:          'Invoice Status',
   invoiceDate:            'Invoice Date',
   amountChangeFlag:       'Amount Change Flag',
+  isDuplicate:            'Duplicate',
 }
 
 function formatValue(field, value) {
   if (value === null || value === undefined || value === '') return '—'
-  if (field === 'boqRelated' || field === 'amountChangeFlag') return value ? 'Yes' : 'No'
+  if (field === 'boqRelated' || field === 'amountChangeFlag' || field === 'isDuplicate') return value ? 'Yes' : 'No'
   if (field === 'voAmount')   return `$${Number(value).toLocaleString('en-AU', { minimumFractionDigits: 2 })}`
   if (field.toLowerCase().includes('date') || field.toLowerCase().includes('nokia')) {
     const d = new Date(value)

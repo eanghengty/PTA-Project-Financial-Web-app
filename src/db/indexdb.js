@@ -83,6 +83,7 @@ export function addVO(voData) {
     const vo = {
       id: uuidv4(),
       ...voData,
+      isDuplicate: voData.isDuplicate === true,
       createdAt: new Date(),
       updatedAt: new Date()
     }
@@ -258,6 +259,7 @@ export function bulkInsertVOs(vos) {
       const vo = {
         id: voData.id || uuidv4(),
         ...voData,
+        isDuplicate: voData.isDuplicate === true,
         createdAt: voData.createdAt || new Date(),
         updatedAt: new Date()
       }

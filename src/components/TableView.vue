@@ -221,7 +221,7 @@
               <template v-for="col in [
                 { key:'siteId', label:'Site ID' }, { key:'siteName', label:'Site Name' }, { key:'jobNumber', label:'Job No.' },
                 { key:'voDescription', label:'Description' }, { key:'scope', label:'Scope' }, { key:'voCategory', label:'Category' },
-                { key:'voAmount', label:'Amount' }, { key:'boqRelated', label:'BOQ' }, { key:'voStatus', label:'Status' },
+                { key:'voAmount', label:'Amount' }, { key:'boqRelated', label:'BOQ' }, { key:'isDuplicate', label:'Duplicate' }, { key:'voStatus', label:'Status' },
                 { key:'emailSentToNokia', label:'Email Sent' }, { key:'emailApprovedFromNokia', label:'Email Approved' },
                 { key:'ticketSubmissionDate', label:'Ticket Sub Date' }, { key:'ticketNumber', label:'Ticket #' },
                 { key:'ticketApprovalDate', label:'Ticket Appr Date' }, { key:'poStatus', label:'PO Status' },
@@ -306,6 +306,17 @@
               <td v-if="visibleColumns.boqRelated" class="px-5 py-4 text-center">
                 <span v-if="vo.boqRelated" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Yes</span>
                 <span v-else class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">No</span>
+              </td>
+              <td v-if="visibleColumns.isDuplicate" class="px-5 py-4 text-center whitespace-nowrap">
+                <label class="inline-flex items-center gap-2 text-xs font-medium cursor-pointer" @click.stop>
+                  <input
+                    type="checkbox"
+                    :checked="isDuplicateVO(vo)"
+                    @change="toggleDuplicateFlag(vo)"
+                    class="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                  />
+                  <span :class="isDuplicateVO(vo) ? 'text-red-700' : 'text-gray-500'">{{ isDuplicateVO(vo) ? 'Yes' : 'No' }}</span>
+                </label>
               </td>
               <td v-if="visibleColumns.voStatus" class="px-5 py-4 text-sm whitespace-nowrap">
                 <span :class="['inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold', getStatusColor(vo.voStatus)]">
@@ -430,7 +441,7 @@
                 <template v-for="col in [
                   { key:'siteId', label:'Site ID' }, { key:'siteName', label:'Site Name' }, { key:'jobNumber', label:'Job No.' },
                   { key:'voDescription', label:'Description' }, { key:'scope', label:'Scope' }, { key:'voCategory', label:'Category' },
-                  { key:'voAmount', label:'Amount' }, { key:'boqRelated', label:'BOQ' }, { key:'voStatus', label:'Status' },
+                  { key:'voAmount', label:'Amount' }, { key:'boqRelated', label:'BOQ' }, { key:'isDuplicate', label:'Duplicate' }, { key:'voStatus', label:'Status' },
                   { key:'emailSentToNokia', label:'Email Sent' }, { key:'emailApprovedFromNokia', label:'Email Approved' },
                   { key:'ticketSubmissionDate', label:'Ticket Sub Date' }, { key:'ticketNumber', label:'Ticket #' },
                   { key:'ticketApprovalDate', label:'Ticket Appr Date' }, { key:'poStatus', label:'PO Status' },
@@ -493,6 +504,17 @@
                 <td v-if="visibleColumns.boqRelated" class="px-5 py-4 text-center">
                   <span v-if="vo.boqRelated" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Yes</span>
                   <span v-else class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">No</span>
+                </td>
+                <td v-if="visibleColumns.isDuplicate" class="px-5 py-4 text-center whitespace-nowrap">
+                  <label class="inline-flex items-center gap-2 text-xs font-medium cursor-pointer" @click.stop>
+                    <input
+                      type="checkbox"
+                      :checked="isDuplicateVO(vo)"
+                      @change="toggleDuplicateFlag(vo)"
+                      class="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                    />
+                    <span :class="isDuplicateVO(vo) ? 'text-red-700' : 'text-gray-500'">{{ isDuplicateVO(vo) ? 'Yes' : 'No' }}</span>
+                  </label>
                 </td>
                 <td v-if="visibleColumns.voStatus" class="px-5 py-4 text-sm whitespace-nowrap">
                   <span :class="['inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold', getStatusColor(vo.voStatus)]">{{ formatStatus(vo.voStatus) }}</span>
@@ -974,6 +996,7 @@ const exportTableView = () => {
     { key: 'voCategory',             label: 'Category',              get: vo => vo.voCategory || '' },
     { key: 'voAmount',               label: 'Amount',                get: vo => vo.voAmount || 0 },
     { key: 'boqRelated',             label: 'BOQ Related',           get: vo => (vo.boqRelated === true || vo.boqRelated === 'yes') ? 'Yes' : 'No' },
+    { key: 'isDuplicate',            label: 'Duplicate',             get: vo => isDuplicateVO(vo) ? 'Yes' : 'No' },
     { key: 'voStatus',               label: 'Status',                get: vo => formatStatus(vo.voStatus) },
     { key: 'emailSentToNokia',       label: 'Email Sent to Nokia',   get: vo => vo.emailSentToNokia ? new Date(vo.emailSentToNokia).toLocaleDateString('en-AU') : '' },
     { key: 'emailApprovedFromNokia', label: 'Email Approved',        get: vo => vo.emailApprovedFromNokia ? new Date(vo.emailApprovedFromNokia).toLocaleDateString('en-AU') : '' },
@@ -1009,7 +1032,7 @@ const exportTableView = () => {
 // Filter state - tracks which values are selected for each column
 const defaultFilters = {
   siteId: [], siteName: [], jobNumber: [], voDescription: [],
-  scope: [], voCategory: [], voAmount: [], boqRelated: [],
+  scope: [], voCategory: [], voAmount: [], boqRelated: [], isDuplicate: [],
   voStatus: [], emailSentToNokia: [], emailApprovedFromNokia: [],
   ticketSubmissionDate: [], ticketNumber: [], ticketApprovalDate: [],
   poStatus: [], poNumber: [], poReceivedDate: [], invoiceStatus: [], invoiceDate: [], amountChangeFlag: [],
@@ -1020,7 +1043,7 @@ const filters = ref({ ...defaultFilters, ...loadLS('tv_filters', {}) })
 // Column visibility state
 const defaultColumns = {
   siteId: true, siteName: true, jobNumber: true, voDescription: true,
-  scope: true, voCategory: true, voAmount: true, boqRelated: true,
+  scope: true, voCategory: true, voAmount: true, boqRelated: true, isDuplicate: true,
   voStatus: true, emailSentToNokia: true, emailApprovedFromNokia: true,
   ticketSubmissionDate: true, ticketNumber: true, ticketApprovalDate: true,
   poStatus: true, poNumber: true, poReceivedDate: true, invoiceStatus: true, invoiceDate: true, amountChangeFlag: true,
@@ -1038,6 +1061,7 @@ const allColumns = [
   { key: 'voCategory', label: 'Category' },
   { key: 'voAmount', label: 'Amount' },
   { key: 'boqRelated', label: 'BOQ Related' },
+  { key: 'isDuplicate', label: 'Duplicate' },
   { key: 'voStatus', label: 'Status' },
   { key: 'emailSentToNokia', label: 'Email Sent to Nokia' },
   { key: 'emailApprovedFromNokia', label: 'Email Approved from Nokia' },
@@ -1078,7 +1102,7 @@ const toggleSort = (columnKey) => {
 
 function getSortValue(vo, col) {
   if (col === 'poStatus') return vo.poNumber?.trim() ? 1 : 0
-  if (col === 'boqRelated' || col === 'amountChangeFlag') return vo[col] ? 1 : 0
+  if (col === 'boqRelated' || col === 'amountChangeFlag' || col === 'isDuplicate') return vo[col] ? 1 : 0
   if (col === 'voAmount' || col === 'labourCost' || col === 'thirdPartyCost') return vo[col] || 0
   const dateFields = ['emailSentToNokia', 'emailApprovedFromNokia', 'ticketSubmissionDate',
     'ticketApprovalDate', 'invoiceDate', 'poReceivedDate', 'createdAt', 'updatedAt']
@@ -1146,7 +1170,7 @@ const matchesAllFilters = (vo) => {
     let voValue = vo[column]
 
     // Format value based on column type
-    if (column === 'boqRelated' || column === 'amountChangeFlag') {
+    if (column === 'boqRelated' || column === 'amountChangeFlag' || column === 'isDuplicate') {
       voValue = voValue ? 'Yes' : 'No'
     } else if (column === 'poStatus') {
       voValue = vo.poNumber?.trim() ? 'Have PO' : 'No PO'
@@ -1179,6 +1203,17 @@ const editVO = (vo) => {
   editingVO.value = vo
   prefillData.value = null
   showForm.value = true
+}
+
+const isDuplicateVO = (vo) => vo?.isDuplicate === true
+
+const toggleDuplicateFlag = async (vo) => {
+  try {
+    await store.editVO(vo.id, { ...vo, isDuplicate: !isDuplicateVO(vo) }, { suppressLoadingToggle: true })
+  } catch (err) {
+    console.error('Error toggling duplicate flag:', err)
+    alert('Error updating duplicate flag: ' + err.message)
+  }
 }
 
 const duplicateSelectedVO = () => {
@@ -1270,7 +1305,7 @@ const getUniqueValues = (columnKey) => {
     let value = vo[columnKey]
 
     // Format value based on column type
-    if (columnKey === 'boqRelated' || columnKey === 'amountChangeFlag') {
+    if (columnKey === 'boqRelated' || columnKey === 'amountChangeFlag' || columnKey === 'isDuplicate') {
       value = value ? 'Yes' : 'No'
     } else if (columnKey === 'poStatus') {
       value = vo.poNumber?.trim() ? 'Have PO' : 'No PO'

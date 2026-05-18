@@ -13,7 +13,7 @@
         </div>
         <div>
           <h2 class="text-xl font-bold text-gray-900">Site Status</h2>
-          <p class="text-xs text-gray-400 mt-0.5">Track started / not started per site with cost to complete</p>
+          <p class="text-xs text-gray-400 mt-0.5">Track site progress, status, and cost to complete</p>
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -258,6 +258,23 @@
               </div>
             </div>
 
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 mb-1.5">Status</label>
+              <div class="relative">
+                <select v-model="editStatus"
+                  class="w-full py-2 pr-9 text-sm border rounded-xl focus:outline-none focus:ring-2 appearance-none cursor-pointer"
+                  :class="getSiteStatusSelectClass(editStatus)">
+                  <option v-for="option in SITE_STATUS_OPTIONS" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                  </option>
+                </select>
+                <svg class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  :class="getSiteStatusMeta(editStatus).valueClass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
+            </div>
+
             <!-- Comment -->
             <div>
               <label class="block text-xs font-semibold text-gray-500 mb-1.5">Comment</label>
@@ -476,10 +493,10 @@
           <span class="text-xs text-gray-700 flex-1">
             <template v-if="entry.result === 'updated'">
               Status updated:
-              <span class="font-semibold text-gray-500 line-through">{{ entry.prevStatus === 'started' ? 'Started' : 'Not Started' }}</span>
+              <span class="font-semibold line-through" :class="getSiteStatusMeta(entry.prevStatus).valueClass">{{ getSiteStatusLabel(entry.prevStatus) }}</span>
               →
-              <span class="font-semibold" :class="entry.newStatus === 'started' ? 'text-emerald-700' : 'text-amber-700'">
-                {{ entry.newStatus === 'started' ? 'Started' : 'Not Started' }}
+              <span class="font-semibold" :class="getSiteStatusMeta(entry.newStatus).valueClass">
+                {{ getSiteStatusLabel(entry.newStatus) }}
               </span>
             </template>
             <template v-else-if="entry.result === 'not-found'">
@@ -496,26 +513,31 @@
     </div>
 
     <!-- KPI cards -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
       <div class="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Total Sites</p>
-        <p class="text-2xl font-bold text-gray-900">{{ rows.length }}</p>
-        <p class="text-xs text-gray-400 mt-1">unique sites tracked</p>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+          {{ isFiltered ? 'Visible Sites' : 'Total Sites' }}
+        </p>
+        <p class="text-2xl font-bold text-gray-900">{{ filteredRows.length }}</p>
+        <p class="text-xs text-gray-400 mt-1">
+          {{ isFiltered ? `${rows.length} tracked overall` : 'unique sites tracked' }}
+        </p>
       </div>
-      <div class="bg-white rounded-xl border border-emerald-200 shadow-sm px-5 py-4">
-        <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-1">Started</p>
-        <p class="text-2xl font-bold text-emerald-700">{{ startedRows.length }}</p>
-        <p class="text-xs text-gray-400 mt-1">{{ formatCurrency(startedCostToComplete) }} to complete</p>
-      </div>
-      <div class="bg-white rounded-xl border border-amber-200 shadow-sm px-5 py-4">
-        <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-1">Not Started</p>
-        <p class="text-2xl font-bold text-amber-700">{{ notStartedRows.length }}</p>
-        <p class="text-xs text-gray-400 mt-1">{{ formatCurrency(notStartedCostToComplete) }} to complete</p>
+      <div v-for="card in statusCards" :key="card.value"
+        class="bg-white rounded-xl shadow-sm px-5 py-4 border"
+        :class="card.borderClass">
+        <p class="text-xs font-semibold uppercase tracking-wider mb-1" :class="card.labelClass">{{ card.label }}</p>
+        <p class="text-2xl font-bold" :class="card.valueClass">{{ card.count }}</p>
+        <p class="text-xs text-gray-400 mt-1">{{ formatCurrency(card.costToComplete) }} to complete</p>
       </div>
       <div class="bg-white rounded-xl border border-blue-200 shadow-sm px-5 py-4">
-        <p class="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-1">Total Cost to Complete</p>
-        <p class="text-2xl font-bold text-blue-700">{{ formatCurrency(totalCostToComplete) }}</p>
-        <p class="text-xs text-gray-400 mt-1">across all sites</p>
+        <p class="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-1">
+          {{ isFiltered ? 'Visible Cost to Complete' : 'Total Cost to Complete' }}
+        </p>
+        <p class="text-2xl font-bold text-blue-700">{{ formatCurrency(filteredTotalCostToComplete) }}</p>
+        <p class="text-xs text-gray-400 mt-1">
+          {{ isFiltered ? 'across visible sites' : 'across all sites' }}
+        </p>
       </div>
     </div>
 
@@ -550,15 +572,10 @@
           :class="statusFilter === 'all' ? 'bg-gray-800 text-white' : 'text-gray-500 hover:bg-gray-100'">
           All
         </button>
-        <button @click="statusFilter = 'started'"
+        <button v-for="option in SITE_STATUS_OPTIONS" :key="option.value" @click="statusFilter = option.value"
           class="px-3 py-1.5 rounded-lg text-xs font-semibold transition"
-          :class="statusFilter === 'started' ? 'bg-emerald-600 text-white' : 'text-gray-500 hover:bg-gray-100'">
-          Started
-        </button>
-        <button @click="statusFilter = 'not-started'"
-          class="px-3 py-1.5 rounded-lg text-xs font-semibold transition"
-          :class="statusFilter === 'not-started' ? 'bg-amber-500 text-white' : 'text-gray-500 hover:bg-gray-100'">
-          Not Started
+          :class="statusFilter === option.value ? option.filterActiveClass : 'text-gray-500 hover:bg-gray-100'">
+          {{ option.label }}
         </button>
       </div>
       <!-- Scope filter -->
@@ -625,10 +642,8 @@
                   <button v-if="statusFilter !== 'all'"
                     @click="statusFilter = 'all'"
                     class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold transition"
-                    :class="statusFilter === 'started'
-                      ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                      : 'bg-amber-100 text-amber-700 hover:bg-amber-200'">
-                    {{ statusFilter === 'started' ? 'Started' : 'Not Started' }}
+                    :class="[getSiteStatusMeta(statusFilter).pillClass, getSiteStatusMeta(statusFilter).pillHoverClass]">
+                    {{ getSiteStatusLabel(statusFilter) }}
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -671,17 +686,14 @@
                   <span class="font-semibold text-gray-700">
                     {{ filterSummary.count }} <span class="font-normal text-gray-400">of {{ filterSummary.total }} sites</span>
                   </span>
-                  <span class="w-px h-3.5 bg-gray-200"></span>
-                  <span class="flex items-center gap-1">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                    <span class="font-semibold text-emerald-700">{{ filterSummary.started }}</span>
-                    <span class="text-gray-400">started</span>
-                  </span>
-                  <span class="flex items-center gap-1">
-                    <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-                    <span class="font-semibold text-amber-700">{{ filterSummary.notStarted }}</span>
-                    <span class="text-gray-400">not started</span>
-                  </span>
+                  <template v-for="status in SITE_STATUS_OPTIONS" :key="status.value">
+                    <span class="w-px h-3.5 bg-gray-200"></span>
+                    <span class="flex items-center gap-1">
+                      <span class="w-2 h-2 rounded-full" :class="status.dotClass"></span>
+                      <span class="font-semibold" :class="status.valueClass">{{ filterSummary.statusCounts[status.value] || 0 }}</span>
+                      <span class="text-gray-400">{{ status.label.toLowerCase() }}</span>
+                    </span>
+                  </template>
                   <span class="w-px h-3.5 bg-gray-200"></span>
                   <span class="font-semibold text-blue-700">{{ formatCurrency(filterSummary.costToComplete) }}</span>
                   <span class="text-gray-400">cost to complete</span>
@@ -709,7 +721,7 @@
           </tr>
           <tr v-for="row in filteredRows" :key="row.key"
             class="border-t border-gray-100 hover:bg-gray-50 transition"
-            :class="row.status === 'started' ? 'border-l-4 border-l-emerald-400' : 'border-l-4 border-l-amber-300'">
+            :class="getSiteStatusMeta(row.status).rowBorderClass">
             <td class="px-4 py-3">
               <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-indigo-100 text-indigo-700">
                 {{ row.siteId }}
@@ -726,15 +738,21 @@
               </div>
             </td>
             <td class="px-4 py-3 text-center">
-              <button @click="toggleStatus(row)"
-                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition"
-                :class="row.status === 'started'
-                  ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                  : 'bg-amber-100 text-amber-700 hover:bg-amber-200'">
-                <span class="w-1.5 h-1.5 rounded-full"
-                  :class="row.status === 'started' ? 'bg-emerald-500' : 'bg-amber-500'"></span>
-                {{ row.status === 'started' ? 'Started' : 'Not Started' }}
-              </button>
+              <div class="relative inline-flex">
+                <select :value="row.status" @change="updateRowStatus(row, $event.target.value)"
+                  class="py-1 pr-9 rounded-full text-xs font-bold border appearance-none cursor-pointer transition"
+                  :class="getSiteStatusSelectClass(row.status)">
+                  <option v-for="option in SITE_STATUS_OPTIONS" :key="option.value" :value="option.value">
+                    {{ option.label }}
+                  </option>
+                </select>
+                <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
+                  :class="getSiteStatusMeta(row.status).dotClass"></span>
+                <svg class="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                  :class="getSiteStatusMeta(row.status).valueClass" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </div>
             </td>
             <td class="px-4 py-3">
               <div v-if="row.scopes.length" class="flex flex-wrap gap-1">
@@ -807,7 +825,7 @@
           <tr class="bg-gray-50 border-t-2 border-gray-200 text-xs font-semibold text-gray-600">
             <td colspan="7" class="px-4 py-3">
               {{ filteredRows.length }} site{{ filteredRows.length !== 1 ? 's' : '' }}
-              <span v-if="statusFilter !== 'all' || scopeFilter !== 'all'" class="text-gray-400 font-normal"> (filtered)</span>
+              <span v-if="isFiltered" class="text-gray-400 font-normal"> (filtered)</span>
             </td>
             <td class="px-4 py-3 text-right text-emerald-700">
               {{ formatCurrency(filteredRows.reduce((s, r) => s + (r.costToComplete || 0), 0)) }}
@@ -828,8 +846,84 @@ import { formatCurrency, formatStatus, formatDate } from '../utils/formatters'
 import * as XLSX from 'xlsx'
 
 const STORAGE_KEY = 'siteStatusData'
+const SITE_STATUS_OPTIONS = [
+  {
+    value: 'started',
+    label: 'Started',
+    borderClass: 'border-emerald-200',
+    labelClass: 'text-emerald-600',
+    valueClass: 'text-emerald-700',
+    pillClass: 'bg-emerald-100 text-emerald-700',
+    pillHoverClass: 'hover:bg-emerald-200',
+    dotClass: 'bg-emerald-500',
+    rowBorderClass: 'border-l-4 border-l-emerald-400',
+    filterActiveClass: 'bg-emerald-600 text-white',
+    selectClass: 'pl-7 border-emerald-200 bg-emerald-50 text-emerald-700 focus:ring-emerald-400',
+  },
+  {
+    value: 'not-started',
+    label: 'Not Started',
+    borderClass: 'border-amber-200',
+    labelClass: 'text-amber-600',
+    valueClass: 'text-amber-700',
+    pillClass: 'bg-amber-100 text-amber-700',
+    pillHoverClass: 'hover:bg-amber-200',
+    dotClass: 'bg-amber-500',
+    rowBorderClass: 'border-l-4 border-l-amber-300',
+    filterActiveClass: 'bg-amber-500 text-white',
+    selectClass: 'pl-7 border-amber-200 bg-amber-50 text-amber-700 focus:ring-amber-400',
+  },
+  {
+    value: 'cancel',
+    label: 'Cancel',
+    borderClass: 'border-slate-200',
+    labelClass: 'text-slate-600',
+    valueClass: 'text-slate-700',
+    pillClass: 'bg-slate-100 text-slate-700',
+    pillHoverClass: 'hover:bg-slate-200',
+    dotClass: 'bg-slate-500',
+    rowBorderClass: 'border-l-4 border-l-slate-300',
+    filterActiveClass: 'bg-slate-600 text-white',
+    selectClass: 'pl-7 border-slate-200 bg-slate-50 text-slate-700 focus:ring-slate-400',
+  },
+  {
+    value: 'other',
+    label: 'Other',
+    borderClass: 'border-blue-200',
+    labelClass: 'text-blue-600',
+    valueClass: 'text-blue-700',
+    pillClass: 'bg-blue-100 text-blue-700',
+    pillHoverClass: 'hover:bg-blue-200',
+    dotClass: 'bg-blue-500',
+    rowBorderClass: 'border-l-4 border-l-blue-300',
+    filterActiveClass: 'bg-blue-600 text-white',
+    selectClass: 'pl-7 border-blue-200 bg-blue-50 text-blue-700 focus:ring-blue-400',
+  },
+]
+const SITE_STATUS_META = Object.fromEntries(SITE_STATUS_OPTIONS.map(option => [option.value, option]))
 
 const store = useVOStore()
+
+function getSiteStatusMeta(status) {
+  return SITE_STATUS_META[status] || SITE_STATUS_META['not-started']
+}
+
+function getSiteStatusLabel(status) {
+  return getSiteStatusMeta(status).label
+}
+
+function getSiteStatusSelectClass(status) {
+  return getSiteStatusMeta(status).selectClass
+}
+
+function normaliseSiteStatus(value) {
+  const lower = String(value || '').trim().toLowerCase()
+  if (['started', 'yes', '1', 'true', 'start'].includes(lower)) return 'started'
+  if (['not started', 'not-started', 'not start', 'no', '0', 'false'].includes(lower)) return 'not-started'
+  if (['cancel', 'cancelled', 'canceled'].includes(lower)) return 'cancel'
+  if (lower === 'other') return 'other'
+  return null
+}
 
 // ── Persist helpers ──────────────────────────────────────────────────────────
 function load() {
@@ -886,6 +980,7 @@ const editingKey     = ref(null)
 const editingRow     = ref(null)
 const editEntries    = ref([])   // working copy of costEntries
 const editComment    = ref('')
+const editStatus     = ref('not-started')
 const editingEntryId = ref(null) // id of the entry currently being edited (null = add mode)
 const newEntry       = ref({ label: '', date: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' })
 
@@ -933,7 +1028,7 @@ const rows = computed(() => {
       siteName:      d.siteName,
       jobNumber:     d.jobNumber,
       hasDetailSiteSurvey: hasDetailSiteSurveyFor(d),
-      status:        d.status || 'not-started',
+      status:        normaliseSiteStatus(d.status) || 'not-started',
       scopes:        mergedScopesFor(d),
       costEntries:   entries,
       totalHours,
@@ -1061,21 +1156,34 @@ const isFiltered = computed(() =>
 
 const filterSummary = computed(() => {
   const list = filteredRows.value
+  const statusCounts = Object.fromEntries(SITE_STATUS_OPTIONS.map(option => [option.value, 0]))
+  list.forEach(row => {
+    if (Object.prototype.hasOwnProperty.call(statusCounts, row.status)) {
+      statusCounts[row.status] += 1
+    }
+  })
   return {
     count:         list.length,
     total:         rows.value.length,
-    started:       list.filter(r => r.status === 'started').length,
-    notStarted:    list.filter(r => r.status === 'not-started').length,
+    statusCounts,
     costToComplete: list.reduce((s, r) => s + (r.costToComplete || 0), 0),
   }
 })
 
-// For KPI cards use filteredRows so month filter applies
-const startedRows    = computed(() => filteredRows.value.filter(r => r.status === 'started'))
-const notStartedRows = computed(() => filteredRows.value.filter(r => r.status === 'not-started'))
-const startedCostToComplete    = computed(() => startedRows.value.reduce((s, r) => s + (r.costToComplete || 0), 0))
-const notStartedCostToComplete = computed(() => notStartedRows.value.reduce((s, r) => s + (r.costToComplete || 0), 0))
-const totalCostToComplete      = computed(() => rows.value.reduce((s, r) => s + (r.costToComplete || 0), 0))
+const statusCards = computed(() => {
+  return SITE_STATUS_OPTIONS.map(option => {
+    const items = filteredRows.value.filter(row => row.status === option.value)
+    return {
+      ...option,
+      count: items.length,
+      costToComplete: items.reduce((sum, row) => sum + (row.costToComplete || 0), 0),
+    }
+  })
+})
+
+const filteredTotalCostToComplete = computed(() =>
+  filteredRows.value.reduce((sum, row) => sum + (row.costToComplete || 0), 0)
+)
 
 // ── VO Drawer ────────────────────────────────────────────────────────────────
 function voItemsFor(row) {
@@ -1124,7 +1232,9 @@ function mergeRowData(target, source) {
     ...(Array.isArray(target.scopes) ? target.scopes : []),
     ...(Array.isArray(source.scopes) ? source.scopes : []),
   ].filter(Boolean))].sort()
-  if ((source.status || 'not-started') === 'started') target.status = 'started'
+  const sourceStatus = normaliseSiteStatus(source.status) || 'not-started'
+  const targetStatus = normaliseSiteStatus(target.status) || 'not-started'
+  if (targetStatus === 'not-started' && sourceStatus !== 'not-started') target.status = sourceStatus
   if (source.comment && !target.comment) {
     target.comment = source.comment
   } else if (source.comment && target.comment && !target.comment.includes(source.comment)) {
@@ -1311,19 +1421,23 @@ function deleteAll() {
   syncMessage.value = 'All site entries deleted.'
 }
 
-function toggleStatus(row) {
+function applyStatusToLinkedRows(row, nextStatus) {
   const d = siteData.value[row.key]
   if (!d) return
-  const nextStatus = d.status === 'started' ? 'not-started' : 'started'
+  const safeStatus = normaliseSiteStatus(nextStatus) || 'not-started'
   const shouldLinkDetailSurvey = hasDetailSiteSurveyFor(d)
-  d.status = nextStatus
+  d.status = safeStatus
   if (shouldLinkDetailSurvey && d.siteId && d.siteId !== 'Downtime') {
     Object.values(siteData.value).forEach(entry => {
       if (sameSiteId(entry.siteId, d.siteId) && hasDetailSiteSurveyFor(entry)) {
-        entry.status = nextStatus
+        entry.status = safeStatus
       }
     })
   }
+}
+
+function updateRowStatus(row, nextStatus) {
+  applyStatusToLinkedRows(row, nextStatus)
   save(siteData.value)
 }
 
@@ -1332,6 +1446,7 @@ function startEdit(row) {
   editingRow.value     = row
   editEntries.value    = row.costEntries.map(e => ({ ...e }))  // deep copy
   editComment.value    = row.comment || ''
+  editStatus.value     = normaliseSiteStatus(row.status) || 'not-started'
   editingEntryId.value = null
   newEntry.value       = { label: '', date: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' }
   copyBannerDismissed.value = false
@@ -1340,6 +1455,7 @@ function startEdit(row) {
 function cancelEdit() {
   editingKey.value = null
   editingRow.value = null
+  editStatus.value = 'not-started'
 }
 
 function addCostEntry() {
@@ -1407,6 +1523,7 @@ function saveEditModal() {
     qtyPeople: parseFloat(e.qtyPeople)|| 0,
     rate:      parseFloat(String(e.rate).replace(/[^0-9.]/g, '')) || 0,
   }))
+  applyStatusToLinkedRows({ key }, editStatus.value)
   d.comment = editComment.value.trim()
   save(siteData.value)
   // Track last saved entry so the next site modal can offer a copy
@@ -1452,16 +1569,18 @@ function rawRateInput(e) {
 function downloadImportTemplate() {
   const data = rows.value.map(r => ({
     'Site ID': r.siteId,
-    'Status':  r.status === 'started' ? 'Started' : 'Not Started',
+    'Status':  getSiteStatusLabel(r.status),
   }))
   // If no rows yet, ship a blank example
   if (data.length === 0) {
     data.push({ 'Site ID': 'EXAMPLE-001', 'Status': 'Started' })
     data.push({ 'Site ID': 'EXAMPLE-002', 'Status': 'Not Started' })
+    data.push({ 'Site ID': 'EXAMPLE-003', 'Status': 'Cancel' })
+    data.push({ 'Site ID': 'EXAMPLE-004', 'Status': 'Other' })
   }
   const ws = XLSX.utils.json_to_sheet(data)
   // Column widths
-  ws['!cols'] = [{ wch: 20 }, { wch: 16 }]
+  ws['!cols'] = [{ wch: 20 }, { wch: 18 }]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Site Status Import')
   XLSX.writeFile(wb, 'Site_Status_Import_Template.xlsx')
@@ -1496,10 +1615,7 @@ function handleImportFile(event) {
         if (!rawId) return  // skip blank rows silently
 
         // Normalise status value
-        const lower = rawStatus.toLowerCase()
-        let normalised = null
-        if (['started', 'yes', '1', 'true', 'start'].includes(lower))          normalised = 'started'
-        else if (['not started', 'not-started', 'no', '0', 'false'].includes(lower)) normalised = 'not-started'
+        const normalised = normaliseSiteStatus(rawStatus)
 
         if (!normalised) {
           log.push({ row: rowNum, siteId: rawId, result: 'skipped', rawStatus })
@@ -1512,8 +1628,8 @@ function handleImportFile(event) {
           return
         }
 
-        const prev = siteData.value[key].status || 'not-started'
-        siteData.value[key].status = normalised
+        const prev = normaliseSiteStatus(siteData.value[key].status) || 'not-started'
+        applyStatusToLinkedRows({ key }, normalised)
         log.push({ row: rowNum, siteId: rawId, result: 'updated', prevStatus: prev, newStatus: normalised })
       })
 
@@ -1532,7 +1648,7 @@ function exportToExcel() {
     'Site Name':        r.siteName,
     'Job Number':       r.jobNumber || '',
     'Detail Site Survey': r.hasDetailSiteSurvey ? 'Yes' : '',
-    'Status':           r.status === 'started' ? 'Started' : 'Not Started',
+    'Status':           getSiteStatusLabel(r.status),
     'Scope':            r.scopes.length ? r.scopes.join(', ') : '',
     'Cost Entries':     r.costEntries.length,
     'Total Hours':      r.totalHours || 0,
