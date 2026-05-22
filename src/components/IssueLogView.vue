@@ -89,7 +89,11 @@
                   {{ issue.status === 'clear' ? 'Clear' : 'Open' }}
                 </span>
               </td>
-              <td class="px-4 py-3 text-gray-700">{{ issue.comment || '-' }}</td>
+              <td class="px-4 py-3 text-gray-700">
+                <div class="max-w-xs truncate" :title="issue.comment || ''">
+                  {{ issue.comment || '-' }}
+                </div>
+              </td>
               <td class="px-4 py-3 text-center whitespace-nowrap">
                 <button @click="openEdit(issue)" class="px-3 py-1 rounded-md text-blue-600 hover:bg-blue-50 font-medium">Edit</button>
                 <button @click="deleteIssue(issue.id)" class="px-3 py-1 rounded-md text-red-600 hover:bg-red-50 font-medium">Delete</button>
@@ -198,15 +202,19 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Amount</label>
-              <input v-model.number="form.amount" type="number" step="0.01" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Comment</label>
-              <input v-model.trim="form.comment" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Amount</label>
+            <input v-model.number="form.amount" type="number" step="0.01" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Comment</label>
+            <textarea
+              v-model="form.comment"
+              rows="5"
+              placeholder="Add notes, updates, or follow-ups. Press Enter for a new line."
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[128px]"
+            ></textarea>
           </div>
 
           <div v-if="validationError" class="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">

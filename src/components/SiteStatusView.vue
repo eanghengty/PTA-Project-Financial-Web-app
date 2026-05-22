@@ -275,6 +275,17 @@
               </div>
             </div>
 
+            <div v-if="editingRow?.isTunnelEligible" class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
+              <label class="block text-xs font-semibold text-gray-500 mb-1.5">Visible Site Qty</label>
+              <div class="flex items-start gap-3">
+                <input v-model="editVisibleSiteQty" type="number" min="1" step="1"
+                  class="w-24 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white"/>
+                <p class="text-xs text-gray-500 leading-5">
+                  Tunnel rows can count as more than 1 visible site. Example: one tunnel row can be counted as 2, 3, or more sites in the Site Status summary cards.
+                </p>
+              </div>
+            </div>
+
             <!-- Comment -->
             <div>
               <label class="block text-xs font-semibold text-gray-500 mb-1.5">Comment</label>
@@ -362,6 +373,15 @@
               <span class="text-xs font-semibold text-gray-500">Total:</span>
               <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
                 {{ formatCurrency(voDrawerItems.reduce((s, v) => s + (v.voAmount || 0), 0)) }}
+              </span>
+              <span v-if="voDrawerRow?.hasLinkedJobs"
+                class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"
+                :title="voDrawerRow.linkedJobLabel">
+                Linked Jobs: {{ voDrawerRow.linkedJobNumbers.length }}
+              </span>
+              <span v-if="voDrawerRow?.hasDetailSiteSurvey"
+                class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                Detail Survey
               </span>
               <template v-for="(count, status) in voDrawerStatusCounts" :key="status">
                 <span class="px-2.5 py-1 rounded-full text-xs font-semibold"
@@ -518,9 +538,9 @@
         <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
           {{ isFiltered ? 'Visible Sites' : 'Total Sites' }}
         </p>
-        <p class="text-2xl font-bold text-gray-900">{{ filteredRows.length }}</p>
+        <p class="text-2xl font-bold text-gray-900">{{ visibleSiteQtyTotal }}</p>
         <p class="text-xs text-gray-400 mt-1">
-          {{ isFiltered ? `${rows.length} tracked overall` : 'unique sites tracked' }}
+          {{ isFiltered ? `${trackedSiteQtyTotal} tracked overall` : 'unique sites tracked' }}
         </p>
       </div>
       <div v-for="card in statusCards" :key="card.value"
@@ -610,7 +630,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
         </svg>
       </div>
-      <p class="text-xs text-gray-400">{{ filteredRows.length }} of {{ rows.length }} sites</p>
+      <p class="text-xs text-gray-400">{{ visibleSiteQtyTotal }} of {{ trackedSiteQtyTotal }} sites</p>
     </div>
 
     <!-- Table -->
@@ -731,9 +751,23 @@
             <td class="px-4 py-3 text-gray-600">
               <div class="flex flex-col gap-1">
                 <span>{{ row.jobNumber || '—' }}</span>
-                <span v-if="row.hasDetailSiteSurvey"
-                  class="inline-flex w-fit px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider border border-amber-200">
-                  Detail Survey
+                <div class="flex flex-wrap gap-1">
+                  <span v-if="row.isTunnelEligible && row.visibleSiteQty > 1"
+                    class="inline-flex w-fit px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px] font-bold uppercase tracking-wider border border-gray-200">
+                    Counts as {{ row.visibleSiteQty }} Sites
+                  </span>
+                  <span v-if="row.hasLinkedJobs"
+                    class="inline-flex w-fit px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider border border-blue-200"
+                    :title="row.linkedJobLabel">
+                    +{{ row.linkedJobNumbers.length }} Linked Job{{ row.linkedJobNumbers.length !== 1 ? 's' : '' }}
+                  </span>
+                  <span v-if="row.hasDetailSiteSurvey"
+                    class="inline-flex w-fit px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider border border-amber-200">
+                    Detail Survey
+                  </span>
+                </div>
+                <span v-if="row.hasLinkedJobs" class="text-[10px] text-gray-400 leading-4">
+                  {{ row.linkedJobLabel }}
                 </span>
               </div>
             </td>
@@ -824,7 +858,7 @@
         <tfoot>
           <tr class="bg-gray-50 border-t-2 border-gray-200 text-xs font-semibold text-gray-600">
             <td colspan="7" class="px-4 py-3">
-              {{ filteredRows.length }} site{{ filteredRows.length !== 1 ? 's' : '' }}
+              {{ visibleSiteQtyTotal }} site{{ visibleSiteQtyTotal !== 1 ? 's' : '' }}
               <span v-if="isFiltered" class="text-gray-400 font-normal"> (filtered)</span>
             </td>
             <td class="px-4 py-3 text-right text-emerald-700">
@@ -846,6 +880,8 @@ import { formatCurrency, formatStatus, formatDate } from '../utils/formatters'
 import * as XLSX from 'xlsx'
 
 const STORAGE_KEY = 'siteStatusData'
+const PRIORITY_SITE_STATUS_CATEGORIES = ['Site Survey', 'WOP', 'SAT&SIT', 'C&I', 'Snag Closure']
+const PRIORITY_SITE_STATUS_CATEGORY_KEYS = new Set(PRIORITY_SITE_STATUS_CATEGORIES.map(normaliseCategory))
 const SITE_STATUS_OPTIONS = [
   {
     value: 'started',
@@ -981,6 +1017,7 @@ const editingRow     = ref(null)
 const editEntries    = ref([])   // working copy of costEntries
 const editComment    = ref('')
 const editStatus     = ref('not-started')
+const editVisibleSiteQty = ref('1')
 const editingEntryId = ref(null) // id of the entry currently being edited (null = add mode)
 const newEntry       = ref({ label: '', date: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' })
 
@@ -1018,28 +1055,28 @@ const importSkipped  = computed(() => importLog.value.filter(e => e.result === '
 
 // ── Rows ─────────────────────────────────────────────────────────────────────
 const rows = computed(() => {
-  return Object.entries(siteData.value).map(([key, d]) => {
-    const entries = Array.isArray(d.costEntries) ? d.costEntries : []
-    const costToComplete = entries.reduce((s, e) => s + calcEntryCost(e), 0)
-    const totalHours = entries.reduce((s, e) => s + calcEntryHours(e), 0)
-    return {
-      key,
-      siteId:        d.siteId,
-      siteName:      d.siteName,
-      jobNumber:     d.jobNumber,
-      hasDetailSiteSurvey: hasDetailSiteSurveyFor(d),
-      status:        normaliseSiteStatus(d.status) || 'not-started',
-      scopes:        mergedScopesFor(d),
-      costEntries:   entries,
-      totalHours,
-      costToComplete,
-      comment:       d.comment || '',
-    }
-  }).sort((a, b) => (a.siteId || '').localeCompare(b.siteId || ''))
+  const grouped = new Map()
+  Object.entries(siteData.value).forEach(([key, row]) => {
+    const siteKey = normaliseMatchValue(row.siteId)
+    if (!grouped.has(siteKey)) grouped.set(siteKey, [])
+    grouped.get(siteKey).push([key, row])
+  })
+
+  return [...grouped.values()]
+    .map(buildGroupedSiteRow)
+    .sort((a, b) => (a.siteId || '').localeCompare(b.siteId || ''))
 })
 
+function normaliseCategory(value) {
+  return String(value ?? '').trim().toLowerCase()
+}
+
 function isDetailSiteSurveyVO(vo) {
-  return vo?.voCategory?.trim()?.toLowerCase() === 'detail site survey'
+  return normaliseCategory(vo?.voCategory) === 'detail site survey'
+}
+
+function isPrioritySiteStatusVO(vo) {
+  return PRIORITY_SITE_STATUS_CATEGORY_KEYS.has(normaliseCategory(vo?.voCategory))
 }
 
 function normaliseMatchValue(value) {
@@ -1052,6 +1089,131 @@ function sameSiteId(a, b) {
 
 function sameJobNumber(a, b) {
   return normaliseMatchValue(a) === normaliseMatchValue(b)
+}
+
+function isNonActualSiteId(siteId) {
+  return /^not\s+site\b/i.test(String(siteId ?? '').trim())
+}
+
+function countsAsActualSite(row) {
+  return !isNonActualSiteId(row?.siteId)
+}
+
+function parseVisibleSiteQty(value) {
+  const qty = Math.floor(Number(value) || 0)
+  return qty > 0 ? qty : 1
+}
+
+function isTunnelScope(scope) {
+  return /\btunnel\b/i.test(String(scope ?? '').trim())
+}
+
+function visibleSiteCountForRow(row) {
+  if (!countsAsActualSite(row)) return 0
+  if (!row?.isTunnelEligible) return 1
+  return parseVisibleSiteQty(row.visibleSiteQty)
+}
+
+function uniqueTextList(values) {
+  const seen = new Set()
+  const result = []
+  values.forEach(value => {
+    const text = String(value ?? '').trim()
+    if (!text) return
+    const key = text.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    result.push(text)
+  })
+  return result
+}
+
+function getSiteEntries(siteId) {
+  return Object.entries(siteData.value).filter(([, row]) => sameSiteId(row.siteId, siteId))
+}
+
+function priorityJobNumbersForSite(siteId) {
+  const vos = (store.vos.value || []).filter(vo =>
+    sameSiteId(vo.siteId, siteId) &&
+    isPrioritySiteStatusVO(vo)
+  )
+  const jobs = []
+  PRIORITY_SITE_STATUS_CATEGORIES.forEach(category => {
+    uniqueTextList(
+      vos
+        .filter(vo => normaliseCategory(vo.voCategory) === normaliseCategory(category))
+        .map(vo => vo.jobNumber)
+    ).forEach(job => jobs.push(job))
+  })
+  return jobs
+}
+
+function pickPrimarySiteEntry(entries) {
+  const orderedEntries = [...entries].sort((a, b) => {
+    const aJob = String(a[1]?.jobNumber || '')
+    const bJob = String(b[1]?.jobNumber || '')
+    if (!!aJob !== !!bJob) return aJob ? -1 : 1
+    return aJob.localeCompare(bJob) || String(a[0] || '').localeCompare(String(b[0] || ''))
+  })
+
+  const siteId = orderedEntries[0]?.[1]?.siteId
+  const priorityJobs = priorityJobNumbersForSite(siteId)
+  for (const job of priorityJobs) {
+    const match = orderedEntries.find(([, row]) => sameJobNumber(row.jobNumber, job))
+    if (match) return match
+  }
+
+  return orderedEntries[0]
+}
+
+function resolveGroupedStatus(primaryRow, entries) {
+  const primaryStatus = normaliseSiteStatus(primaryRow?.status) || 'not-started'
+  if (primaryStatus !== 'not-started') return primaryStatus
+  const linkedStatus = entries
+    .map(([, row]) => normaliseSiteStatus(row?.status) || 'not-started')
+    .find(status => status !== 'not-started')
+  return linkedStatus || primaryStatus
+}
+
+function buildGroupedSiteRow(entries) {
+  const [primaryKey, primaryRow] = pickPrimarySiteEntry(entries)
+  const linkedKeys = entries.map(([key]) => key)
+  const jobNumbers = uniqueTextList(entries.map(([, row]) => row.jobNumber))
+  const linkedJobNumbers = jobNumbers.filter(job => !sameJobNumber(job, primaryRow?.jobNumber))
+  const commentParts = uniqueTextList(entries.map(([, row]) => row.comment))
+  const costEntries = entries.flatMap(([, row]) =>
+    Array.isArray(row.costEntries) ? row.costEntries.map(entry => ({ ...entry })) : []
+  )
+  const scopes = new Set()
+  entries.forEach(([, row]) => {
+    mergedScopesFor(row).forEach(scope => scopes.add(scope))
+  })
+  const scopeList = [...scopes].sort()
+  const isTunnelEligible = scopeList.some(isTunnelScope)
+  const visibleSiteQty = isTunnelEligible
+    ? Math.max(...entries.map(([, row]) => parseVisibleSiteQty(row?.visibleSiteQty)))
+    : 1
+
+  return {
+    key: primaryKey,
+    linkedKeys,
+    linkedJobNumbers,
+    hasLinkedJobs: linkedJobNumbers.length > 0,
+    linkedJobLabel: linkedJobNumbers.join(', '),
+    siteId: primaryRow?.siteId,
+    siteName: uniqueTextList(entries.map(([, row]) => row.siteName))[0] || '',
+    jobNumber: primaryRow?.jobNumber,
+    hasDetailSiteSurvey: hasDetailSiteSurveyFor(primaryRow),
+    status: resolveGroupedStatus(primaryRow, entries),
+    scopes: scopeList,
+    isTunnelEligible,
+    visibleSiteQty,
+    costEntries,
+    totalHours: costEntries.reduce((sum, entry) => sum + calcEntryHours(entry), 0),
+    costToComplete: costEntries.reduce((sum, entry) => sum + calcEntryCost(entry), 0),
+    comment: commentParts.join('; '),
+    searchJobText: jobNumbers.join(' '),
+  }
 }
 
 function hasDetailSiteSurveyFor(row) {
@@ -1135,7 +1297,8 @@ const filteredRows = computed(() => {
     list = list.filter(r =>
       r.siteId?.toLowerCase().includes(q) ||
       r.siteName?.toLowerCase().includes(q) ||
-      r.jobNumber?.toLowerCase().includes(q)
+      r.jobNumber?.toLowerCase().includes(q) ||
+      r.searchJobText?.toLowerCase().includes(q)
     )
   }
 
@@ -1149,34 +1312,44 @@ const filteredRows = computed(() => {
   })
 })
 
+const visibleSiteRows = computed(() => filteredRows.value.filter(countsAsActualSite))
+const trackedSiteRows = computed(() => rows.value.filter(countsAsActualSite))
+const visibleSiteQtyTotal = computed(() =>
+  visibleSiteRows.value.reduce((sum, row) => sum + visibleSiteCountForRow(row), 0)
+)
+const trackedSiteQtyTotal = computed(() =>
+  trackedSiteRows.value.reduce((sum, row) => sum + visibleSiteCountForRow(row), 0)
+)
+
 const isFiltered = computed(() =>
   statusFilter.value !== 'all' || scopeFilter.value !== 'all' ||
   search.value.trim() !== '' || monthFilter.value !== ''
 )
 
 const filterSummary = computed(() => {
-  const list = filteredRows.value
+  const list = visibleSiteRows.value
   const statusCounts = Object.fromEntries(SITE_STATUS_OPTIONS.map(option => [option.value, 0]))
   list.forEach(row => {
     if (Object.prototype.hasOwnProperty.call(statusCounts, row.status)) {
-      statusCounts[row.status] += 1
+      statusCounts[row.status] += visibleSiteCountForRow(row)
     }
   })
   return {
-    count:         list.length,
-    total:         rows.value.length,
+    count:         list.reduce((sum, row) => sum + visibleSiteCountForRow(row), 0),
+    total:         trackedSiteRows.value.reduce((sum, row) => sum + visibleSiteCountForRow(row), 0),
     statusCounts,
-    costToComplete: list.reduce((s, r) => s + (r.costToComplete || 0), 0),
+    costToComplete: filteredRows.value.reduce((s, r) => s + (r.costToComplete || 0), 0),
   }
 })
 
 const statusCards = computed(() => {
   return SITE_STATUS_OPTIONS.map(option => {
-    const items = filteredRows.value.filter(row => row.status === option.value)
+    const countItems = visibleSiteRows.value.filter(row => row.status === option.value)
+    const amountItems = filteredRows.value.filter(row => row.status === option.value)
     return {
       ...option,
-      count: items.length,
-      costToComplete: items.reduce((sum, row) => sum + (row.costToComplete || 0), 0),
+      count: countItems.reduce((sum, row) => sum + visibleSiteCountForRow(row), 0),
+      costToComplete: amountItems.reduce((sum, row) => sum + (row.costToComplete || 0), 0),
     }
   })
 })
@@ -1192,10 +1365,7 @@ function voItemsFor(row) {
   if (row.siteId === 'Downtime') {
     return vos.filter(v => v.siteId === 'Downtime')
   }
-  const items = vos.filter(v =>
-    (sameSiteId(v.siteId, row.siteId) && sameJobNumber(v.jobNumber, row.jobNumber)) ||
-    (sameSiteId(v.siteId, row.siteId) && isDetailSiteSurveyVO(v))
-  )
+  const items = vos.filter(v => sameSiteId(v.siteId, row.siteId))
   return [...new Map(items.map(vo => [vo.id, vo])).values()]
 }
 
@@ -1263,11 +1433,37 @@ function mergeDetailSurveyRowsIntoSiteRows() {
   return merged
 }
 
+function linkedKeysForRow(row) {
+  if (Array.isArray(row?.linkedKeys) && row.linkedKeys.length) {
+    return row.linkedKeys.filter(key => siteData.value[key])
+  }
+  if (row?.key && siteData.value[row.key]?.siteId) {
+    return getSiteEntries(siteData.value[row.key].siteId).map(([key]) => key)
+  }
+  return row?.key && siteData.value[row.key] ? [row.key] : []
+}
+
+function normaliseGroupedSiteStatuses() {
+  let changed = 0
+  rows.value.forEach(row => {
+    const safeStatus = normaliseSiteStatus(row.status) || 'not-started'
+    linkedKeysForRow(row).forEach(key => {
+      if (!siteData.value[key]) return
+      const currentStatus = normaliseSiteStatus(siteData.value[key].status) || 'not-started'
+      if (currentStatus === safeStatus) return
+      siteData.value[key].status = safeStatus
+      changed++
+    })
+  })
+  return changed
+}
+
 watch(
   () => store.vos.value?.length || 0,
   () => {
     const merged = mergeDetailSurveyRowsIntoSiteRows()
-    if (merged > 0) save(siteData.value)
+    const normalised = normaliseGroupedSiteStatuses()
+    if (merged > 0 || normalised > 0) save(siteData.value)
   },
   { immediate: true }
 )
@@ -1287,6 +1483,15 @@ async function syncFromVOs() {
   const vos = store.vos.value || []
   const seen = new Set()
   let added = 0
+  const existingSiteIds = new Set(Object.values(siteData.value).map(row => normaliseMatchValue(row.siteId)))
+  const addedSiteIds = new Set()
+
+  function markSiteAdded(siteId) {
+    const siteKey = normaliseMatchValue(siteId)
+    if (!siteKey || existingSiteIds.has(siteKey) || addedSiteIds.has(siteKey)) return
+    addedSiteIds.add(siteKey)
+    added++
+  }
 
   // Collect special rows separately. Detail Site Survey follows the site row
   // and should not create its own Site Status line when a normal site row exists.
@@ -1330,7 +1535,7 @@ async function syncFromVOs() {
         costEntries:  [],
         comment:      '',
       }
-      added++
+      markSiteAdded('Downtime')
     } else {
       // Always refresh scopes from VOs
       siteData.value[downtimeKey].scopes = downtimeScopes
@@ -1353,7 +1558,7 @@ async function syncFromVOs() {
         costEntries: [],
         comment:     '',
       }
-      added++
+      markSiteAdded(vo.siteId)
     } else {
       // Update site name / job / scopes (scopes always come from VOs)
       siteData.value[key].siteId    = vo.siteId
@@ -1390,7 +1595,7 @@ async function syncFromVOs() {
         costEntries: [],
         comment:     '',
       }
-      added++
+      markSiteAdded(vo.siteId)
     } else {
       siteData.value[key].siteId    = vo.siteId
       siteData.value[key].siteName  = vo.siteName
@@ -1400,13 +1605,14 @@ async function syncFromVOs() {
   })
 
   const merged = mergeDetailSurveyRowsIntoSiteRows()
+  const normalised = normaliseGroupedSiteStatuses()
 
   save(siteData.value)
   syncing.value = false
   syncMessage.value = added > 0
-    ? `Synced ${added} new site${added !== 1 ? 's' : ''} from Variations${merged ? ` and merged ${merged} Detail Survey row${merged !== 1 ? 's' : ''}` : ''}.`
-    : merged > 0
-      ? `Merged ${merged} Detail Survey row${merged !== 1 ? 's' : ''} into the main site line.`
+    ? `Synced ${added} new site${added !== 1 ? 's' : ''} from Variations${merged ? ` and merged ${merged} Detail Survey row${merged !== 1 ? 's' : ''}` : ''}${normalised ? ` and aligned ${normalised} linked row status${normalised !== 1 ? 'es' : ''}` : ''}.`
+    : merged > 0 || normalised > 0
+      ? `${merged ? `Merged ${merged} Detail Survey row${merged !== 1 ? 's' : ''} into the main site line.` : ''}${merged && normalised ? ' ' : ''}${normalised ? `Aligned ${normalised} linked row status${normalised !== 1 ? 'es' : ''}.` : ''}`
       : 'All sites already up to date — no new sites found.'
 }
 
@@ -1422,18 +1628,10 @@ function deleteAll() {
 }
 
 function applyStatusToLinkedRows(row, nextStatus) {
-  const d = siteData.value[row.key]
-  if (!d) return
   const safeStatus = normaliseSiteStatus(nextStatus) || 'not-started'
-  const shouldLinkDetailSurvey = hasDetailSiteSurveyFor(d)
-  d.status = safeStatus
-  if (shouldLinkDetailSurvey && d.siteId && d.siteId !== 'Downtime') {
-    Object.values(siteData.value).forEach(entry => {
-      if (sameSiteId(entry.siteId, d.siteId) && hasDetailSiteSurveyFor(entry)) {
-        entry.status = safeStatus
-      }
-    })
-  }
+  linkedKeysForRow(row).forEach(key => {
+    if (siteData.value[key]) siteData.value[key].status = safeStatus
+  })
 }
 
 function updateRowStatus(row, nextStatus) {
@@ -1447,6 +1645,7 @@ function startEdit(row) {
   editEntries.value    = row.costEntries.map(e => ({ ...e }))  // deep copy
   editComment.value    = row.comment || ''
   editStatus.value     = normaliseSiteStatus(row.status) || 'not-started'
+  editVisibleSiteQty.value = String(parseVisibleSiteQty(row.visibleSiteQty))
   editingEntryId.value = null
   newEntry.value       = { label: '', date: '', qtyDays: '', qtyHours: '', qtyPeople: '', rate: '' }
   copyBannerDismissed.value = false
@@ -1456,6 +1655,7 @@ function cancelEdit() {
   editingKey.value = null
   editingRow.value = null
   editStatus.value = 'not-started'
+  editVisibleSiteQty.value = '1'
 }
 
 function addCostEntry() {
@@ -1512,9 +1712,12 @@ function updateCostEntry() {
 function saveEditModal() {
   const key = editingKey.value
   if (!key) return
+  const row = editingRow.value
+  const linkedKeys = linkedKeysForRow(row)
   const d = siteData.value[key]
-  if (!d) return
-  d.costEntries = editEntries.value.map(e => ({
+  if (!d || !linkedKeys.length) return
+  const visibleSiteQty = parseVisibleSiteQty(editVisibleSiteQty.value)
+  const mappedEntries = editEntries.value.map(e => ({
     id: e.id,
     label: e.label || '',
     date:  e.date  || '',
@@ -1523,8 +1726,18 @@ function saveEditModal() {
     qtyPeople: parseFloat(e.qtyPeople)|| 0,
     rate:      parseFloat(String(e.rate).replace(/[^0-9.]/g, '')) || 0,
   }))
-  applyStatusToLinkedRows({ key }, editStatus.value)
+  d.costEntries = mappedEntries
   d.comment = editComment.value.trim()
+  if (row?.isTunnelEligible) d.visibleSiteQty = visibleSiteQty
+  linkedKeys
+    .filter(linkedKey => linkedKey !== key)
+    .forEach(linkedKey => {
+      if (!siteData.value[linkedKey]) return
+      siteData.value[linkedKey].costEntries = []
+      siteData.value[linkedKey].comment = ''
+      if (row?.isTunnelEligible) siteData.value[linkedKey].visibleSiteQty = visibleSiteQty
+    })
+  applyStatusToLinkedRows(row || { key }, editStatus.value)
   save(siteData.value)
   // Track last saved entry so the next site modal can offer a copy
   if (d.costEntries.length > 0) {
@@ -1550,7 +1763,9 @@ function copySuggestedEntry() {
 }
 
 function deleteRow(row) {
-  delete siteData.value[row.key]
+  linkedKeysForRow(row).forEach(key => {
+    delete siteData.value[key]
+  })
   save(siteData.value)
 }
 
@@ -1601,8 +1816,9 @@ function handleImportFile(event) {
 
       // Build a lookup: siteId (lowercase) → storage key
       const siteIndex = {}
-      Object.entries(siteData.value).forEach(([key, d]) => {
-        if (d.siteId) siteIndex[(d.siteId + '').trim().toLowerCase()] = key
+      rows.value.forEach(row => {
+        if (!row.siteId) return
+        siteIndex[normaliseMatchValue(row.siteId)] = row
       })
 
       const log = []
@@ -1622,14 +1838,14 @@ function handleImportFile(event) {
           return
         }
 
-        const key = siteIndex[rawId.toLowerCase()]
-        if (!key) {
+        const targetRow = siteIndex[normaliseMatchValue(rawId)]
+        if (!targetRow) {
           log.push({ row: rowNum, siteId: rawId, result: 'not-found' })
           return
         }
 
-        const prev = normaliseSiteStatus(siteData.value[key].status) || 'not-started'
-        applyStatusToLinkedRows({ key }, normalised)
+        const prev = normaliseSiteStatus(targetRow.status) || 'not-started'
+        applyStatusToLinkedRows(targetRow, normalised)
         log.push({ row: rowNum, siteId: rawId, result: 'updated', prevStatus: prev, newStatus: normalised })
       })
 
@@ -1647,6 +1863,8 @@ function exportToExcel() {
     'Site ID':          r.siteId,
     'Site Name':        r.siteName,
     'Job Number':       r.jobNumber || '',
+    'Linked Jobs':      r.linkedJobLabel || '',
+    'Visible Site Qty': r.isTunnelEligible ? parseVisibleSiteQty(r.visibleSiteQty) : 1,
     'Detail Site Survey': r.hasDetailSiteSurvey ? 'Yes' : '',
     'Status':           getSiteStatusLabel(r.status),
     'Scope':            r.scopes.length ? r.scopes.join(', ') : '',
@@ -1660,6 +1878,8 @@ function exportToExcel() {
   ws['!cols'] = [
     { wch: 18 },
     { wch: 28 },
+    { wch: 16 },
+    { wch: 22 },
     { wch: 16 },
     { wch: 20 },
     { wch: 14 },

@@ -175,6 +175,13 @@
           </div>
           <div class="flex items-center gap-3">
             <span class="text-xs text-violet-500">For split invoices or amounts not tied to a VO record</span>
+            <button @click="manualSectionOpen = !manualSectionOpen"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-violet-200 bg-white text-violet-700 rounded-lg text-xs font-semibold hover:bg-violet-50 transition">
+              <svg class="w-3.5 h-3.5 transition-transform" :class="manualSectionOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+              {{ manualSectionOpen ? 'Collapse' : 'Expand' }}
+            </button>
             <button @click="openManualForm()"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white rounded-lg text-xs font-semibold hover:bg-violet-700 transition">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -185,6 +192,7 @@
           </div>
         </div>
 
+        <div v-show="manualSectionOpen">
         <!-- Add / Edit form -->
         <div v-if="showManualForm" class="px-4 py-4 bg-violet-50/50 border-b border-violet-100">
           <p class="text-xs font-semibold text-violet-700 mb-3">{{ editingManualId ? 'Edit' : 'New' }} Manual Invoice Line</p>
@@ -302,6 +310,7 @@
         <!-- Empty manual state -->
         <div v-else-if="!showManualForm" class="px-4 py-5 text-center text-sm text-gray-400">
           No manual lines added yet. Use <strong>Add Line</strong> for split invoices or amounts outside the VO system.
+        </div>
         </div>
       </div>
 
@@ -1011,6 +1020,7 @@ const tpServiceRows = computed(() => {
 
 // ── Manual entries ──
 const manualEntries = ref([])
+const manualSectionOpen = ref(true)
 const showManualForm = ref(false)
 const editingManualId = ref(null)
 const manualForm = ref({ description: '', category: '', scope: '', amount: '', invoiceStatus: 'SIT Completed' })
@@ -1066,6 +1076,7 @@ const kpiGridCols = computed(() => {
 })
 
 const openManualForm = (entry = null) => {
+  manualSectionOpen.value = true
   if (entry) {
     editingManualId.value = entry.id
     manualForm.value = { description: entry.description, category: entry.category || '', scope: entry.scope || '', amount: entry.amount, invoiceStatus: entry.invoiceStatus }

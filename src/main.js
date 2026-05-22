@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import './style.css'
 import { initDatabase, getAllVOs } from './db/indexdb'
+import router from './router'
 
 // Initialize database and load initial data
 async function initApp() {
@@ -14,10 +15,12 @@ async function initApp() {
     console.log('Pre-loaded VOs:', vos.length)
 
     const app = createApp(App)
+    app.use(router)
     app.mount('#app')
   } catch (err) {
     console.error('Initialization error:', err?.message ? String(err.message) : 'Unknown error')
     const app = createApp(App)
+    app.use(router)
     app.mount('#app')
   }
 }
