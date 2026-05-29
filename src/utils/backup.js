@@ -4,6 +4,7 @@ export const BACKUP_LOCAL_STORAGE_KEYS = [
   'invoicePrepIds',
   'flaggedVOIds',
   'flaggedVONotes',
+  'monthlyRequestSatishIds',
   'voActivityLog',
   'globalData',
   'siteStatusData',

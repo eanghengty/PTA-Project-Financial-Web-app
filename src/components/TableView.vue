@@ -49,13 +49,27 @@
     <!-- Table Section -->
     <div v-else class="bg-white rounded-lg shadow-sm border border-gray-200">
       <!-- Search/Filter Bar -->
-      <div class="px-6 py-4 bg-white border-b border-gray-200 flex gap-4 items-center">
+      <div class="px-6 py-4 bg-white border-b border-gray-200 flex gap-4 items-center flex-wrap">
         <input
           v-model="searchText"
           type="text"
           placeholder="Search by site, description, or ticket number..."
           class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
+
+        <div class="flex items-center gap-2">
+          <label for="combined-filter" class="text-sm font-medium text-gray-600 whitespace-nowrap">Filter Combine</label>
+          <select
+            id="combined-filter"
+            v-model="activeCombinedFilter"
+            class="min-w-[240px] px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">All combined filters</option>
+            <option v-for="option in combinedFilterOptions" :key="option.key" :value="option.key">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
 
         <!-- Export Selected Button -->
         <div v-if="selectedCount > 0" class="flex items-center gap-2">
@@ -190,6 +204,9 @@
       <div v-if="hasActiveFilters || searchText" class="px-4 py-2 bg-blue-50 border-b border-blue-100 flex items-center gap-2 flex-wrap text-xs">
         <span class="font-semibold text-blue-700">Filter summary:</span>
         <span class="text-blue-600">{{ filteredVOs.length }} VOs</span>
+        <span v-if="activeCombinedFilterLabel" class="px-2 py-0.5 rounded-full font-medium bg-indigo-100 text-indigo-700">
+          Combined: {{ activeCombinedFilterLabel }}
+        </span>
         <span class="text-blue-300">·</span>
         <span class="font-bold text-blue-800">{{ formatCurrency(filteredTotal) }}</span>
         <span class="text-blue-300 mx-1">|</span>
@@ -823,6 +840,15 @@ function loadLS(key, fallback) {
 const saveLS = (key, val) => localStorage.setItem(key, JSON.stringify(val))
 
 const searchText = ref(loadLS('tv_searchText', ''))
+const activeCombinedFilter = ref(loadLS('tv_combinedFilterKey', ''))
+
+const combinedFilterOptions = [
+  { key: 'po-have-not-invoice', label: 'PO have not invoice' }
+]
+
+const activeCombinedFilterLabel = computed(() =>
+  combinedFilterOptions.find(option => option.key === activeCombinedFilter.value)?.label || ''
+)
 
 // Row selection
 const selectedRows = ref(new Set())
@@ -1144,6 +1170,10 @@ const filteredVOs = computed(() => {
     )
   }
 
+  if (activeCombinedFilter.value) {
+    vosArray = vosArray.filter(vo => matchesCombinedFilter(vo))
+  }
+
   // Apply column filters
   vosArray = vosArray.filter(vo => matchesAllFilters(vo))
 
@@ -1162,6 +1192,15 @@ const filteredVOs = computed(() => {
 
   return vosArray
 })
+
+const matchesCombinedFilter = (vo) => {
+  switch (activeCombinedFilter.value) {
+    case 'po-have-not-invoice':
+      return Boolean(vo.poNumber?.trim()) && !vo.invoiceDate
+    default:
+      return true
+  }
+}
 
 const matchesAllFilters = (vo) => {
   for (const [column, selectedValues] of Object.entries(filters.value)) {
@@ -1342,11 +1381,12 @@ const toggleFilterMenu = (columnKey, event) => {
 
 const clearAllFilters = () => {
   Object.keys(filters.value).forEach(key => { filters.value[key] = [] })
+  activeCombinedFilter.value = ''
 }
 
 
 const hasActiveFilters = computed(() => {
-  return Object.values(filters.value).some(f => f.length > 0)
+  return Boolean(activeCombinedFilter.value) || Object.values(filters.value).some(f => f.length > 0)
 })
 
 // ── Persist state to localStorage ──
@@ -1357,6 +1397,7 @@ watch([searchText, filters, () => store.selectedFilters.value], () => {
 }, { deep: true })
 
 watch(searchText,      v  => saveLS('tv_searchText', v))
+watch(activeCombinedFilter, v => saveLS('tv_combinedFilterKey', v))
 watch(showFlaggedOnly, () => { clearSelection(); currentPage.value = 1 })
 watch(filters,        v  => saveLS('tv_filters', v),        { deep: true })
 watch(visibleColumns, v  => saveLS('tv_visibleColumns', v), { deep: true })

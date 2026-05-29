@@ -222,7 +222,7 @@
               <label class="block text-xs text-gray-500 mb-1">Invoice Status</label>
               <select v-model="manualForm.invoiceStatus"
                 class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
-                <option v-for="s in STATUS_ORDER" :key="s" :value="s">{{ s }}</option>
+                <option v-for="s in RAW_STATUS_ORDER" :key="s" :value="s">{{ s }}</option>
               </select>
             </div>
             <div>
@@ -253,6 +253,7 @@
             <thead>
               <tr class="bg-violet-700 text-white text-xs uppercase tracking-wider">
                 <th class="px-4 py-2.5 text-left font-semibold">Description</th>
+                <th class="px-4 py-2.5 text-center font-semibold">Satish</th>
                 <th class="px-4 py-2.5 text-left font-semibold">Category</th>
                 <th class="px-4 py-2.5 text-left font-semibold">Scope</th>
                 <th class="px-4 py-2.5 text-left font-semibold">Invoice Status</th>
@@ -261,8 +262,20 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-violet-50">
-              <tr v-for="entry in manualEntries" :key="entry.id" class="hover:bg-violet-50/40 transition-colors">
+              <tr v-for="entry in manualEntries" :key="entry.id"
+                :class="satishRequestIds.has(entry.id) ? 'bg-teal-50 hover:bg-teal-100' : 'hover:bg-violet-50/40'"
+                class="transition-colors">
                 <td class="px-4 py-3 text-gray-800 font-medium">{{ entry.description }}</td>
+                <td class="px-4 py-3 text-center">
+                  <input
+                    v-if="isRequestToNokia(entry)"
+                    type="checkbox"
+                    :checked="satishRequestIds.has(entry.id)"
+                    @change="toggleRequestRowSatish(entry.id)"
+                    class="rounded border-gray-300 text-teal-500 cursor-pointer"
+                  />
+                  <span v-else class="text-gray-300 text-xs">-</span>
+                </td>
                 <td class="px-4 py-3">
                   <span v-if="entry.category"
                     :class="BASE_PO_CATEGORIES.has(entry.category) ? 'bg-amber-100 text-amber-700' : 'bg-violet-100 text-violet-700'"
@@ -273,9 +286,9 @@
                 </td>
                 <td class="px-4 py-3 text-gray-500 text-sm">{{ entry.scope || '—' }}</td>
                 <td class="px-4 py-3">
-                  <span :class="(STATUS_CFG[entry.invoiceStatus] || STATUS_CFG['Not Yet Sent']).badge"
+                  <span :class="(STATUS_CFG[getDisplayInvoiceStatus(entry, 'SIT Completed')] || STATUS_CFG['Not Yet Sent']).badge"
                     class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold">
-                    {{ entry.invoiceStatus }}
+                    {{ getDisplayInvoiceStatus(entry, 'SIT Completed') }}
                   </span>
                 </td>
                 <td class="px-4 py-3 text-right font-semibold text-violet-800">{{ formatCurrency(entry.amount) }}</td>
@@ -474,7 +487,8 @@
           <template v-for="statusConf in [
             { key: 'SIT Completed',       label: 'SIT Completed',       color: 'text-green-700 bg-green-100' },
             { key: 'SIT Approved',        label: 'SIT Approved',        color: 'text-yellow-700 bg-yellow-100' },
-            { key: 'Request to Nokia',    label: 'Request to Nokia',    color: 'text-blue-700 bg-blue-100' },
+            { key: WAITING_ROM_APPROVAL,  label: WAITING_ROM_APPROVAL,  color: 'text-blue-700 bg-blue-100' },
+            { key: WAITING_SATISH,        label: WAITING_SATISH,        color: 'text-teal-700 bg-teal-100' },
             { key: 'To Be Sent to Nokia', label: 'To Be Sent',          color: 'text-indigo-700 bg-indigo-100' },
             { key: 'Not Yet Sent',        label: 'Not Yet Sent',        color: 'text-gray-600 bg-gray-100' },
             { key: 'SIT Wrong Amount',    label: 'SIT Wrong Amount',    color: 'text-rose-700 bg-rose-100' },
@@ -489,6 +503,19 @@
           <table class="border-collapse w-full">
             <thead class="sticky top-0 z-10">
               <tr>
+                <th class="bg-blue-700 border-b border-blue-800 px-3 py-3 text-center whitespace-nowrap min-w-[92px]">
+                  <div class="flex items-center justify-center gap-2">
+                    <input
+                      type="checkbox"
+                      :checked="allFilteredRequestRowsSatish"
+                      v-bind:indeterminate.prop="someFilteredRequestRowsSatish"
+                      :disabled="filteredRequestRows.length === 0"
+                      @change="toggleAllFilteredRequestRowsSatish"
+                      class="rounded border-white/30 text-teal-500 cursor-pointer disabled:cursor-not-allowed"
+                    />
+                    <span class="text-xs font-bold text-white uppercase tracking-wider">Satish</span>
+                  </div>
+                </th>
                 <th v-for="col in tableColumns" :key="col.key"
                   class="bg-blue-700 border-b border-blue-800 p-0 whitespace-nowrap"
                   :class="col.right ? 'text-right' : 'text-left'"
@@ -521,13 +548,25 @@
                 <!-- Section divider when carry-over rows start -->
                 <tr v-if="isFirstCarryOverInPage(vo, idx)"
                   class="bg-orange-100 border-t-2 border-orange-300">
-                  <td colspan="10" class="px-4 py-1.5">
+                  <td colspan="11" class="px-4 py-1.5">
                     <span class="text-xs font-bold text-orange-700 uppercase tracking-wider">↩ Carried Over from Prior Months — Pending Action</span>
                   </td>
                 </tr>
                 <tr @click="openEdit(vo)"
-                  :class="carryOverIds.has(vo.id) ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-blue-50/40'"
+                  :class="satishRequestIds.has(vo.id)
+                    ? 'bg-teal-50 hover:bg-teal-100'
+                    : carryOverIds.has(vo.id) ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-blue-50/40'"
                   class="transition-colors cursor-pointer">
+                  <td class="px-3 py-3 text-center" @click.stop>
+                    <input
+                      v-if="isRequestToNokia(vo)"
+                      type="checkbox"
+                      :checked="satishRequestIds.has(vo.id)"
+                      @change="toggleRequestRowSatish(vo.id)"
+                      class="rounded border-gray-300 text-teal-500 cursor-pointer"
+                    />
+                    <span v-else class="text-gray-300 text-xs">-</span>
+                  </td>
                   <td class="px-4 py-3 whitespace-nowrap">
                     <span class="px-1.5 py-0.5 rounded text-xs font-bold bg-indigo-100 text-indigo-700">{{ vo.siteId }}</span>
                   </td>
@@ -550,9 +589,9 @@
                   <td class="px-4 py-3 whitespace-nowrap">
                     <div class="flex items-center gap-1.5 flex-wrap">
                       <span v-if="vo.invoiceStatus"
-                        :class="(STATUS_CFG[vo.invoiceStatus] || STATUS_CFG['Not Yet Sent']).badge"
+                        :class="(STATUS_CFG[getDisplayInvoiceStatus(vo)] || STATUS_CFG['Not Yet Sent']).badge"
                         class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold">
-                        {{ vo.invoiceStatus }}
+                        {{ getDisplayInvoiceStatus(vo) }}
                       </span>
                       <span v-if="carryOverIds.has(vo.id) && vo.invoiceStatus !== 'SIT Wrong Amount'"
                         class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-600 border border-orange-200">
@@ -582,7 +621,7 @@
             </tbody>
             <tfoot>
               <tr class="bg-blue-50 border-t-2 border-blue-200">
-                <td colspan="9" class="px-4 py-3 text-sm font-bold text-gray-700">
+                <td colspan="10" class="px-4 py-3 text-sm font-bold text-gray-700">
                   VO Total
                   <span class="text-xs font-normal text-gray-400 ml-1">
                     ({{ monthItems.length }} this month{{ carryOverItems.length > 0 ? ` + ${carryOverItems.length} carried over` : '' }}{{ wrongAmountItems.length > 0 ? ` · ${wrongAmountItems.length} wrong amount (delta)` : '' }})
@@ -593,14 +632,14 @@
                 </td>
               </tr>
               <tr v-if="manualEntries.length > 0" class="bg-violet-50 border-t border-violet-200">
-                <td colspan="9" class="px-4 py-2 text-sm font-bold text-violet-700">
+                <td colspan="10" class="px-4 py-2 text-sm font-bold text-violet-700">
                   + Manual Lines
                   <span class="text-xs font-normal text-violet-500 ml-1">({{ manualEntries.length }} entr{{ manualEntries.length !== 1 ? 'ies' : 'y' }})</span>
                 </td>
                 <td class="px-4 py-2 text-sm font-bold text-violet-700 text-right whitespace-nowrap">{{ formatCurrency(manualTotal) }}</td>
               </tr>
               <tr v-if="manualEntries.length > 0" class="bg-gray-100 border-t-2 border-gray-300">
-                <td colspan="9" class="px-4 py-2.5 text-sm font-bold text-gray-800">Grand Total</td>
+                <td colspan="10" class="px-4 py-2.5 text-sm font-bold text-gray-800">Grand Total</td>
                 <td class="px-4 py-2.5 text-sm font-bold text-gray-900 text-right whitespace-nowrap">{{ formatCurrency(grandTotal) }}</td>
               </tr>
             </tfoot>
@@ -834,9 +873,9 @@
                   </td>
                   <td class="px-3 py-2.5 text-gray-500 whitespace-nowrap">{{ item.scope || '(No Scope)' }}</td>
                   <td class="px-3 py-2.5 whitespace-nowrap">
-                    <span :class="(STATUS_CFG[item.invoiceStatus] || STATUS_CFG['Not Yet Sent']).badge"
+                    <span :class="(STATUS_CFG[getDisplayInvoiceStatus(item, item._isManual ? 'SIT Completed' : 'Not Yet Sent')] || STATUS_CFG['Not Yet Sent']).badge"
                       class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap">
-                      {{ item.invoiceStatus || 'Not Yet Sent' }}
+                      {{ getDisplayInvoiceStatus(item, item._isManual ? 'SIT Completed' : 'Not Yet Sent') }}
                     </span>
                   </td>
                   <td class="px-3 py-2.5 text-right font-semibold text-gray-800 whitespace-nowrap">
@@ -898,12 +937,17 @@ const BASE_PO_CATEGORIES = new Set(['Site Survey', 'WOP', 'C&I', 'SAT&SIT', 'Sna
 const CARRYOVER_STATUSES = new Set(['To Be Sent to Nokia', 'Request to Nokia', 'SIT Wrong Amount'])
 const PAGE_SIZE = 25
 const MANUAL_ENTRIES_KEY = 'manualInvoiceEntries'
+const MONTHLY_REQUEST_SATISH_KEY = 'monthlyRequestSatishIds'
+const WAITING_ROM_APPROVAL = 'Waiting ROM Approval'
+const WAITING_SATISH = 'Waiting Satish'
 
-const STATUS_ORDER = ['To Be Sent to Nokia', 'Request to Nokia', 'SIT Approved', 'SIT Completed', 'SIT Wrong Amount', 'Not Yet Sent']
+const RAW_STATUS_ORDER = ['To Be Sent to Nokia', 'Request to Nokia', 'SIT Approved', 'SIT Completed', 'SIT Wrong Amount', 'Not Yet Sent']
+const STATUS_ORDER = ['To Be Sent to Nokia', WAITING_ROM_APPROVAL, WAITING_SATISH, 'SIT Approved', 'SIT Completed', 'SIT Wrong Amount', 'Not Yet Sent']
 
 const STATUS_CFG = {
   'To Be Sent to Nokia': { border: 'border-indigo-200', text: 'text-indigo-700', muted: 'text-indigo-400', dot: 'bg-indigo-500', bar: 'bg-indigo-500', badge: 'bg-indigo-100 text-indigo-700' },
-  'Request to Nokia':    { border: 'border-blue-200',   text: 'text-blue-700',   muted: 'text-blue-400',   dot: 'bg-blue-500',   bar: 'bg-blue-500',   badge: 'bg-blue-100 text-blue-700'   },
+  [WAITING_ROM_APPROVAL]: { border: 'border-blue-200', text: 'text-blue-700', muted: 'text-blue-400', dot: 'bg-blue-500', bar: 'bg-blue-500', badge: 'bg-blue-100 text-blue-700' },
+  [WAITING_SATISH]:      { border: 'border-teal-200', text: 'text-teal-700', muted: 'text-teal-400', dot: 'bg-teal-500', bar: 'bg-teal-500', badge: 'bg-teal-100 text-teal-700' },
   'SIT Approved':        { border: 'border-yellow-200', text: 'text-yellow-700', muted: 'text-yellow-400', dot: 'bg-yellow-400', bar: 'bg-yellow-400', badge: 'bg-yellow-100 text-yellow-700' },
   'SIT Completed':       { border: 'border-green-200',  text: 'text-green-700',  muted: 'text-green-400',  dot: 'bg-green-500',  bar: 'bg-green-500',  badge: 'bg-green-100 text-green-700'  },
   'SIT Wrong Amount':    { border: 'border-rose-200',   text: 'text-rose-700',   muted: 'text-rose-400',   dot: 'bg-rose-500',   bar: 'bg-rose-500',   badge: 'bg-rose-100 text-rose-700'    },
@@ -916,6 +960,28 @@ const displayAmt = (vo) => {
     return (vo.voAmount || 0) - (vo.wrongInvoiceAmount || 0)
   }
   return vo.voAmount || 0
+}
+
+const satishRequestIds = ref(new Set())
+
+const loadSatishRequestIds = () => {
+  try {
+    satishRequestIds.value = new Set(JSON.parse(localStorage.getItem(MONTHLY_REQUEST_SATISH_KEY) || '[]'))
+  } catch {
+    satishRequestIds.value = new Set()
+  }
+}
+
+const saveSatishRequestIds = () => {
+  localStorage.setItem(MONTHLY_REQUEST_SATISH_KEY, JSON.stringify([...satishRequestIds.value]))
+}
+
+const isRequestToNokia = (item) => (item?.invoiceStatus || '') === 'Request to Nokia'
+
+const getDisplayInvoiceStatus = (item, fallback = 'Not Yet Sent') => {
+  const rawStatus = item?.invoiceStatus || fallback
+  if (rawStatus !== 'Request to Nokia') return rawStatus
+  return satishRequestIds.value.has(item.id) ? WAITING_SATISH : WAITING_ROM_APPROVAL
 }
 
 const today = new Date()
@@ -998,7 +1064,7 @@ const tpServiceRows = computed(() => {
     const key = (vo.voCategory || '').toLowerCase() === 'third party' ? 'thirdParty' : 'service'
     const g = groups[key]
     const amt = displayAmt(vo)
-    const s = vo.invoiceStatus || 'Not Yet Sent'
+    const s = getDisplayInvoiceStatus(vo)
     g.total += amt
     g.count++
     if (!g.byStatus[s]) g.byStatus[s] = { amount: 0, count: 0 }
@@ -1008,7 +1074,7 @@ const tpServiceRows = computed(() => {
   for (const e of manualEntries.value) {
     const key = (e.category || '').toLowerCase() === 'third party' ? 'thirdParty' : 'service'
     const g = groups[key]
-    const s = e.invoiceStatus || 'SIT Completed'
+    const s = getDisplayInvoiceStatus(e, 'SIT Completed')
     g.total += e.amount || 0
     g.count++
     if (!g.byStatus[s]) g.byStatus[s] = { amount: 0, count: 0 }
@@ -1099,6 +1165,12 @@ const saveManualEntry = () => {
     const idx = manualEntries.value.findIndex(e => e.id === editingManualId.value)
     if (idx >= 0) {
       manualEntries.value[idx] = { ...manualEntries.value[idx], description: manualForm.value.description, category: manualForm.value.category, scope: manualForm.value.scope, invoiceStatus: manualForm.value.invoiceStatus, amount: amt }
+      if (manualForm.value.invoiceStatus !== 'Request to Nokia' && satishRequestIds.value.has(editingManualId.value)) {
+        const next = new Set(satishRequestIds.value)
+        next.delete(editingManualId.value)
+        satishRequestIds.value = next
+        saveSatishRequestIds()
+      }
     }
   } else {
     manualEntries.value.push({
@@ -1117,19 +1189,25 @@ const saveManualEntry = () => {
 const deleteManualEntry = (id) => {
   if (!confirm('Remove this manual invoice line?')) return
   manualEntries.value = manualEntries.value.filter(e => e.id !== id)
+  if (satishRequestIds.value.has(id)) {
+    const next = new Set(satishRequestIds.value)
+    next.delete(id)
+    satishRequestIds.value = next
+    saveSatishRequestIds()
+  }
   saveManualEntriesToStorage()
 }
 
 const statusGroups = computed(() => {
   const groups = {}
   allDisplayItems.value.forEach(vo => {
-    const s = vo.invoiceStatus || 'Not Yet Sent'
+    const s = getDisplayInvoiceStatus(vo)
     if (!groups[s]) groups[s] = { count: 0, total: 0, manualCount: 0 }
     groups[s].count++
     groups[s].total += displayAmt(vo)
   })
   manualEntries.value.forEach(e => {
-    const s = e.invoiceStatus || 'SIT Completed'
+    const s = getDisplayInvoiceStatus(e, 'SIT Completed')
     if (!groups[s]) groups[s] = { count: 0, total: 0, manualCount: 0 }
     groups[s].count++
     groups[s].manualCount++
@@ -1193,6 +1271,7 @@ onMounted(() => {
   window.addEventListener('mousedown', onClickOutsideBell)
   loadManualEntries()
   loadAdminData()
+  loadSatishRequestIds()
 })
 onUnmounted(() => {
   window.removeEventListener('mousedown', onClickOutsideBell)
@@ -1206,6 +1285,8 @@ const getUniqueValues = (key) => {
       v = vo.invoiceDate ? new Date(vo.invoiceDate).toLocaleDateString('en-AU') : '—'
     } else if (key === 'voAmount') {
       v = formatCurrency(vo.voAmount)
+    } else if (key === 'invoiceStatus') {
+      v = getDisplayInvoiceStatus(vo)
     } else {
       v = (vo[key] ?? '').toString().trim() || '—'
     }
@@ -1239,7 +1320,7 @@ const colVal = (vo, col) => {
     case 'voCategory':    return (vo.voCategory || '').toLowerCase()
     case 'scope':         return (vo.scope || '').toLowerCase()
     case 'poNumber':      return (vo.poNumber || '').toLowerCase()
-    case 'invoiceStatus': return (vo.invoiceStatus || '').toLowerCase()
+    case 'invoiceStatus': return getDisplayInvoiceStatus(vo).toLowerCase()
     case 'invoiceDate':   return vo.invoiceDate || ''
     case 'voAmount':      return vo.voAmount || 0
     default:              return ''
@@ -1272,6 +1353,8 @@ const filteredSortedItems = computed(() => {
         val = vo.invoiceDate ? new Date(vo.invoiceDate).toLocaleDateString('en-AU') : '—'
       } else if (key === 'voAmount') {
         val = formatCurrency(vo.voAmount)
+      } else if (key === 'invoiceStatus') {
+        val = getDisplayInvoiceStatus(vo)
       } else {
         val = (vo[key] ?? '').toString().trim() || '—'
       }
@@ -1288,7 +1371,7 @@ const filteredTotal = computed(() =>
 const filterSummary = computed(() => {
   const byStatus = {}
   for (const vo of filteredSortedItems.value) {
-    const s = vo.invoiceStatus || 'Not Yet Sent'
+    const s = getDisplayInvoiceStatus(vo)
     byStatus[s] = (byStatus[s] || 0) + displayAmt(vo)
   }
   return byStatus
@@ -1339,6 +1422,12 @@ const closeForm = () => {
 const saveVO = async (voData) => {
   try {
     await store.editVO(editingVO.value.id, voData)
+    if ((voData.invoiceStatus || '') !== 'Request to Nokia' && satishRequestIds.value.has(editingVO.value.id)) {
+      const next = new Set(satishRequestIds.value)
+      next.delete(editingVO.value.id)
+      satishRequestIds.value = next
+      saveSatishRequestIds()
+    }
     closeForm()
   } catch (err) {
     console.error('❌ Error saving VO:', err)
@@ -1347,10 +1436,44 @@ const saveVO = async (voData) => {
 }
 
 // ── Scope summary for chart (includes manual entries) ──
+const filteredRequestRows = computed(() =>
+  filteredSortedItems.value.filter(vo => isRequestToNokia(vo))
+)
+
+const allFilteredRequestRowsSatish = computed(() =>
+  filteredRequestRows.value.length > 0 &&
+  filteredRequestRows.value.every(vo => satishRequestIds.value.has(vo.id))
+)
+
+const someFilteredRequestRowsSatish = computed(() =>
+  filteredRequestRows.value.some(vo => satishRequestIds.value.has(vo.id)) &&
+  !allFilteredRequestRowsSatish.value
+)
+
+const toggleRequestRowSatish = (id) => {
+  const next = new Set(satishRequestIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  satishRequestIds.value = next
+  saveSatishRequestIds()
+}
+
+const toggleAllFilteredRequestRowsSatish = () => {
+  const next = new Set(satishRequestIds.value)
+  if (allFilteredRequestRowsSatish.value) {
+    filteredRequestRows.value.forEach(vo => next.delete(vo.id))
+  } else {
+    filteredRequestRows.value.forEach(vo => next.add(vo.id))
+  }
+  satishRequestIds.value = next
+  saveSatishRequestIds()
+}
+
 const SCOPE_STATUS_COLORS = {
   'SIT Completed':       { bg: 'rgba(34,197,94,0.85)',  border: '#16a34a' },
   'SIT Approved':        { bg: 'rgba(234,179,8,0.85)',  border: '#ca8a04' },
-  'Request to Nokia':    { bg: 'rgba(59,130,246,0.85)', border: '#2563eb' },
+  [WAITING_ROM_APPROVAL]: { bg: 'rgba(59,130,246,0.85)', border: '#2563eb' },
+  [WAITING_SATISH]:      { bg: 'rgba(20,184,166,0.85)', border: '#0f766e' },
   'To Be Sent to Nokia': { bg: 'rgba(99,102,241,0.85)', border: '#4f46e5' },
   'SIT Wrong Amount':    { bg: 'rgba(244,63,94,0.80)',  border: '#e11d48' },
   'Not Yet Sent':        { bg: 'rgba(156,163,175,0.85)',border: '#9ca3af' },
@@ -1361,14 +1484,14 @@ const scopeChartData = computed(() => {
 
   for (const vo of allDisplayItems.value) {
     const scope = vo.scope?.trim() || '(No Scope)'
-    const status = vo.invoiceStatus || 'Not Yet Sent'
+    const status = getDisplayInvoiceStatus(vo)
     if (!scopeMap[scope]) scopeMap[scope] = {}
     scopeMap[scope][status] = (scopeMap[scope][status] || 0) + displayAmt(vo)
   }
 
   for (const e of manualEntries.value) {
     const scope = e.scope?.trim() || '(No Scope)'
-    const status = e.invoiceStatus || 'SIT Completed'
+    const status = getDisplayInvoiceStatus(e, 'SIT Completed')
     if (!scopeMap[scope]) scopeMap[scope] = {}
     scopeMap[scope][status] = (scopeMap[scope][status] || 0) + (e.amount || 0)
   }
@@ -1438,8 +1561,8 @@ const availableExportScopes = computed(() => {
 
 const availableExportStatuses = computed(() => {
   const s = new Set()
-  for (const vo of sortedAllItems.value) s.add(vo.invoiceStatus || 'Not Yet Sent')
-  for (const e of manualEntries.value)   s.add(e.invoiceStatus  || 'SIT Completed')
+  for (const vo of sortedAllItems.value) s.add(getDisplayInvoiceStatus(vo))
+  for (const e of manualEntries.value)   s.add(getDisplayInvoiceStatus(e, 'SIT Completed'))
   return STATUS_ORDER.filter(st => s.has(st))
 })
 
@@ -1454,7 +1577,7 @@ const customFilteredItems = computed(() => {
   ]
   return combined.filter(item => {
     const scope  = (item.scope || '').trim() || '(No Scope)'
-    const status = item.invoiceStatus || (item._isManual ? 'SIT Completed' : 'Not Yet Sent')
+    const status = getDisplayInvoiceStatus(item, item._isManual ? 'SIT Completed' : 'Not Yet Sent')
     return customScopes.value.includes(scope) && customStatuses.value.includes(status)
   })
 })
@@ -1542,7 +1665,7 @@ const exportCustom = () => {
         'Category':                item.category || '',
         'Scope':                   item.scope || '',
         'PO Number':               '',
-        'Invoice Status':          item.invoiceStatus || '',
+        'Invoice Status':          getDisplayInvoiceStatus(item, 'SIT Completed'),
         'Invoice Date':            '',
         'Amount (AUD)':            item.amount || 0,
         'Wrong Invoice Amt (AUD)': '',
@@ -1560,7 +1683,7 @@ const exportCustom = () => {
       'Category':                item.voCategory || '',
       'Scope':                   item.scope || '',
       'PO Number':               item.poNumber || '',
-      'Invoice Status':          item.invoiceStatus || '',
+      'Invoice Status':          getDisplayInvoiceStatus(item),
       'Invoice Date':            item.invoiceDate ? new Date(item.invoiceDate).toLocaleDateString('en-AU') : '',
       'Amount (AUD)':            item.voAmount || 0,
       'Wrong Invoice Amt (AUD)': item.invoiceStatus === 'SIT Wrong Amount' ? (item.wrongInvoiceAmount || 0) : '',
@@ -1591,7 +1714,7 @@ const exportMonth = () => {
     'Category':       vo.voCategory || '',
     'Scope':          vo.scope || '',
     'PO Number':      vo.poNumber || '',
-    'Invoice Status':          vo.invoiceStatus || '',
+    'Invoice Status':          getDisplayInvoiceStatus(vo),
     'Invoice Date':            vo.invoiceDate ? new Date(vo.invoiceDate).toLocaleDateString('en-AU') : '',
     'Amount (AUD)':            vo.voAmount || 0,
     'Wrong Invoice Amt (AUD)': vo.invoiceStatus === 'SIT Wrong Amount' ? (vo.wrongInvoiceAmount || 0) : '',
@@ -1608,7 +1731,7 @@ const exportMonth = () => {
     'Category':       e.category || '',
     'Scope':          e.scope || '',
     'PO Number':      '',
-    'Invoice Status': e.invoiceStatus || '',
+    'Invoice Status': getDisplayInvoiceStatus(e, 'SIT Completed'),
     'Invoice Date':   '',
     'Amount (AUD)':   e.amount || 0,
   }))
