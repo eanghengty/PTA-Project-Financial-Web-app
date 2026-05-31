@@ -11,6 +11,7 @@ import PLView from './components/PLView.vue'
 import SiteStatusView from './components/SiteStatusView.vue'
 import IssueLogView from './components/IssueLogView.vue'
 import POReceivedSummary from './components/POReceivedSummary.vue'
+import POSupplierBreakdown from './components/POSupplierBreakdown.vue'
 
 export const VIEW_PATHS = {
   dashboard: '/dashboard',
@@ -18,6 +19,7 @@ export const VIEW_PATHS = {
   'invoice-list': '/invoice-list',
   'monthly-invoice': '/monthly-invoice',
   'po-received-summary': '/po-received-summary',
+  'po-supplier-breakdown': '/po-supplier-breakdown',
   reminders: '/reminders',
   'cost-to-date': '/cost-to-date',
   pl: '/pl',
@@ -41,6 +43,7 @@ const routes = [
   { path: VIEW_PATHS['invoice-list'], component: InvoiceList, meta: { viewKey: 'invoice-list' } },
   { path: VIEW_PATHS['monthly-invoice'], component: MonthlyInvoicing, meta: { viewKey: 'monthly-invoice' } },
   { path: VIEW_PATHS['po-received-summary'], component: POReceivedSummary, meta: { viewKey: 'po-received-summary' } },
+  { path: VIEW_PATHS['po-supplier-breakdown'], component: POSupplierBreakdown, meta: { viewKey: 'po-supplier-breakdown' } },
   { path: VIEW_PATHS.reminders, component: ReminderView, meta: { viewKey: 'reminders' } },
   { path: VIEW_PATHS['cost-to-date'], component: CostToDate, meta: { viewKey: 'cost-to-date' } },
   { path: VIEW_PATHS.pl, component: PLView, meta: { viewKey: 'pl' } },

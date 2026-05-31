@@ -23,6 +23,12 @@
         <span class="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 rounded-xl text-xs font-semibold text-purple-700">
           <span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>{{ globalData.voCategories.length }} Categories
         </span>
+        <span class="flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 rounded-xl text-xs font-semibold text-teal-700">
+          <span class="w-1.5 h-1.5 rounded-full bg-teal-500"></span>{{ globalData.poSupplierCategories.length }} PO Supplier Categories
+        </span>
+        <span class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 rounded-xl text-xs font-semibold text-indigo-700">
+          <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>{{ globalData.poSuppliers.length }} PO Suppliers
+        </span>
         <span class="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 rounded-xl text-xs font-semibold text-green-700">
           <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>{{ globalData.scopes.length }} Scopes
         </span>
@@ -271,6 +277,162 @@
     <!-- ══════════════════════════════════
          SCOPES TAB
     ══════════════════════════════════ -->
+    <div v-if="activeTab === 'po-supplier-categories'">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h3 class="font-bold text-gray-900">PO Supplier Categories</h3>
+            <p class="text-xs text-gray-500 mt-0.5">Used for category selection in PO Supplier Breakdown</p>
+          </div>
+          <button @click="openPOSupplierCategoryForm()"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Add Category
+          </button>
+        </div>
+
+        <div v-if="globalData.poSupplierCategories.length === 0" class="py-16 text-center">
+          <div class="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+            </svg>
+          </div>
+          <p class="font-semibold text-gray-700">No PO supplier categories yet</p>
+          <p class="text-sm text-gray-400 mt-1">Click "Add Category" to get started</p>
+        </div>
+
+        <div v-else class="divide-y divide-gray-50">
+          <div v-for="(cat, i) in globalData.poSupplierCategories" :key="i"
+            class="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition group">
+            <div class="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center shrink-0">
+              <span class="text-xs font-bold text-teal-600">{{ cat.name.charAt(0).toUpperCase() }}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-gray-900 text-sm">{{ cat.name }}</p>
+              <p v-if="cat.comment" class="text-xs text-gray-400 mt-0.5 truncate">{{ cat.comment }}</p>
+            </div>
+            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition shrink-0">
+              <button @click="openPOSupplierCategoryForm(i)"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Edit
+              </button>
+              <button @click="removePOSupplierCategory(i)"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="activeTab === 'po-suppliers'">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h3 class="font-bold text-gray-900">PO Suppliers</h3>
+            <p class="text-xs text-gray-500 mt-0.5">Supplier master list used for autocomplete in PO Supplier Breakdown</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button @click="downloadPOSupplierTemplate"
+              class="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+              </svg>
+              Template
+            </button>
+            <button @click="$refs.poSupplierFileInput.click()"
+              class="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-50 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M17 8l-5-5-5 5M12 3v12"/>
+              </svg>
+              Import
+            </button>
+            <input ref="poSupplierFileInput" type="file" accept=".xlsx,.xls,.csv" class="hidden" @change="handlePOSupplierImport" />
+            <button @click="openPOSupplierForm()"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition shadow-sm">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Add Supplier
+            </button>
+          </div>
+        </div>
+
+        <div v-if="poSupplierImportResult" class="px-6 py-4 border-b border-gray-100"
+          :class="poSupplierImportResult.skipped.length > 0 ? 'bg-amber-50' : 'bg-green-50'">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-bold"
+                :class="poSupplierImportResult.skipped.length > 0 ? 'text-amber-800' : 'text-green-800'">
+                Import complete â€” {{ poSupplierImportResult.added }} added{{ poSupplierImportResult.skipped.length ? `, ${poSupplierImportResult.skipped.length} skipped` : '' }}
+              </p>
+              <div v-if="poSupplierImportResult.skipped.length > 0" class="mt-2 space-y-1 max-h-36 overflow-y-auto">
+                <p v-for="(line, idx) in poSupplierImportResult.skipped.slice(0, 10)" :key="idx" class="text-xs text-amber-700">
+                  {{ line }}
+                </p>
+                <p v-if="poSupplierImportResult.skipped.length > 10" class="text-xs text-amber-600">
+                  ... and {{ poSupplierImportResult.skipped.length - 10 }} more
+                </p>
+              </div>
+            </div>
+            <button @click="poSupplierImportResult = null"
+              class="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-white/60 transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div v-if="globalData.poSuppliers.length === 0" class="py-16 text-center">
+          <div class="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+          </div>
+          <p class="font-semibold text-gray-700">No suppliers yet</p>
+          <p class="text-sm text-gray-400 mt-1">Add suppliers manually, or import from the template.</p>
+        </div>
+
+        <div v-else class="divide-y divide-gray-50">
+          <div v-for="(supplier, i) in globalData.poSuppliers" :key="i"
+            class="flex items-center gap-4 px-6 py-4 hover:bg-gray-50 transition group">
+            <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+              <span class="text-xs font-bold text-indigo-600">{{ supplier.name.charAt(0).toUpperCase() }}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-gray-900 text-sm">{{ supplier.name }}</p>
+            </div>
+            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition shrink-0">
+              <button @click="openPOSupplierForm(i)"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Edit
+              </button>
+              <button @click="removePOSupplier(i)"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div v-if="activeTab === 'scopes'">
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -749,10 +911,10 @@
             <template v-else>
               <div>
                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Name <span class="text-red-400">*</span></label>
-                <input v-model="modal.form.name" type="text" :placeholder="modal.type === 'category' ? 'e.g. Civil Works' : 'e.g. Structural'"
+                <input v-model="modal.form.name" type="text" :placeholder="modal.type === 'scope' ? 'e.g. Structural' : modal.type === 'po-supplier-category' ? 'e.g. Materials' : modal.type === 'po-supplier' ? 'e.g. Nokia' : 'e.g. Civil Works'"
                   class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 placeholder-gray-400" />
               </div>
-              <div>
+              <div v-if="modal.type !== 'po-supplier'">
                 <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Comment</label>
                 <textarea v-model="modal.form.comment" rows="2" placeholder="Any notes or description…"
                   class="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 placeholder-gray-400 resize-none"></textarea>
@@ -846,6 +1008,8 @@ let routineBackupTick = null
 const tabs = [
   { key: 'sites',         label: 'Sites',        icon: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z' },
   { key: 'vo-categories', label: 'Categories',   icon: 'M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z' },
+  { key: 'po-supplier-categories', label: 'PO Supplier Categories', icon: 'M19 3H5c-1.1 0-2 .9-2 2v14a2 2 0 002 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14H7v-2h3v2zm7-4H7v-2h10v2zm0-4H7V7h10v2z' },
+  { key: 'po-suppliers', label: 'PO Suppliers', icon: 'M12 7a3 3 0 110-6 3 3 0 010 6zm0 2c-3.33 0-6 1.34-6 3v2h12v-2c0-1.66-2.67-3-6-3zm-8 9h16v2H4v-2z' },
   { key: 'scopes',        label: 'Scopes',       icon: 'M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3c-.46-4.17-3.77-7.48-7.94-7.94V1h-2v2.06C6.83 3.52 3.52 6.83 3.06 11H1v2h2.06c.46 4.17 3.77 7.48 7.94 7.94V23h2v-2.06c4.17-.46 7.48-3.77 7.94-7.94H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z' },
   { key: 'logs',          label: 'Activity Log', icon: 'M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z' },
   { key: 'settings',      label: 'Settings',     icon: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z' },
@@ -865,6 +1029,8 @@ const toggleSettings = [
 const globalData = ref({
   sites: [],
   voCategories: [],
+  poSupplierCategories: [],
+  poSuppliers: [],
   scopes: [],
   settings: { autoSaveEnabled: true, notificationsEnabled: true, defaultVOStatus: 'draft', routineBackupEnabled: false, routineBackupTime: '' }
 })
@@ -956,15 +1122,31 @@ const loadGlobalData = () => {
       seen.add(key); return true
     })
 
+    const rawSuppliers = (data.poSuppliers || []).map(s =>
+      typeof s === 'string' ? { name: s } : s
+    )
+    const seenSuppliers = new Set()
+    const dedupedSuppliers = rawSuppliers
+      .map(s => ({ name: String(s?.name || '').trim() }))
+      .filter(s => {
+        if (!s.name) return false
+        const key = s.name.toLowerCase()
+        if (seenSuppliers.has(key)) return false
+        seenSuppliers.add(key)
+        return true
+      })
+
     globalData.value = {
       sites:        dedupedSites,
       voCategories: data.voCategories || [],
+      poSupplierCategories: data.poSupplierCategories || [],
+      poSuppliers: dedupedSuppliers,
       scopes:       data.scopes       || [],
       settings:     { autoSaveEnabled: true, notificationsEnabled: true, defaultVOStatus: 'draft', routineBackupEnabled: false, routineBackupTime: '', ...(data.settings || {}) }
     }
 
     // Persist cleaned data back if duplicates were removed
-    if (dedupedSites.length !== (data.sites || []).length) {
+    if (dedupedSites.length !== (data.sites || []).length || dedupedSuppliers.length !== (rawSuppliers || []).length) {
       saveGlobalData()
     }
   } catch (e) { console.error('Error loading global data', e) }
@@ -1138,7 +1320,7 @@ onUnmounted(() => {
 // ══════════════════════════════════
 const modal = reactive({
   show:     false,
-  type:     'site',       // 'site' | 'category' | 'scope'
+  type:     'site',       // 'site' | 'category' | 'po-supplier-category' | 'po-supplier' | 'scope'
   isEdit:   false,
   editIdx:  null,
   title:    '',
@@ -1372,6 +1554,67 @@ const removeSite = (i) => {
 }
 
 // ── Categories ──
+// PO Suppliers import / template
+const poSupplierFileInput = ref(null)
+const poSupplierImportResult = ref(null)
+
+const normalizeSupplierName = (value) => String(value || '').trim()
+
+const downloadPOSupplierTemplate = () => {
+  const headers = ['Supplier Name']
+  const sample = [['Example Supplier Pty Ltd']]
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...sample])
+  ws['!cols'] = [{ wch: 32 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'PO Suppliers')
+  XLSX.writeFile(wb, 'PO_Suppliers_Template.xlsx')
+}
+
+const handlePOSupplierImport = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  try {
+    const buffer = await file.arrayBuffer()
+    const wb = XLSX.read(buffer, { type: 'array' })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
+
+    const existing = new Set((globalData.value.poSuppliers || []).map(s => normalizeSupplierName(s.name).toLowerCase()).filter(Boolean))
+    const inFile = new Set()
+    const added = []
+    const skipped = []
+
+    rows.forEach((row, idx) => {
+      const rowNo = idx + 2
+      const rawName = row['Supplier Name'] ?? row['supplierName'] ?? row['Supplier'] ?? row['supplier'] ?? ''
+      const name = normalizeSupplierName(rawName)
+      if (!name) return
+      const key = name.toLowerCase()
+      if (existing.has(key)) {
+        skipped.push(`Row ${rowNo}: "${name}" already exists`)
+        return
+      }
+      if (inFile.has(key)) {
+        skipped.push(`Row ${rowNo}: "${name}" duplicated in file`)
+        return
+      }
+      inFile.add(key)
+      added.push({ name })
+    })
+
+    if (added.length > 0) {
+      globalData.value.poSuppliers.push(...added)
+      saveGlobalData()
+    }
+
+    poSupplierImportResult.value = { added: added.length, skipped }
+  } catch (err) {
+    poSupplierImportResult.value = { added: 0, skipped: [`Import failed: ${err.message}`] }
+  } finally {
+    event.target.value = ''
+  }
+}
+
 const openCategoryForm = (index = null) => {
   modal.type     = 'category'
   modal.isEdit   = index !== null
@@ -1396,7 +1639,59 @@ const saveCategory = () => {
 
 const removeVOCategory = (i) => { globalData.value.voCategories.splice(i, 1); saveGlobalData() }
 
+// â”€â”€ PO Supplier Categories â”€â”€
+const openPOSupplierCategoryForm = (index = null) => {
+  modal.type     = 'po-supplier-category'
+  modal.isEdit   = index !== null
+  modal.editIdx  = index
+  modal.title    = index !== null ? 'Edit PO Supplier Category' : 'Add PO Supplier Category'
+  modal.subtitle = index !== null ? `Editing ${globalData.value.poSupplierCategories[index]?.name}` : 'Fill in the details below'
+  modal.form     = index !== null ? { ...globalData.value.poSupplierCategories[index] } : { name: '', comment: '' }
+  modal.error    = ''
+  modal.show     = true
+}
+
+const savePOSupplierCategory = () => {
+  if (!modal.form.name?.trim()) { modal.error = 'Category name is required.'; return }
+  const entry = { name: modal.form.name.trim(), comment: modal.form.comment?.trim() || '' }
+  if (!modal.isEdit && globalData.value.poSupplierCategories.some(c => c.name === entry.name)) {
+    modal.error = 'This category already exists.'; return
+  }
+  if (modal.isEdit) globalData.value.poSupplierCategories[modal.editIdx] = entry
+  else              globalData.value.poSupplierCategories.push(entry)
+  saveGlobalData(); closeModal()
+}
+
+const removePOSupplierCategory = (i) => { globalData.value.poSupplierCategories.splice(i, 1); saveGlobalData() }
+
 // ── Scopes ──
+// PO Suppliers
+const openPOSupplierForm = (index = null) => {
+  modal.type     = 'po-supplier'
+  modal.isEdit   = index !== null
+  modal.editIdx  = index
+  modal.title    = index !== null ? 'Edit PO Supplier' : 'Add PO Supplier'
+  modal.subtitle = index !== null ? `Editing ${globalData.value.poSuppliers[index]?.name}` : 'Supplier name only'
+  modal.form     = index !== null ? { ...globalData.value.poSuppliers[index] } : { name: '' }
+  modal.error    = ''
+  modal.show     = true
+}
+
+const savePOSupplier = () => {
+  const name = normalizeSupplierName(modal.form.name)
+  if (!name) { modal.error = 'Supplier name is required.'; return }
+  const duplicate = globalData.value.poSuppliers.some((s, i) =>
+    i !== modal.editIdx && normalizeSupplierName(s.name).toLowerCase() === name.toLowerCase()
+  )
+  if (duplicate) { modal.error = 'This supplier already exists.'; return }
+  const entry = { name }
+  if (modal.isEdit) globalData.value.poSuppliers[modal.editIdx] = entry
+  else              globalData.value.poSuppliers.push(entry)
+  saveGlobalData(); closeModal()
+}
+
+const removePOSupplier = (i) => { globalData.value.poSuppliers.splice(i, 1); saveGlobalData() }
+
 const openScopeForm = (index = null) => {
   modal.type     = 'scope'
   modal.isEdit   = index !== null
@@ -1425,6 +1720,8 @@ const removeScope = (i) => { globalData.value.scopes.splice(i, 1); saveGlobalDat
 const saveModal = () => {
   if (modal.type === 'site')     saveSite()
   else if (modal.type === 'category') saveCategory()
+  else if (modal.type === 'po-supplier-category') savePOSupplierCategory()
+  else if (modal.type === 'po-supplier') savePOSupplier()
   else                           saveScope()
 }
 

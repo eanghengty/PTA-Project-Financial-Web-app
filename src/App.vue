@@ -360,6 +360,17 @@ const IconPOReceived = {
     h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M14 3v4a1 1 0 001 1h4' }),
   ]),
 }
+const IconPOSupplier = {
+  render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+    h('path', {
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+      'stroke-width': '2',
+      d: 'M9 14l2 2 4-4m5-3v10a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2h8l6 6z',
+    }),
+    h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M14 3v5a1 1 0 001 1h5' }),
+  ]),
+}
 const IconCost = {
   render: () => h('svg', { fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
     h('path', {
@@ -408,6 +419,7 @@ const navItems = [
   { key: 'invoice-list', label: 'Invoice Prep', icon: IconInvoice },
   { key: 'monthly-invoice', label: 'Monthly', icon: IconMonthly },
   { key: 'po-received-summary', label: 'PO Received', icon: IconPOReceived },
+  { key: 'po-supplier-breakdown', label: 'PO Supplier', icon: IconPOSupplier },
   { key: 'reminders', label: 'Reminders', icon: IconReminder },
   { key: 'cost-to-date', label: 'Cost to Date', icon: IconCost },
   { key: 'pl', label: 'P&L', icon: IconPL },
