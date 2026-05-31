@@ -53,7 +53,7 @@
         <input
           v-model="searchText"
           type="text"
-          placeholder="Search by site, description, or ticket number..."
+          placeholder="Search by site, description, ticket number, or PO number..."
           class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
 
@@ -355,9 +355,7 @@
               <td v-if="visibleColumns.poReceivedDate" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(vo.poReceivedDate) }}</td>
               <td v-if="visibleColumns.invoiceStatus" class="px-5 py-4 whitespace-nowrap">
                 <span v-if="vo.invoiceStatus"
-                  :class="vo.invoiceStatus === 'Request to Nokia' ? 'bg-blue-100 text-blue-700'
-                    : vo.invoiceStatus === 'SIT Approved' ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-green-100 text-green-700'"
+                  :class="getInvoiceStatusColor(vo.invoiceStatus)"
                   class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold">
                   {{ vo.invoiceStatus }}
                 </span>
@@ -547,7 +545,7 @@
                 <td v-if="visibleColumns.poNumber" class="px-5 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">{{ vo.poNumber || '—' }}</td>
                 <td v-if="visibleColumns.poReceivedDate" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(vo.poReceivedDate) }}</td>
                 <td v-if="visibleColumns.invoiceStatus" class="px-5 py-4 whitespace-nowrap">
-                  <span v-if="vo.invoiceStatus" :class="vo.invoiceStatus === 'Request to Nokia' ? 'bg-blue-100 text-blue-700' : vo.invoiceStatus === 'SIT Approved' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold">{{ vo.invoiceStatus }}</span>
+                  <span v-if="vo.invoiceStatus" :class="getInvoiceStatusColor(vo.invoiceStatus)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold">{{ vo.invoiceStatus }}</span>
                   <span v-else class="text-gray-300 text-xs">—</span>
                 </td>
                 <td v-if="visibleColumns.invoiceDate" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(vo.invoiceDate) }}</td>
@@ -622,6 +620,7 @@
     <!-- VO Form Modal -->
     <VOForm
       v-if="showForm"
+      :key="editingVO?.id || prefillData?.id || 'new-vo'"
       :vo="editingVO"
       :prefill="prefillData"
       @save="saveVO"
@@ -1166,7 +1165,8 @@ const filteredVOs = computed(() => {
       vo.siteId?.toLowerCase().includes(search) ||
       vo.siteName?.toLowerCase().includes(search) ||
       vo.voDescription?.toLowerCase().includes(search) ||
-      vo.ticketNumber?.toLowerCase().includes(search)
+      vo.ticketNumber?.toLowerCase().includes(search) ||
+      vo.poNumber?.toLowerCase().includes(search)
     )
   }
 
@@ -1238,8 +1238,10 @@ const openNewVOForm = () => {
   showForm.value = true
 }
 
+const cloneVOForEdit = (vo) => JSON.parse(JSON.stringify(vo))
+
 const editVO = (vo) => {
-  editingVO.value = vo
+  editingVO.value = cloneVOForEdit(vo)
   prefillData.value = null
   showForm.value = true
 }
@@ -1317,9 +1319,22 @@ const getStatusColor = (status) => {
     'submitted': 'bg-blue-200 text-blue-800',
     'pending-approval': 'bg-yellow-200 text-yellow-800',
     'approved': 'bg-green-200 text-green-800',
-    'rejected': 'bg-red-200 text-red-800'
+    'rejected': 'bg-red-200 text-red-800',
+    'cancelled': 'bg-slate-200 text-slate-700'
   }
   return colorMap[status] || 'bg-gray-200 text-gray-800'
+}
+
+const getInvoiceStatusColor = (status) => {
+  const colorMap = {
+    'Not Yet Sent': 'bg-gray-100 text-gray-600',
+    'To Be Sent to Nokia': 'bg-indigo-100 text-indigo-700',
+    'Request to Nokia': 'bg-blue-100 text-blue-700',
+    'SIT Approved': 'bg-yellow-100 text-yellow-700',
+    'SIT Completed': 'bg-green-100 text-green-700',
+    'SIT Wrong Amount': 'bg-rose-100 text-rose-700'
+  }
+  return colorMap[status] || 'bg-gray-100 text-gray-600'
 }
 
 const toggleColumnPanel = () => {

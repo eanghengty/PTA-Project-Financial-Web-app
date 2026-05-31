@@ -141,6 +141,21 @@
                       type="text" inputmode="decimal" :required="form.voStatus !== 'cancelled'" placeholder="0.00"
                       class="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 transition" />
                   </div>
+                  <div v-if="showAmountDelta" class="mt-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2">
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="text-[11px] font-bold uppercase tracking-wider text-orange-700">Amount Changed</div>
+                        <div class="mt-1 text-xs text-gray-400 line-through">{{ formatCurrency(originalAmount) }}</div>
+                        <div class="text-sm font-semibold text-orange-600">{{ formatCurrency(form.voAmount) }}</div>
+                      </div>
+                      <div class="text-right">
+                        <div class="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Delta</div>
+                        <div class="text-sm font-bold" :class="amountDelta >= 0 ? 'text-orange-700' : 'text-rose-700'">
+                          {{ formatCurrency(amountDelta) }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Category <span class="text-red-400">*</span></label>
@@ -214,8 +229,8 @@
                         {{ entry.delta >= 0 ? '+' : '' }}${{ Number(entry.delta).toLocaleString('en-AU', { minimumFractionDigits: 2 }) }}
                       </span>
                       <span class="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium"
-                        :class="entry.source === 'amount-import' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-600'">
-                        {{ entry.source === 'amount-import' ? 'Import' : 'Invoice Prep' }}
+                        :class="amountLogSourceMeta(entry.source).class">
+                        {{ amountLogSourceMeta(entry.source).label }}
                       </span>
                     </div>
                     <span class="text-[10px] text-gray-400 whitespace-nowrap shrink-0">{{ formatLogDateTime(entry.loggedAt) }}</span>
@@ -494,16 +509,18 @@
                 <div>
                   <div class="flex items-center justify-between mb-1">
                     <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Invoice Status</label>
-                    <button v-if="form.invoiceStatus" @click="form.invoiceStatus = ''" type="button"
+                    <button v-if="form.invoiceStatus" @click="clearInvoiceStatus" type="button"
                       class="text-[10px] text-gray-400 hover:text-red-500 transition font-medium">✕ clear</button>
                   </div>
                   <div class="grid grid-cols-2 gap-1.5">
-                    <label v-for="opt in invoiceStatusOpts" :key="opt.value"
-                      class="flex items-center justify-center py-1.5 rounded-lg border-2 cursor-pointer transition text-[11px] font-semibold text-center leading-tight"
-                      :class="form.invoiceStatus === opt.value ? [opt.border, opt.bg, opt.text] : 'border-gray-200 text-gray-500 hover:border-gray-300 bg-white'">
-                      <input type="radio" :value="opt.value" v-model="form.invoiceStatus" class="hidden" />
+                    <button v-for="opt in invoiceStatusOpts" :key="opt.value"
+                      type="button"
+                      class="flex items-center justify-center py-1.5 rounded-lg border-2 transition text-[11px] font-semibold text-center leading-tight"
+                      :class="invoiceStatusButtonClass(opt)"
+                      :aria-pressed="form.invoiceStatus === opt.value"
+                      @click="selectInvoiceStatus(opt.value)">
                       {{ opt.label }}
-                    </label>
+                    </button>
                   </div>
                 </div>
 
@@ -693,6 +710,12 @@ const formatLogDateTime = (d) => {
   return new Date(d).toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+const amountLogSourceMeta = (source) => {
+  if (source === 'amount-import') return { label: 'Import', class: 'bg-amber-100 text-amber-700' }
+  if (source === 'manual-edit') return { label: 'Manual Edit', class: 'bg-orange-100 text-orange-700' }
+  return { label: 'Invoice Prep', class: 'bg-blue-100 text-blue-600' }
+}
+
 const BASE_PO_FORM_CATEGORIES = new Set(['Site Survey', 'WOP', 'C&I', 'SAT&SIT', 'Snag Closure', 'Detail Site Survey'])
 const BASE_PO_FORM_CATEGORY_KEYS = new Set([...BASE_PO_FORM_CATEGORIES].map(c => c.toLowerCase()))
 const isBasePOForm = computed(() => BASE_PO_FORM_CATEGORY_KEYS.has(form.value.voCategory?.trim()?.toLowerCase()))
@@ -719,6 +742,20 @@ const invoiceStatusOpts = [
   { value: 'SIT Wrong Amount',    label: 'SIT Wrong Amount',    border: 'border-rose-400',   bg: 'bg-rose-50',    text: 'text-rose-700'   },
 ]
 
+const selectInvoiceStatus = (value) => {
+  form.value.invoiceStatus = value
+}
+
+const clearInvoiceStatus = () => {
+  form.value.invoiceStatus = ''
+}
+
+const invoiceStatusButtonClass = (opt) => (
+  form.value.invoiceStatus === opt.value
+    ? [opt.border, opt.bg, opt.text]
+    : 'border-gray-200 text-gray-500 hover:border-gray-300 bg-white cursor-pointer'
+)
+
 const fmtAmount = v => v ? Number(v).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''
 const amountDisplay = ref('')
 
@@ -742,6 +779,12 @@ const form = ref({
 
 // Track original amount to auto-set flag on edit
 const originalAmount = ref(null)
+const amountDelta = computed(() => Number(form.value.voAmount || 0) - Number(originalAmount.value || 0))
+const showAmountDelta = computed(() =>
+  props.vo &&
+  originalAmount.value !== null &&
+  Math.abs(amountDelta.value) > 0.01
+)
 
 // ── Global data ──
 const globalData = ref({ sites: [], voCategories: [], scopes: [] })
@@ -984,9 +1027,8 @@ watch(() => props.vo, (newVO) => {
 
 // Auto-flag amount change when editing and amount differs from original
 watch(() => form.value.voAmount, (newAmt) => {
-  if (props.vo && originalAmount.value !== null && Number(newAmt) !== Number(originalAmount.value)) {
-    form.value.amountChangeFlag = true
-  }
+  if (!props.vo || originalAmount.value === null) return
+  form.value.amountChangeFlag = Math.abs(Number(newAmt) - Number(originalAmount.value)) > 0.01
 })
 
 const submitForm = () => {
@@ -994,6 +1036,7 @@ const submitForm = () => {
 
   let invoiceLog = JSON.parse(JSON.stringify(props.vo?.invoiceLog || []))
   let poLog      = JSON.parse(JSON.stringify(props.vo?.poLog      || []))
+  let amountLog  = JSON.parse(JSON.stringify(props.vo?.amountLog  || []))
 
   // Append a log entry when invoice status changes on an existing VO
   const prevStatus = props.vo?.invoiceStatus || ''
@@ -1021,6 +1064,16 @@ const submitForm = () => {
     })
   }
 
+  if (props.vo && originalAmount.value !== null && Math.abs(Number(form.value.voAmount) - Number(originalAmount.value)) > 0.01) {
+    amountLog.push({
+      from: Number(originalAmount.value),
+      to: Number(form.value.voAmount),
+      delta: Number(form.value.voAmount) - Number(originalAmount.value),
+      loggedAt: new Date().toISOString(),
+      source: 'manual-edit',
+    })
+  }
+
   const voData = {
     ...form.value,
     emailSentToNokia:       form.value.emailSentToNokia       ? new Date(form.value.emailSentToNokia)       : null,
@@ -1034,6 +1087,7 @@ const submitForm = () => {
       ? Number(form.value.wrongInvoiceAmount) : null,
     invoiceLog,
     poLog,
+    amountLog,
   }
   emit('save', voData)
 }

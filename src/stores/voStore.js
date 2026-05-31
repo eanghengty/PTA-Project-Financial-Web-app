@@ -85,7 +85,8 @@ const filteredVOs = computed(() => {
       vo.siteName?.toLowerCase().includes(searchLower) ||
       vo.siteId?.toLowerCase().includes(searchLower) ||
       vo.voDescription?.toLowerCase().includes(searchLower) ||
-      vo.ticketNumber?.toLowerCase().includes(searchLower)
+      vo.ticketNumber?.toLowerCase().includes(searchLower) ||
+      vo.poNumber?.toLowerCase().includes(searchLower)
     )
   }
 
