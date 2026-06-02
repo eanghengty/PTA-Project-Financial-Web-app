@@ -53,7 +53,7 @@
         <input
           v-model="searchText"
           type="text"
-          placeholder="Search by site, description, ticket number, or PO number..."
+          placeholder="Search by site, description, ticket number, PO number, or supplier category..."
           class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
 
@@ -226,7 +226,16 @@
 
       <!-- Scrollable Table Wrapper - scrolls both ways; thead sticks inside this container -->
       <div class="overflow-auto" style="max-height: calc(100vh - 280px);">
-        <table class="border-collapse" style="min-width: 1400px; width: 100%;">
+        <table class="w-full border-collapse table-fixed" :style="tableStyle">
+          <colgroup>
+            <col :style="{ width: `${TABLE_SELECT_WIDTH}px` }" />
+            <col :style="{ width: `${TABLE_ACTIONS_WIDTH}px` }" />
+            <col
+              v-for="col in renderedColumns"
+              :key="col.key"
+              :style="getRenderedColumnStyle(col.key)"
+            />
+          </colgroup>
           <thead class="sticky top-0 z-20">
             <tr>
               <!-- Select All Checkbox -->
@@ -235,24 +244,13 @@
                   @change="toggleSelectAll" class="w-4 h-4 rounded cursor-pointer accent-white" title="Select all"/>
               </th>
               <th class="px-5 py-3 text-center text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap bg-blue-700 border-b-2 border-blue-800">Actions</th>
-              <template v-for="col in [
-                { key:'siteId', label:'Site ID' }, { key:'siteName', label:'Site Name' }, { key:'jobNumber', label:'Job No.' },
-                { key:'voDescription', label:'Description' }, { key:'scope', label:'Scope' }, { key:'voCategory', label:'Category' },
-                { key:'voAmount', label:'Amount' }, { key:'boqRelated', label:'BOQ' }, { key:'isDuplicate', label:'Duplicate' }, { key:'voStatus', label:'Status' },
-                { key:'emailSentToNokia', label:'Email Sent' }, { key:'emailApprovedFromNokia', label:'Email Approved' },
-                { key:'ticketSubmissionDate', label:'Ticket Sub Date' }, { key:'ticketNumber', label:'Ticket #' },
-                { key:'ticketApprovalDate', label:'Ticket Appr Date' }, { key:'poStatus', label:'PO Status' },
-                { key:'poNumber', label:'PO Number' }, { key:'poReceivedDate', label:'PO Received' },
-                { key:'invoiceStatus', label:'Invoice Status' }, { key:'invoiceDate', label:'Invoice Date' },
-                { key:'amountChangeFlag', label:'Amt Changed' }, { key:'labourCost', label:'Labour Cost' },
-                { key:'thirdPartyCost', label:'3rd Party Cost' }
-              ]" :key="col.key">
-                <th v-if="visibleColumns[col.key]" class="bg-blue-700 border-b-2 border-blue-800 p-0">
-                  <div class="flex items-stretch w-full">
+              <template v-for="col in renderedColumns" :key="col.key">
+                <th :data-column-key="col.key" class="relative bg-blue-700 border-b-2 border-blue-800 p-0">
+                  <div class="flex items-stretch w-full pr-3">
                     <!-- Sort button (label area) -->
-                    <button @click="toggleSort(col.key)"
+                    <button type="button" @click="toggleSort(col.key)"
                       class="flex-1 px-3 py-3 flex items-center gap-1.5 hover:bg-blue-600 transition-colors text-left min-w-0">
-                      <span class="text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap">{{ col.label }}</span>
+                      <span class="text-xs font-bold text-white uppercase tracking-wider whitespace-normal leading-tight break-words">{{ col.headerLabel }}</span>
                       <!-- sort indicator -->
                       <span class="flex-shrink-0">
                         <svg v-if="sortColumn === col.key && sortDir === 'asc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
@@ -261,7 +259,7 @@
                       </span>
                     </button>
                     <!-- Filter button (funnel icon) -->
-                    <button @click="toggleFilterMenu(col.key, $event)"
+                    <button type="button" @click="toggleFilterMenu(col.key, $event)"
                       class="px-2 py-3 hover:bg-blue-600 transition-colors border-l border-blue-600 flex-shrink-0 flex items-center">
                       <span class="relative">
                         <svg class="w-3.5 h-3.5 transition-colors" :class="filters[col.key]?.length ? 'text-yellow-300' : 'text-blue-300 hover:text-blue-100'" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L13 10.414V15a1 1 0 01-.553.894l-4 2A1 1 0 017 17v-6.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd"/></svg>
@@ -269,6 +267,15 @@
                       </span>
                     </button>
                   </div>
+                  <button
+                    type="button"
+                    :title="`Resize ${col.label}`"
+                    class="absolute top-0 right-0 h-full w-3 cursor-col-resize hover:bg-blue-500/40 transition-colors"
+                    @mousedown.stop.prevent="startColumnResize($event, col.key)"
+                    @dblclick.stop.prevent="resetColumnWidth(col.key)"
+                  >
+                    <span class="mx-auto block h-full w-px bg-blue-500/70"></span>
+                  </button>
                 </th>
               </template>
             </tr>
@@ -309,16 +316,27 @@
                   </svg>
                 </button>
               </td>
-              <td v-if="visibleColumns.siteId" class="px-5 py-4 text-sm font-semibold text-gray-900 whitespace-nowrap">{{ vo.siteId }}</td>
-              <td v-if="visibleColumns.siteName" class="px-5 py-4 text-sm text-gray-900 font-medium whitespace-nowrap">{{ vo.siteName }}</td>
-              <td v-if="visibleColumns.jobNumber" class="px-5 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">{{ vo.jobNumber || '—' }}</td>
+              <td v-if="visibleColumns.siteId" class="px-5 py-4 text-sm font-semibold text-gray-900 overflow-hidden">
+                <div class="block w-full truncate" :title="vo.siteId">{{ vo.siteId }}</div>
+              </td>
+              <td v-if="visibleColumns.siteName" class="px-5 py-4 text-sm text-gray-900 font-medium overflow-hidden">
+                <div class="block w-full truncate" :title="vo.siteName">{{ vo.siteName }}</div>
+              </td>
+              <td v-if="visibleColumns.jobNumber" class="px-5 py-4 text-sm font-medium text-gray-900 overflow-hidden">
+                <div class="block w-full truncate" :title="vo.jobNumber || '—'">{{ vo.jobNumber || '—' }}</div>
+              </td>
               <td v-if="visibleColumns.voDescription" class="px-5 py-4 text-sm text-gray-700">
-                <div class="max-w-xs truncate" :title="vo.voDescription">{{ vo.voDescription }}</div>
+                <div class="block w-full truncate" :title="vo.voDescription">{{ vo.voDescription }}</div>
               </td>
               <td v-if="visibleColumns.scope" class="px-5 py-4 text-sm text-gray-700">
-                <div class="max-w-xs truncate" :title="vo.scope">{{ vo.scope }}</div>
+                <div class="block w-full truncate" :title="vo.scope">{{ vo.scope }}</div>
               </td>
-              <td v-if="visibleColumns.voCategory" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ vo.voCategory }}</td>
+              <td v-if="visibleColumns.voCategory" class="px-5 py-4 text-sm text-gray-700 overflow-hidden">
+                <div class="block w-full truncate" :title="vo.voCategory">{{ vo.voCategory }}</div>
+              </td>
+              <td v-if="visibleColumns.poSupplierCategory" class="px-5 py-4 text-sm text-gray-700 overflow-hidden">
+                <div class="block w-full truncate" :title="vo.poSupplierCategory || '-'">{{ vo.poSupplierCategory || '-' }}</div>
+              </td>
               <td v-if="visibleColumns.voAmount" class="px-5 py-4 text-sm text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(vo.voAmount) }}</td>
               <td v-if="visibleColumns.boqRelated" class="px-5 py-4 text-center">
                 <span v-if="vo.boqRelated" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Yes</span>
@@ -343,7 +361,9 @@
               <td v-if="visibleColumns.emailSentToNokia" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(vo.emailSentToNokia) }}</td>
               <td v-if="visibleColumns.emailApprovedFromNokia" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(vo.emailApprovedFromNokia) }}</td>
               <td v-if="visibleColumns.ticketSubmissionDate" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(vo.ticketSubmissionDate) }}</td>
-              <td v-if="visibleColumns.ticketNumber" class="px-5 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">{{ vo.ticketNumber || '—' }}</td>
+              <td v-if="visibleColumns.ticketNumber" class="px-5 py-4 text-sm font-medium text-gray-900 overflow-hidden">
+                <div class="block w-full truncate" :title="vo.ticketNumber || '—'">{{ vo.ticketNumber || '—' }}</div>
+              </td>
               <td v-if="visibleColumns.ticketApprovalDate" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(vo.ticketApprovalDate) }}</td>
               <td v-if="visibleColumns.poStatus" class="px-5 py-4 whitespace-nowrap">
                 <span :class="vo.poNumber?.trim() ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-500'"
@@ -351,7 +371,9 @@
                   {{ vo.poNumber?.trim() ? 'Have PO' : 'No PO' }}
                 </span>
               </td>
-              <td v-if="visibleColumns.poNumber" class="px-5 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">{{ vo.poNumber || '—' }}</td>
+              <td v-if="visibleColumns.poNumber" class="px-5 py-4 text-sm font-medium text-gray-900 overflow-hidden">
+                <div class="block w-full truncate" :title="vo.poNumber || '—'">{{ vo.poNumber || '—' }}</div>
+              </td>
               <td v-if="visibleColumns.poReceivedDate" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(vo.poReceivedDate) }}</td>
               <td v-if="visibleColumns.invoiceStatus" class="px-5 py-4 whitespace-nowrap">
                 <span v-if="vo.invoiceStatus"
@@ -446,37 +468,35 @@
         </div>
         <!-- Reuse the same table in fullscreen -->
         <div class="flex-1 overflow-auto bg-white">
-          <table class="border-collapse" style="min-width: 1400px; width: 100%;">
+          <table class="w-full border-collapse table-fixed" :style="tableStyle">
+            <colgroup>
+              <col :style="{ width: `${TABLE_SELECT_WIDTH}px` }" />
+              <col :style="{ width: `${TABLE_ACTIONS_WIDTH}px` }" />
+              <col
+                v-for="col in renderedColumns"
+                :key="col.key"
+                :style="getRenderedColumnStyle(col.key)"
+              />
+            </colgroup>
             <thead class="sticky top-0 z-20">
               <tr>
                 <th class="px-4 py-3 bg-blue-700 border-b-2 border-blue-800 w-12 text-center">
                   <input type="checkbox" :checked="isAllSelected" :indeterminate="isIndeterminate" @change="toggleSelectAll" class="w-4 h-4 rounded cursor-pointer accent-white" />
                 </th>
                 <th class="px-5 py-3 text-center text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap bg-blue-700 border-b-2 border-blue-800">Actions</th>
-                <template v-for="col in [
-                  { key:'siteId', label:'Site ID' }, { key:'siteName', label:'Site Name' }, { key:'jobNumber', label:'Job No.' },
-                  { key:'voDescription', label:'Description' }, { key:'scope', label:'Scope' }, { key:'voCategory', label:'Category' },
-                  { key:'voAmount', label:'Amount' }, { key:'boqRelated', label:'BOQ' }, { key:'isDuplicate', label:'Duplicate' }, { key:'voStatus', label:'Status' },
-                  { key:'emailSentToNokia', label:'Email Sent' }, { key:'emailApprovedFromNokia', label:'Email Approved' },
-                  { key:'ticketSubmissionDate', label:'Ticket Sub Date' }, { key:'ticketNumber', label:'Ticket #' },
-                  { key:'ticketApprovalDate', label:'Ticket Appr Date' }, { key:'poStatus', label:'PO Status' },
-                  { key:'poNumber', label:'PO Number' }, { key:'poReceivedDate', label:'PO Received' },
-                  { key:'invoiceStatus', label:'Invoice Status' }, { key:'invoiceDate', label:'Invoice Date' },
-                  { key:'amountChangeFlag', label:'Amt Changed' }, { key:'labourCost', label:'Labour Cost' },
-                  { key:'thirdPartyCost', label:'3rd Party Cost' }
-                ]" :key="col.key">
-                  <th v-if="visibleColumns[col.key]" class="bg-blue-700 border-b-2 border-blue-800 p-0">
-                    <div class="flex items-stretch w-full">
-                      <button @click="toggleSort(col.key)"
+                <template v-for="col in renderedColumns" :key="col.key">
+                  <th :data-column-key="col.key" class="relative bg-blue-700 border-b-2 border-blue-800 p-0">
+                    <div class="flex items-stretch w-full pr-3">
+                      <button type="button" @click="toggleSort(col.key)"
                         class="flex-1 px-3 py-3 flex items-center gap-1.5 hover:bg-blue-600 transition-colors text-left min-w-0">
-                        <span class="text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap">{{ col.label }}</span>
+                        <span class="text-xs font-bold text-white uppercase tracking-wider whitespace-normal leading-tight break-words">{{ col.headerLabel }}</span>
                         <span class="flex-shrink-0">
                           <svg v-if="sortColumn === col.key && sortDir === 'asc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
                           <svg v-else-if="sortColumn === col.key && sortDir === 'desc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                           <svg v-else class="w-3 h-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zM3 6a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm4 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z"/></svg>
                         </span>
                       </button>
-                      <button @click="toggleFilterMenu(col.key, $event)"
+                      <button type="button" @click="toggleFilterMenu(col.key, $event)"
                         class="px-2 py-3 hover:bg-blue-600 transition-colors border-l border-blue-600 flex-shrink-0 flex items-center">
                         <span class="relative">
                           <svg class="w-3.5 h-3.5 transition-colors" :class="filters[col.key]?.length ? 'text-yellow-300' : 'text-blue-300 hover:text-blue-100'" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L13 10.414V15a1 1 0 01-.553.894l-4 2A1 1 0 017 17v-6.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd"/></svg>
@@ -484,6 +504,15 @@
                         </span>
                       </button>
                     </div>
+                    <button
+                      type="button"
+                      :title="`Resize ${col.label}`"
+                      class="absolute top-0 right-0 h-full w-3 cursor-col-resize hover:bg-blue-500/40 transition-colors"
+                      @mousedown.stop.prevent="startColumnResize($event, col.key)"
+                      @dblclick.stop.prevent="resetColumnWidth(col.key)"
+                    >
+                      <span class="mx-auto block h-full w-px bg-blue-500/70"></span>
+                    </button>
                   </th>
                 </template>
               </tr>
@@ -509,12 +538,13 @@
                     </svg>
                   </button>
                 </td>
-                <td v-if="visibleColumns.siteId" class="px-5 py-4 text-sm font-semibold text-gray-900 whitespace-nowrap">{{ vo.siteId }}</td>
-                <td v-if="visibleColumns.siteName" class="px-5 py-4 text-sm text-gray-900 font-medium whitespace-nowrap">{{ vo.siteName }}</td>
-                <td v-if="visibleColumns.jobNumber" class="px-5 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">{{ vo.jobNumber || '—' }}</td>
-                <td v-if="visibleColumns.voDescription" class="px-5 py-4 text-sm text-gray-700"><div class="max-w-xs truncate" :title="vo.voDescription">{{ vo.voDescription }}</div></td>
-                <td v-if="visibleColumns.scope" class="px-5 py-4 text-sm text-gray-700"><div class="max-w-xs truncate" :title="vo.scope">{{ vo.scope }}</div></td>
-                <td v-if="visibleColumns.voCategory" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ vo.voCategory }}</td>
+                <td v-if="visibleColumns.siteId" class="px-5 py-4 text-sm font-semibold text-gray-900 overflow-hidden"><div class="block w-full truncate" :title="vo.siteId">{{ vo.siteId }}</div></td>
+                <td v-if="visibleColumns.siteName" class="px-5 py-4 text-sm text-gray-900 font-medium overflow-hidden"><div class="block w-full truncate" :title="vo.siteName">{{ vo.siteName }}</div></td>
+                <td v-if="visibleColumns.jobNumber" class="px-5 py-4 text-sm font-medium text-gray-900 overflow-hidden"><div class="block w-full truncate" :title="vo.jobNumber || '—'">{{ vo.jobNumber || '—' }}</div></td>
+                <td v-if="visibleColumns.voDescription" class="px-5 py-4 text-sm text-gray-700"><div class="block w-full truncate" :title="vo.voDescription">{{ vo.voDescription }}</div></td>
+                <td v-if="visibleColumns.scope" class="px-5 py-4 text-sm text-gray-700"><div class="block w-full truncate" :title="vo.scope">{{ vo.scope }}</div></td>
+                <td v-if="visibleColumns.voCategory" class="px-5 py-4 text-sm text-gray-700 overflow-hidden"><div class="block w-full truncate" :title="vo.voCategory">{{ vo.voCategory }}</div></td>
+                <td v-if="visibleColumns.poSupplierCategory" class="px-5 py-4 text-sm text-gray-700 overflow-hidden"><div class="block w-full truncate" :title="vo.poSupplierCategory || '-'">{{ vo.poSupplierCategory || '-' }}</div></td>
                 <td v-if="visibleColumns.voAmount" class="px-5 py-4 text-sm text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(vo.voAmount) }}</td>
                 <td v-if="visibleColumns.boqRelated" class="px-5 py-4 text-center">
                   <span v-if="vo.boqRelated" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Yes</span>
@@ -537,12 +567,12 @@
                 <td v-if="visibleColumns.emailSentToNokia" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(vo.emailSentToNokia) }}</td>
                 <td v-if="visibleColumns.emailApprovedFromNokia" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(vo.emailApprovedFromNokia) }}</td>
                 <td v-if="visibleColumns.ticketSubmissionDate" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(vo.ticketSubmissionDate) }}</td>
-                <td v-if="visibleColumns.ticketNumber" class="px-5 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">{{ vo.ticketNumber || '—' }}</td>
+                <td v-if="visibleColumns.ticketNumber" class="px-5 py-4 text-sm font-medium text-gray-900 overflow-hidden"><div class="block w-full truncate" :title="vo.ticketNumber || '—'">{{ vo.ticketNumber || '—' }}</div></td>
                 <td v-if="visibleColumns.ticketApprovalDate" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(vo.ticketApprovalDate) }}</td>
                 <td v-if="visibleColumns.poStatus" class="px-5 py-4 whitespace-nowrap">
                   <span :class="vo.poNumber?.trim() ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-500'" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold">{{ vo.poNumber?.trim() ? 'Have PO' : 'No PO' }}</span>
                 </td>
-                <td v-if="visibleColumns.poNumber" class="px-5 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">{{ vo.poNumber || '—' }}</td>
+                <td v-if="visibleColumns.poNumber" class="px-5 py-4 text-sm font-medium text-gray-900 overflow-hidden"><div class="block w-full truncate" :title="vo.poNumber || '—'">{{ vo.poNumber || '—' }}</div></td>
                 <td v-if="visibleColumns.poReceivedDate" class="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">{{ formatDate(vo.poReceivedDate) }}</td>
                 <td v-if="visibleColumns.invoiceStatus" class="px-5 py-4 whitespace-nowrap">
                   <span v-if="vo.invoiceStatus" :class="getInvoiceStatusColor(vo.invoiceStatus)" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold">{{ vo.invoiceStatus }}</span>
@@ -1019,6 +1049,7 @@ const exportTableView = () => {
     { key: 'voDescription',          label: 'Description',           get: vo => vo.voDescription || '' },
     { key: 'scope',                  label: 'Scope',                 get: vo => vo.scope || '' },
     { key: 'voCategory',             label: 'Category',              get: vo => vo.voCategory || '' },
+    { key: 'poSupplierCategory',     label: 'PO Supplier Category',  get: vo => vo.poSupplierCategory || '' },
     { key: 'voAmount',               label: 'Amount',                get: vo => vo.voAmount || 0 },
     { key: 'boqRelated',             label: 'BOQ Related',           get: vo => (vo.boqRelated === true || vo.boqRelated === 'yes') ? 'Yes' : 'No' },
     { key: 'isDuplicate',            label: 'Duplicate',             get: vo => isDuplicateVO(vo) ? 'Yes' : 'No' },
@@ -1057,7 +1088,7 @@ const exportTableView = () => {
 // Filter state - tracks which values are selected for each column
 const defaultFilters = {
   siteId: [], siteName: [], jobNumber: [], voDescription: [],
-  scope: [], voCategory: [], voAmount: [], boqRelated: [], isDuplicate: [],
+  scope: [], voCategory: [], poSupplierCategory: [], voAmount: [], boqRelated: [], isDuplicate: [],
   voStatus: [], emailSentToNokia: [], emailApprovedFromNokia: [],
   ticketSubmissionDate: [], ticketNumber: [], ticketApprovalDate: [],
   poStatus: [], poNumber: [], poReceivedDate: [], invoiceStatus: [], invoiceDate: [], amountChangeFlag: [],
@@ -1068,7 +1099,7 @@ const filters = ref({ ...defaultFilters, ...loadLS('tv_filters', {}) })
 // Column visibility state
 const defaultColumns = {
   siteId: true, siteName: true, jobNumber: true, voDescription: true,
-  scope: true, voCategory: true, voAmount: true, boqRelated: true, isDuplicate: true,
+  scope: true, voCategory: true, poSupplierCategory: true, voAmount: true, boqRelated: true, isDuplicate: true,
   voStatus: true, emailSentToNokia: true, emailApprovedFromNokia: true,
   ticketSubmissionDate: true, ticketNumber: true, ticketApprovalDate: true,
   poStatus: true, poNumber: true, poReceivedDate: true, invoiceStatus: true, invoiceDate: true, amountChangeFlag: true,
@@ -1076,32 +1107,125 @@ const defaultColumns = {
 }
 const visibleColumns = ref({ ...defaultColumns, ...loadLS('tv_visibleColumns', {}) })
 
-// All available columns
-const allColumns = [
-  { key: 'siteId', label: 'Site ID' },
-  { key: 'siteName', label: 'Site Name' },
-  { key: 'jobNumber', label: 'Job Number' },
-  { key: 'voDescription', label: 'Description' },
-  { key: 'scope', label: 'Scope' },
-  { key: 'voCategory', label: 'Category' },
-  { key: 'voAmount', label: 'Amount' },
-  { key: 'boqRelated', label: 'BOQ Related' },
-  { key: 'isDuplicate', label: 'Duplicate' },
-  { key: 'voStatus', label: 'Status' },
-  { key: 'emailSentToNokia', label: 'Email Sent to Nokia' },
-  { key: 'emailApprovedFromNokia', label: 'Email Approved from Nokia' },
-  { key: 'ticketSubmissionDate', label: 'Ticket Submission Date' },
-  { key: 'ticketNumber', label: 'Ticket Number' },
-  { key: 'ticketApprovalDate', label: 'Ticket Approval Date' },
-  { key: 'poStatus', label: 'PO Status' },
-  { key: 'poNumber', label: 'PO Number' },
-  { key: 'poReceivedDate', label: 'PO Received Date' },
-  { key: 'invoiceStatus', label: 'Invoice Status' },
-  { key: 'invoiceDate', label: 'Invoice Date' },
-  { key: 'amountChangeFlag', label: 'Amount Change Flag' },
-  { key: 'labourCost', label: 'Labour Cost' },
-  { key: 'thirdPartyCost', label: 'Third Party Cost' }
+const TABLE_SELECT_WIDTH = 56
+const TABLE_ACTIONS_WIDTH = 190
+const COLUMN_WIDTHS_STORAGE_KEY = 'tv_columnWidths_v2'
+
+const columnDefinitions = [
+  { key: 'siteId', label: 'Site ID', headerLabel: 'Site ID', width: 130, minWidth: 100 },
+  { key: 'siteName', label: 'Site Name', headerLabel: 'Site Name', width: 190, minWidth: 140 },
+  { key: 'jobNumber', label: 'Job Number', headerLabel: 'Job No.', width: 140, minWidth: 110 },
+  { key: 'voDescription', label: 'Description', headerLabel: 'Description', width: 320, minWidth: 180 },
+  { key: 'scope', label: 'Scope', headerLabel: 'Scope', width: 260, minWidth: 160 },
+  { key: 'voCategory', label: 'Category', headerLabel: 'Category', width: 170, minWidth: 120 },
+  { key: 'poSupplierCategory', label: 'PO Supplier Category', headerLabel: 'PO Supplier Cat', width: 190, minWidth: 140 },
+  { key: 'voAmount', label: 'Amount', headerLabel: 'Amount', width: 140, minWidth: 110 },
+  { key: 'boqRelated', label: 'BOQ Related', headerLabel: 'BOQ', width: 110, minWidth: 90 },
+  { key: 'isDuplicate', label: 'Duplicate', headerLabel: 'Duplicate', width: 130, minWidth: 100 },
+  { key: 'voStatus', label: 'Status', headerLabel: 'Status', width: 130, minWidth: 110 },
+  { key: 'emailSentToNokia', label: 'Email Sent to Nokia', headerLabel: 'Email Sent', width: 150, minWidth: 120 },
+  { key: 'emailApprovedFromNokia', label: 'Email Approved from Nokia', headerLabel: 'Email Approved', width: 170, minWidth: 140 },
+  { key: 'ticketSubmissionDate', label: 'Ticket Submission Date', headerLabel: 'Ticket Sub Date', width: 170, minWidth: 140 },
+  { key: 'ticketNumber', label: 'Ticket Number', headerLabel: 'Ticket #', width: 150, minWidth: 120 },
+  { key: 'ticketApprovalDate', label: 'Ticket Approval Date', headerLabel: 'Ticket Appr Date', width: 170, minWidth: 140 },
+  { key: 'poStatus', label: 'PO Status', headerLabel: 'PO Status', width: 120, minWidth: 100 },
+  { key: 'poNumber', label: 'PO Number', headerLabel: 'PO Number', width: 150, minWidth: 120 },
+  { key: 'poReceivedDate', label: 'PO Received Date', headerLabel: 'PO Received', width: 160, minWidth: 130 },
+  { key: 'invoiceStatus', label: 'Invoice Status', headerLabel: 'Invoice Status', width: 160, minWidth: 130 },
+  { key: 'invoiceDate', label: 'Invoice Date', headerLabel: 'Invoice Date', width: 150, minWidth: 120 },
+  { key: 'amountChangeFlag', label: 'Amount Change Flag', headerLabel: 'Amt Changed', width: 150, minWidth: 120 },
+  { key: 'labourCost', label: 'Labour Cost', headerLabel: 'Labour Cost', width: 150, minWidth: 120 },
+  { key: 'thirdPartyCost', label: 'Third Party Cost', headerLabel: '3rd Party Cost', width: 170, minWidth: 130 }
 ]
+
+const allColumns = columnDefinitions.map(({ key, label }) => ({ key, label }))
+const defaultColumnWidths = Object.fromEntries(columnDefinitions.map(col => [col.key, col.width]))
+const columnMinWidths = Object.fromEntries(columnDefinitions.map(col => [col.key, col.minWidth]))
+const savedColumnWidths = loadLS(COLUMN_WIDTHS_STORAGE_KEY, null)
+const hasCustomColumnWidths = ref(Boolean(savedColumnWidths && Object.keys(savedColumnWidths).length))
+const columnWidths = ref({ ...defaultColumnWidths, ...(savedColumnWidths || {}) })
+const renderedColumns = computed(() => columnDefinitions.filter(col => visibleColumns.value[col.key]))
+
+const getColumnWidth = (columnKey) => {
+  const fallbackWidth = defaultColumnWidths[columnKey] || 140
+  const minWidth = columnMinWidths[columnKey] || 100
+  return Math.max(minWidth, Number(columnWidths.value[columnKey]) || fallbackWidth)
+}
+
+const tableMinWidth = computed(() =>
+  TABLE_SELECT_WIDTH +
+  TABLE_ACTIONS_WIDTH +
+  renderedColumns.value.reduce((sum, col) => sum + getColumnWidth(col.key), 0)
+)
+
+const tableStyle = computed(() => ({
+  width: hasCustomColumnWidths.value ? `${tableMinWidth.value}px` : '100%',
+  minWidth: '100%'
+}))
+
+const getRenderedColumnStyle = (columnKey) => (
+  hasCustomColumnWidths.value
+    ? { width: `${getColumnWidth(columnKey)}px` }
+    : undefined
+)
+
+let resizeStartX = 0
+let resizeStartWidth = 0
+const resizingColumn = ref(null)
+
+const handleColumnResize = (event) => {
+  if (!resizingColumn.value) return
+  const nextWidth = resizeStartWidth + (event.clientX - resizeStartX)
+  columnWidths.value[resizingColumn.value] = Math.max(
+    columnMinWidths[resizingColumn.value] || 100,
+    nextWidth
+  )
+}
+
+const stopColumnResize = () => {
+  resizingColumn.value = null
+  document.removeEventListener('mousemove', handleColumnResize)
+  document.removeEventListener('mouseup', stopColumnResize)
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+}
+
+const syncColumnWidthsFromTable = (tableEl) => {
+  if (!tableEl) return
+
+  const measuredWidths = {}
+  tableEl.querySelectorAll('th[data-column-key]').forEach((cell) => {
+    const key = cell.dataset.columnKey
+    if (!key) return
+    measuredWidths[key] = Math.max(
+      columnMinWidths[key] || 100,
+      Math.round(cell.getBoundingClientRect().width)
+    )
+  })
+
+  if (Object.keys(measuredWidths).length) {
+    columnWidths.value = { ...columnWidths.value, ...measuredWidths }
+  }
+}
+
+const startColumnResize = (event, columnKey) => {
+  stopColumnResize()
+  if (!hasCustomColumnWidths.value) {
+    hasCustomColumnWidths.value = true
+    syncColumnWidthsFromTable(event.currentTarget?.closest('table'))
+  }
+  resizingColumn.value = columnKey
+  resizeStartX = event.clientX
+  resizeStartWidth = event.currentTarget?.closest('th')?.getBoundingClientRect().width || getColumnWidth(columnKey)
+  document.addEventListener('mousemove', handleColumnResize)
+  document.addEventListener('mouseup', stopColumnResize)
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+}
+
+const resetColumnWidth = (columnKey) => {
+  columnWidths.value[columnKey] = defaultColumnWidths[columnKey]
+}
 
 // ── Sort state ──
 const sortColumn = ref(loadLS('tv_sortColumn', null))
@@ -1166,7 +1290,8 @@ const filteredVOs = computed(() => {
       vo.siteName?.toLowerCase().includes(search) ||
       vo.voDescription?.toLowerCase().includes(search) ||
       vo.ticketNumber?.toLowerCase().includes(search) ||
-      vo.poNumber?.toLowerCase().includes(search)
+      vo.poNumber?.toLowerCase().includes(search) ||
+      vo.poSupplierCategory?.toLowerCase().includes(search)
     )
   }
 
@@ -1347,7 +1472,11 @@ const toggleColumn = (columnKey) => {
 
 const resetColumns = () => {
   visibleColumns.value = { ...defaultColumns }
+  columnWidths.value = { ...defaultColumnWidths }
+  hasCustomColumnWidths.value = false
   localStorage.removeItem('tv_visibleColumns')
+  localStorage.removeItem('tv_columnWidths')
+  localStorage.removeItem(COLUMN_WIDTHS_STORAGE_KEY)
 }
 
 // Filter functions
@@ -1416,8 +1545,22 @@ watch(activeCombinedFilter, v => saveLS('tv_combinedFilterKey', v))
 watch(showFlaggedOnly, () => { clearSelection(); currentPage.value = 1 })
 watch(filters,        v  => saveLS('tv_filters', v),        { deep: true })
 watch(visibleColumns, v  => saveLS('tv_visibleColumns', v), { deep: true })
+watch(columnWidths, (value) => {
+  if (hasCustomColumnWidths.value) saveLS(COLUMN_WIDTHS_STORAGE_KEY, value)
+}, { deep: true })
+watch(hasCustomColumnWidths, (value) => {
+  if (value) {
+    saveLS(COLUMN_WIDTHS_STORAGE_KEY, columnWidths.value)
+  } else {
+    localStorage.removeItem('tv_columnWidths')
+    localStorage.removeItem(COLUMN_WIDTHS_STORAGE_KEY)
+  }
+})
 
 const _onEsc = (e) => { if (e.key === 'Escape') isExpanded.value = false }
 onMounted(() => document.addEventListener('keydown', _onEsc))
-onUnmounted(() => document.removeEventListener('keydown', _onEsc))
+onUnmounted(() => {
+  document.removeEventListener('keydown', _onEsc)
+  stopColumnResize()
+})
 </script>

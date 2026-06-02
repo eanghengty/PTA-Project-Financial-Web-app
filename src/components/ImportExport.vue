@@ -1190,7 +1190,7 @@ const confirmRestore = async () => {
 // ── column meta ──
 const requiredCols = ['Site ID', 'VO Description', 'VO Amount']
 const optionalCols = [
-  'Site Name', 'Job Number', 'VO Category', 'Scope', 'BOQ Related',
+  'Site Name', 'Job Number', 'VO Category', 'PO Supplier Category', 'Scope', 'BOQ Related',
   'Email Sent to Nokia', 'Email Approved from Nokia',
   'Ticket Submission Date', 'Ticket Number', 'Ticket Approval Date',
   'VO Status', 'Comment',
@@ -1914,7 +1914,7 @@ const downloadInvoiceTemplate = () => {
 const downloadTemplate = () => {
   const headers = [
     'Site ID', 'Site Name', 'Job Number',
-    'VO Description', 'VO Amount', 'VO Category', 'Scope', 'BOQ Related',
+    'VO Description', 'VO Amount', 'VO Category', 'PO Supplier Category', 'Scope', 'BOQ Related',
     'Email Sent to Nokia', 'Email Approved from Nokia',
     'Ticket Submission Date', 'Ticket Number', 'Ticket Approval Date',
     'VO Status', 'Comment',
@@ -1923,7 +1923,7 @@ const downloadTemplate = () => {
   // Sample row with hints for each column
   const sample = [
     'R07', 'Glen Iris', 'JOB-001',
-    'Example VO description', '5000', 'Civil Works', 'Structural', 'No',
+    'Example VO description', '5000', 'Third Party', 'Equipment Rental', 'Structural', 'No',
     '2024-01-15', '2024-02-20',
     '2024-01-10', 'TK-12345', '2024-02-25',
     'draft', 'Optional notes here',

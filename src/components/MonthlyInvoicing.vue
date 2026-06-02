@@ -62,16 +62,16 @@
               </button>
             </div>
             <div class="divide-y divide-gray-100">
-              <div v-if="carryOverItems.filter(v => v.invoiceStatus !== 'SIT Wrong Amount').length > 0"
+              <div v-if="carryOverAlertCount > 0"
                 class="flex items-start gap-3 px-4 py-3 bg-orange-50">
                 <svg class="w-4 h-4 text-orange-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
                 </svg>
                 <div class="text-sm">
-                  <span class="font-bold text-orange-800">{{ carryOverItems.filter(v => v.invoiceStatus !== 'SIT Wrong Amount').length }} item{{ carryOverItems.filter(v => v.invoiceStatus !== 'SIT Wrong Amount').length !== 1 ? 's' : '' }} carried over from prior months</span>
+                  <span class="font-bold text-orange-800">{{ carryOverAlertCount }} item{{ carryOverAlertCount !== 1 ? 's' : '' }} carried over from prior months</span>
                   <span class="text-orange-700"> — still pending with status <em>To Be Sent to Nokia</em> or <em>Request to Nokia</em>. Amount: </span>
-                  <span class="font-bold text-orange-800">{{ formatCurrency(carryOverItems.filter(v => v.invoiceStatus !== 'SIT Wrong Amount').reduce((s,v)=>s+displayAmt(v),0)) }}</span>
+                  <span class="font-bold text-orange-800">{{ formatCurrency(carryOverAlertAmount) }}</span>
                 </div>
               </div>
               <div v-if="wrongAmountItems.length > 0"
@@ -132,7 +132,7 @@
           <p class="text-2xl font-bold text-gray-900">{{ formatCompact(grandTotal) }}</p>
           <p class="text-xs text-gray-400 mt-1">
             {{ allDisplayItems.length + manualEntries.length }} item{{ (allDisplayItems.length + manualEntries.length) !== 1 ? 's' : '' }}
-            <span v-if="carryOverItems.length > 0" class="text-orange-500"> incl. {{ carryOverItems.length }} carry-over</span>
+            <span v-if="carryOverTotalCount > 0" class="text-orange-500"> incl. {{ carryOverTotalCount }} carry-over</span>
             <span v-if="manualEntries.length > 0" class="text-violet-500"> + {{ manualEntries.length }} manual</span>
           </p>
         </div>
@@ -146,15 +146,18 @@
           <p class="text-2xl font-bold text-amber-700">{{ formatCompact(basePOTotal) }}</p>
           <p class="text-xs text-gray-400 mt-1">{{ basePOItems.length }} item{{ basePOItems.length !== 1 ? 's' : '' }} <span v-if="carryOverItems.filter(v=>BASE_PO_CATEGORIES.has(v.voCategory)).length" class="text-orange-500">incl. {{ carryOverItems.filter(v=>BASE_PO_CATEGORIES.has(v.voCategory)).length }} carry-over</span></p>
         </div>
-        <div v-if="carryOverItems.filter(v => v.invoiceStatus !== 'SIT Wrong Amount').length > 0" class="bg-orange-50 border border-orange-200 rounded-xl p-4">
+        <div v-if="carryOverAlertCount > 0" class="bg-orange-50 border border-orange-200 rounded-xl p-4">
           <p class="text-xs font-bold text-orange-400 uppercase tracking-wider mb-1">Carried Over</p>
-          <p class="text-2xl font-bold text-orange-700">{{ formatCompact(carryOverItems.filter(v => v.invoiceStatus !== 'SIT Wrong Amount').reduce((s,v)=>s+displayAmt(v),0)) }}</p>
-          <p class="text-xs text-gray-400 mt-1">{{ carryOverItems.filter(v => v.invoiceStatus !== 'SIT Wrong Amount').length }} from prior months</p>
+          <p class="text-2xl font-bold text-orange-700">{{ formatCompact(carryOverAlertAmount) }}</p>
+          <p class="text-xs text-gray-400 mt-1">{{ carryOverAlertCount }} from prior months</p>
         </div>
         <div v-if="manualEntries.length > 0" class="bg-violet-50 border border-violet-200 rounded-xl p-4">
           <p class="text-xs font-bold text-violet-500 uppercase tracking-wider mb-1">Manual Lines</p>
           <p class="text-2xl font-bold text-violet-700">{{ formatCompact(manualTotal) }}</p>
-          <p class="text-xs text-gray-400 mt-1">{{ manualEntries.length }} manual entr{{ manualEntries.length !== 1 ? 'ies' : 'y' }}</p>
+          <p class="text-xs text-gray-400 mt-1">
+            {{ manualEntries.length }} manual entr{{ manualEntries.length !== 1 ? 'ies' : 'y' }}
+            <span v-if="manualCarryOverCount > 0" class="text-orange-600"> · {{ manualCarryOverCount }} carry-over</span>
+          </p>
         </div>
         <div v-if="wrongAmountItems.length > 0" class="bg-rose-50 border border-rose-200 rounded-xl p-4">
           <p class="text-xs font-bold text-rose-500 uppercase tracking-wider mb-1">SIT Wrong Amount</p>
@@ -175,6 +178,9 @@
           </div>
           <div class="flex items-center gap-3">
             <span class="text-xs text-violet-500">For split invoices or amounts not tied to a VO record</span>
+            <span v-if="manualCarryOverCount > 0" class="text-xs font-semibold text-orange-600">
+              {{ manualCarryOverCount }} from prior month{{ manualCarryOverCount !== 1 ? 's' : '' }}
+            </span>
             <button @click="manualSectionOpen = !manualSectionOpen"
               class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-violet-200 bg-white text-violet-700 rounded-lg text-xs font-semibold hover:bg-violet-50 transition">
               <svg class="w-3.5 h-3.5 transition-transform" :class="manualSectionOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -263,9 +269,17 @@
             </thead>
             <tbody class="divide-y divide-violet-50">
               <tr v-for="entry in manualEntries" :key="entry.id"
-                :class="satishRequestIds.has(entry.id) ? 'bg-teal-50 hover:bg-teal-100' : 'hover:bg-violet-50/40'"
+                :class="manualRowClass(entry)"
                 class="transition-colors">
-                <td class="px-4 py-3 text-gray-800 font-medium">{{ entry.description }}</td>
+                <td class="px-4 py-3 text-gray-800 font-medium">
+                  <div class="flex items-center gap-2">
+                    <span>{{ entry.description }}</span>
+                    <span v-if="isManualCarryOver(entry)"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700">
+                      ↩ {{ manualSourceMonthLabel(entry) }}
+                    </span>
+                  </div>
+                </td>
                 <td class="px-4 py-3 text-center">
                   <input
                     v-if="isRequestToNokia(entry)"
@@ -1050,7 +1064,7 @@ const wrongAmountTotal   = computed(() => wrongAmountItems.value.reduce((s, vo) 
 const wrongInvoicedTotal = computed(() => wrongAmountItems.value.reduce((s, vo) => s + (vo.wrongInvoiceAmount || 0), 0))
 
 const alertCount = computed(() =>
-  (carryOverItems.value.filter(v => v.invoiceStatus !== 'SIT Wrong Amount').length > 0 ? 1 : 0) +
+  (carryOverAlertCount.value > 0 ? 1 : 0) +
   (wrongAmountItems.value.length > 0 ? 1 : 0)
 )
 
@@ -1098,23 +1112,86 @@ const allCategories = computed(() => {
   return [...cats].sort()
 })
 
-const loadManualEntries = () => {
+const manualEntriesByMonth = ref({})
+
+const isValidMonthKey = (month) => /^\d{4}-\d{2}$/.test(month || '')
+
+const parseStoredManualEntries = () => {
   try {
-    const all = JSON.parse(localStorage.getItem(MANUAL_ENTRIES_KEY) || '{}')
-    if (showAllMonths.value) {
-      manualEntries.value = Object.values(all).flat()
-    } else {
-      manualEntries.value = all[selectedMonth.value] || []
+    const parsed = JSON.parse(localStorage.getItem(MANUAL_ENTRIES_KEY) || '{}')
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const next = {}
+    for (const [month, rows] of Object.entries(parsed)) {
+      if (!isValidMonthKey(month) || !Array.isArray(rows)) continue
+      next[month] = rows.map((row, idx) => ({
+        id: row?.id || `manual_${month}_${idx}`,
+        description: row?.description || '',
+        category: row?.category || '',
+        scope: row?.scope || '',
+        invoiceStatus: row?.invoiceStatus || 'SIT Completed',
+        amount: Number(row?.amount) || 0,
+      }))
     }
-  } catch { manualEntries.value = [] }
+    return next
+  } catch {
+    return {}
+  }
+}
+
+const toManualEntryView = (entry, sourceMonth, isCarryOver = false) => ({
+  id: entry.id,
+  description: entry.description || '',
+  category: entry.category || '',
+  scope: entry.scope || '',
+  invoiceStatus: entry.invoiceStatus || 'SIT Completed',
+  amount: Number(entry.amount) || 0,
+  _sourceMonth: sourceMonth,
+  _manualCarryOver: isCarryOver,
+})
+
+const hydrateManualEntries = () => {
+  const all = manualEntriesByMonth.value || {}
+  if (showAllMonths.value) {
+    manualEntries.value = Object.entries(all)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .flatMap(([month, rows]) =>
+        (rows || []).map(row => toManualEntryView(row, month, false))
+      )
+    return
+  }
+
+  const current = ((all[selectedMonth.value] || []))
+    .map(row => toManualEntryView(row, selectedMonth.value, false))
+
+  const carryOver = Object.entries(all)
+    .filter(([month]) => month < selectedMonth.value)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .flatMap(([month, rows]) =>
+      (rows || [])
+        .filter(row => CARRYOVER_STATUSES.has(row?.invoiceStatus))
+        .map(row => toManualEntryView(row, month, true))
+    )
+
+  manualEntries.value = [...current, ...carryOver]
+}
+
+const loadManualEntries = () => {
+  manualEntriesByMonth.value = parseStoredManualEntries()
+  hydrateManualEntries()
 }
 
 const saveManualEntriesToStorage = () => {
   try {
-    const all = JSON.parse(localStorage.getItem(MANUAL_ENTRIES_KEY) || '{}')
-    all[selectedMonth.value] = manualEntries.value
-    localStorage.setItem(MANUAL_ENTRIES_KEY, JSON.stringify(all))
+    localStorage.setItem(MANUAL_ENTRIES_KEY, JSON.stringify(manualEntriesByMonth.value))
   } catch {}
+}
+
+const findManualEntryLocation = (id) => {
+  for (const [month, rows] of Object.entries(manualEntriesByMonth.value || {})) {
+    const idx = (rows || []).findIndex(row => row.id === id)
+    if (idx >= 0) return { month, idx }
+  }
+  return null
 }
 
 const loadAdminData = () => {
@@ -1125,14 +1202,26 @@ const loadAdminData = () => {
   } catch {}
 }
 
-watch([selectedMonth, showAllMonths], loadManualEntries)
+watch([selectedMonth, showAllMonths], hydrateManualEntries)
 
 const manualTotal = computed(() => manualEntries.value.reduce((s, e) => s + (e.amount || 0), 0))
 const grandTotal  = computed(() => allDisplayAmount.value + manualTotal.value)
+const manualCarryOverEntries = computed(() => manualEntries.value.filter(e => e._manualCarryOver))
+const manualCarryOverCount = computed(() => manualCarryOverEntries.value.length)
+const manualCarryOverAmount = computed(() => manualCarryOverEntries.value.reduce((s, e) => s + (e.amount || 0), 0))
+const manualCarryOverAlertEntries = computed(() => manualCarryOverEntries.value.filter(e => e.invoiceStatus !== 'SIT Wrong Amount'))
+const manualCarryOverAlertCount = computed(() => manualCarryOverAlertEntries.value.length)
+const manualCarryOverAlertAmount = computed(() => manualCarryOverAlertEntries.value.reduce((s, e) => s + (e.amount || 0), 0))
+const carryOverVOAlertItems = computed(() => carryOverItems.value.filter(v => v.invoiceStatus !== 'SIT Wrong Amount'))
+const carryOverVOAlertCount = computed(() => carryOverVOAlertItems.value.length)
+const carryOverVOAlertAmount = computed(() => carryOverVOAlertItems.value.reduce((s, v) => s + displayAmt(v), 0))
+const carryOverAlertCount = computed(() => carryOverVOAlertCount.value + manualCarryOverAlertCount.value)
+const carryOverAlertAmount = computed(() => carryOverVOAlertAmount.value + manualCarryOverAlertAmount.value)
+const carryOverTotalCount = computed(() => carryOverItems.value.length + manualCarryOverCount.value)
 
 const kpiGridCols = computed(() => {
   const count = 3
-    + (carryOverItems.value.length > 0 ? 1 : 0)
+    + (carryOverAlertCount.value > 0 ? 1 : 0)
     + (manualEntries.value.length > 0 ? 1 : 0)
     + (wrongAmountItems.value.length > 0 ? 1 : 0)
   if (count >= 6) return 'grid-cols-3 sm:grid-cols-6'
@@ -1158,13 +1247,34 @@ const cancelManualForm = () => {
   editingManualId.value = null
 }
 
+const isManualCarryOver = (entry) => !showAllMonths.value && entry?._manualCarryOver === true
+
+const manualSourceMonthLabel = (entry) => {
+  if (!entry?._sourceMonth || !isValidMonthKey(entry._sourceMonth)) return 'Prior Month'
+  const [year, month] = entry._sourceMonth.split('-').map(Number)
+  return new Date(year, month - 1, 1).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })
+}
+
+const manualRowClass = (entry) => {
+  if (satishRequestIds.value.has(entry.id)) return 'bg-teal-50 hover:bg-teal-100'
+  if (isManualCarryOver(entry)) return 'bg-orange-50 hover:bg-orange-100'
+  return 'hover:bg-violet-50/40'
+}
+
 const saveManualEntry = () => {
   const amt = parseFloat(manualForm.value.amount)
   if (!manualForm.value.description || isNaN(amt)) return
   if (editingManualId.value) {
-    const idx = manualEntries.value.findIndex(e => e.id === editingManualId.value)
-    if (idx >= 0) {
-      manualEntries.value[idx] = { ...manualEntries.value[idx], description: manualForm.value.description, category: manualForm.value.category, scope: manualForm.value.scope, invoiceStatus: manualForm.value.invoiceStatus, amount: amt }
+    const loc = findManualEntryLocation(editingManualId.value)
+    if (loc) {
+      manualEntriesByMonth.value[loc.month][loc.idx] = {
+        ...manualEntriesByMonth.value[loc.month][loc.idx],
+        description: manualForm.value.description,
+        category: manualForm.value.category,
+        scope: manualForm.value.scope,
+        invoiceStatus: manualForm.value.invoiceStatus,
+        amount: amt,
+      }
       if (manualForm.value.invoiceStatus !== 'Request to Nokia' && satishRequestIds.value.has(editingManualId.value)) {
         const next = new Set(satishRequestIds.value)
         next.delete(editingManualId.value)
@@ -1173,7 +1283,10 @@ const saveManualEntry = () => {
       }
     }
   } else {
-    manualEntries.value.push({
+    if (!Array.isArray(manualEntriesByMonth.value[selectedMonth.value])) {
+      manualEntriesByMonth.value[selectedMonth.value] = []
+    }
+    manualEntriesByMonth.value[selectedMonth.value].push({
       id: 'manual_' + Date.now() + '_' + Math.random().toString(36).slice(2),
       description: manualForm.value.description,
       category: manualForm.value.category,
@@ -1183,12 +1296,18 @@ const saveManualEntry = () => {
     })
   }
   saveManualEntriesToStorage()
+  hydrateManualEntries()
   cancelManualForm()
 }
 
 const deleteManualEntry = (id) => {
   if (!confirm('Remove this manual invoice line?')) return
-  manualEntries.value = manualEntries.value.filter(e => e.id !== id)
+  const loc = findManualEntryLocation(id)
+  if (!loc) return
+  manualEntriesByMonth.value[loc.month].splice(loc.idx, 1)
+  if (manualEntriesByMonth.value[loc.month].length === 0) {
+    delete manualEntriesByMonth.value[loc.month]
+  }
   if (satishRequestIds.value.has(id)) {
     const next = new Set(satishRequestIds.value)
     next.delete(id)
@@ -1196,6 +1315,7 @@ const deleteManualEntry = (id) => {
     saveSatishRequestIds()
   }
   saveManualEntriesToStorage()
+  hydrateManualEntries()
 }
 
 const statusGroups = computed(() => {
@@ -1656,8 +1776,8 @@ const exportCustom = () => {
     if (item._isManual) {
       return {
         'Type':                    'Manual',
-        'Carry Over':              '',
-        'Invoice Month':           showAllMonths.value ? '' : selectedMonth.value,
+        'Carry Over':              item._manualCarryOver ? 'Yes' : '',
+        'Invoice Month':           item._sourceMonth || (showAllMonths.value ? '' : selectedMonth.value),
         'Site ID':                 '',
         'Site Name':               '',
         'Job No.':                 '',
@@ -1722,8 +1842,8 @@ const exportMonth = () => {
   }))
   const manualRows = manualEntries.value.map(e => ({
     'Type':           'Manual',
-    'Carry Over':     '',
-    'Invoice Month':  selectedMonth.value,
+    'Carry Over':     e._manualCarryOver ? 'Yes' : '',
+    'Invoice Month':  e._sourceMonth || selectedMonth.value,
     'Site ID':        '',
     'Site Name':      '',
     'Job No.':        '',

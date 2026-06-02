@@ -11,6 +11,7 @@ const FIELD_MAPPING = {
   'VO Description':             'voDescription',
   'VO Amount':                  'voAmount',
   'VO Category':                'voCategory',
+  'PO Supplier Category':       'poSupplierCategory',
   'Scope':                      'scope',
   'BOQ Related':                'boqRelated',
   'Email Sent to Nokia':        'emailSentToNokia',
@@ -78,6 +79,7 @@ function convertRowToVO(row, columnIndexMap) {
   vo.siteName           = vo.siteName           ?? ''
   vo.jobNumber          = vo.jobNumber          ?? ''
   vo.voCategory         = vo.voCategory         ?? ''
+  vo.poSupplierCategory = vo.poSupplierCategory ?? ''
   vo.scope              = vo.scope              ?? ''
   vo.ticketNumber       = vo.ticketNumber       ?? ''
   vo.comment            = vo.comment            ?? ''

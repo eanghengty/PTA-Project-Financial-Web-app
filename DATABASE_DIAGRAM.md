@@ -5,7 +5,7 @@ Persistence in this app is split across IndexedDB and `localStorage`.
 ## IndexedDB
 
 - Database: `VariationTrackerDB`
-- Version: `4`
+- Version: `5`
 - Source of truth: `src/db/indexdb.js`
 
 ```mermaid
@@ -18,6 +18,7 @@ erDiagram
         string voDescription
         number voAmount
         string voCategory
+        string poSupplierCategory
         string scope
         boolean boqRelated
         string voStatus
@@ -70,6 +71,7 @@ erDiagram
   - `invoiceStatus`
   - `invoiceDate`
   - `amountChangeFlag`
+  - `poSupplierCategory`
 
 ### `issueLogs`
 

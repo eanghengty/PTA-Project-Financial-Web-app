@@ -176,6 +176,26 @@
                 </div>
               </div>
 
+              <div v-if="isThirdPartyVOCategory">
+                <label class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  PO Supplier Category <span class="text-red-400">*</span>
+                </label>
+                <select
+                  v-model="form.poSupplierCategory"
+                  class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white transition"
+                  :class="poSupplierCategoryError ? 'border-red-400 focus:ring-red-400' : 'border-gray-200'"
+                >
+                  <option value="" disabled>
+                    {{ poSupplierCategoryOptions.length ? 'Select category...' : 'No PO supplier categories in Admin' }}
+                  </option>
+                  <option v-for="cat in poSupplierCategoryOptions" :key="cat.name" :value="cat.name">
+                    {{ cat.name }}
+                  </option>
+                </select>
+                <p class="mt-1 text-[11px] text-gray-400">Categories come from Admin > PO Supplier Categories.</p>
+                <p v-if="poSupplierCategoryError" class="mt-1 text-xs text-red-600 font-medium">{{ poSupplierCategoryError }}</p>
+              </div>
+
               <!-- Labour Cost + Third Party Cost -->
               <div class="grid grid-cols-2 gap-3">
                 <div>
@@ -671,7 +691,7 @@
 import { ref, watch, computed, onMounted, nextTick } from 'vue'
 import { useVOStore } from '../stores/voStore'
 import { getLogs } from '../utils/logger'
-import { formatStatus } from '../utils/formatters'
+import { formatStatus, formatCurrency } from '../utils/formatters'
 
 const props = defineProps({
   vo:      { type: Object, default: null },
@@ -718,8 +738,10 @@ const amountLogSourceMeta = (source) => {
 
 const BASE_PO_FORM_CATEGORIES = new Set(['Site Survey', 'WOP', 'C&I', 'SAT&SIT', 'Snag Closure', 'Detail Site Survey'])
 const BASE_PO_FORM_CATEGORY_KEYS = new Set([...BASE_PO_FORM_CATEGORIES].map(c => c.toLowerCase()))
+const THIRD_PARTY_CATEGORY_KEY = 'third party'
 const isBasePOForm = computed(() => BASE_PO_FORM_CATEGORY_KEYS.has(form.value.voCategory?.trim()?.toLowerCase()))
 const isBOQForm    = computed(() => form.value.boqRelated === true && !isBasePOForm.value)
+const isThirdPartyVOCategory = computed(() => form.value.voCategory?.trim()?.toLowerCase() === THIRD_PARTY_CATEGORY_KEY)
 
 // Prevents the auto-status watcher from firing during initial form population
 const isInitializing = ref(false)
@@ -762,6 +784,7 @@ const amountDisplay = ref('')
 const form = ref({
   siteId: '', siteName: '', jobNumber: '',
   voDescription: '', voAmount: 0, voCategory: '', scope: '',
+  poSupplierCategory: '',
   boqRelated: false,
   emailSentToNokia: null, emailApprovedFromNokia: null,
   ticketSubmissionDate: null, ticketNumber: '', ticketApprovalDate: null,
@@ -787,7 +810,7 @@ const showAmountDelta = computed(() =>
 )
 
 // ── Global data ──
-const globalData = ref({ sites: [], voCategories: [], scopes: [] })
+const globalData = ref({ sites: [], voCategories: [], scopes: [], poSupplierCategories: [] })
 
 const loadGlobalData = () => {
   try {
@@ -808,9 +831,21 @@ const loadGlobalData = () => {
       })
       globalData.value.voCategories = data.voCategories || []
       globalData.value.scopes = data.scopes || []
+      globalData.value.poSupplierCategories = (data.poSupplierCategories || []).map(c =>
+        typeof c === 'string' ? { name: c, comment: '' } : c
+      )
     }
   } catch (err) { console.error('Error loading global data:', err) }
 }
+
+const poSupplierCategoryOptions = computed(() =>
+  (globalData.value.poSupplierCategories || [])
+    .map(c => ({ name: c?.name?.trim?.() || '', comment: c?.comment || '' }))
+    .filter(c => c.name)
+    .sort((a, b) => a.name.localeCompare(b.name))
+)
+
+const poSupplierCategoryError = ref('')
 
 // ── Site autocomplete ──
 const siteSearch = ref('')
@@ -907,6 +942,17 @@ watch(() => form.value.poNumber,      val => {
   checkDuplicate('voDescription', form.value.voDescription)
 })
 
+watch(() => form.value.voCategory, () => {
+  poSupplierCategoryError.value = ''
+  if (!isThirdPartyVOCategory.value) {
+    form.value.poSupplierCategory = ''
+  }
+})
+
+watch(() => form.value.poSupplierCategory, () => {
+  poSupplierCategoryError.value = ''
+})
+
 // Auto-update status based on ticket fields and PO number
 // Guard: skip during initial form population to avoid overwriting the saved status
 watch([() => form.value.ticketNumber, () => form.value.ticketSubmissionDate, () => form.value.ticketApprovalDate, () => form.value.poNumber, () => form.value.boqRelated], ([num, subDate, aprDate, po]) => {
@@ -950,6 +996,7 @@ watch(() => form.value.voStatus, (newStatus, oldStatus) => {
 
 watch(() => props.vo, (newVO) => {
   isInitializing.value = true
+  poSupplierCategoryError.value = ''
   if (newVO) {
     siteSearch.value = newVO.siteId && newVO.siteName ? `${newVO.siteId} — ${newVO.siteName}` : ''
     originalAmount.value = newVO.voAmount || 0
@@ -957,6 +1004,7 @@ watch(() => props.vo, (newVO) => {
       siteId: newVO.siteId || '', siteName: newVO.siteName || '', jobNumber: newVO.jobNumber || '',
       voDescription: newVO.voDescription || '', voAmount: newVO.voAmount || 0,
       voCategory: newVO.voCategory || '', scope: newVO.scope || '',
+      poSupplierCategory: newVO.poSupplierCategory || '',
       boqRelated: newVO.boqRelated || false,
       emailSentToNokia:       newVO.emailSentToNokia       ? new Date(newVO.emailSentToNokia).toISOString().split('T')[0]       : null,
       emailApprovedFromNokia: newVO.emailApprovedFromNokia ? new Date(newVO.emailApprovedFromNokia).toISOString().split('T')[0] : null,
@@ -984,6 +1032,7 @@ watch(() => props.vo, (newVO) => {
       siteId: p.siteId || '', siteName: p.siteName || '', jobNumber: p.jobNumber || '',
       voDescription: p.voDescription || '', voAmount: p.voAmount || 0,
       voCategory: p.voCategory || '', scope: p.scope || '',
+      poSupplierCategory: p.poSupplierCategory || '',
       boqRelated: p.boqRelated || false,
       emailSentToNokia: null, emailApprovedFromNokia: null,
       ticketSubmissionDate: null, ticketNumber: '', ticketApprovalDate: null,
@@ -1006,6 +1055,7 @@ watch(() => props.vo, (newVO) => {
     form.value = {
       siteId: '', siteName: '', jobNumber: '',
       voDescription: '', voAmount: 0, voCategory: '', scope: '',
+      poSupplierCategory: '',
       boqRelated: false,
       emailSentToNokia: null, emailApprovedFromNokia: null,
       ticketSubmissionDate: null, ticketNumber: '', ticketApprovalDate: null,
@@ -1033,6 +1083,22 @@ watch(() => form.value.voAmount, (newAmt) => {
 
 const submitForm = () => {
   if (duplicateError.value) return
+
+  poSupplierCategoryError.value = ''
+  const selectedPoSupplierCategory = (form.value.poSupplierCategory || '').trim()
+  if (isThirdPartyVOCategory.value) {
+    if (!selectedPoSupplierCategory) {
+      poSupplierCategoryError.value = 'PO Supplier Category is required for Third Party variations.'
+      return
+    }
+    const isValidCategory = poSupplierCategoryOptions.value.some(cat => cat.name === selectedPoSupplierCategory)
+    if (!isValidCategory) {
+      poSupplierCategoryError.value = poSupplierCategoryOptions.value.length === 0
+        ? 'No PO supplier categories found in Admin. Please add one in Admin first.'
+        : 'PO Supplier Category must be selected from Admin > PO Supplier Categories.'
+      return
+    }
+  }
 
   let invoiceLog = JSON.parse(JSON.stringify(props.vo?.invoiceLog || []))
   let poLog      = JSON.parse(JSON.stringify(props.vo?.poLog      || []))
@@ -1076,6 +1142,7 @@ const submitForm = () => {
 
   const voData = {
     ...form.value,
+    poSupplierCategory: isThirdPartyVOCategory.value ? selectedPoSupplierCategory : '',
     emailSentToNokia:       form.value.emailSentToNokia       ? new Date(form.value.emailSentToNokia)       : null,
     emailApprovedFromNokia: form.value.emailApprovedFromNokia ? new Date(form.value.emailApprovedFromNokia) : null,
     ticketSubmissionDate:   form.value.ticketSubmissionDate   ? new Date(form.value.ticketSubmissionDate)   : null,

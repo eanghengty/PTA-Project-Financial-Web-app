@@ -6,6 +6,7 @@ const COLUMN_HEADERS = [
   'VO Description',
   'VO Amount',
   'VO Category',
+  'PO Supplier Category',
   'Scope',
   'BOQ Related',
   'Email Sent to Nokia',
@@ -29,6 +30,7 @@ const FIELD_MAPPING = [
   'voDescription',
   'voAmount',
   'voCategory',
+  'poSupplierCategory',
   'scope',
   'boqRelated',
   'emailSentToNokia',
@@ -97,6 +99,7 @@ export function exportToExcel(vos, filename = null) {
       { wch: 20 },  // VO Description
       { wch: 12 },  // VO Amount
       { wch: 15 },  // VO Category
+      { wch: 22 },  // PO Supplier Category
       { wch: 15 },  // Scope
       { wch: 12 },  // BOQ Related
       { wch: 18 },  // Email Sent

@@ -10,6 +10,7 @@ export const TRACKED_FIELDS = {
   voDescription:          'Description',
   voAmount:               'Amount',
   voCategory:             'Category',
+  poSupplierCategory:     'PO Supplier Category',
   scope:                  'Scope',
   boqRelated:             'BOQ Related',
   voStatus:               'Status',

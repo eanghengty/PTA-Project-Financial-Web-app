@@ -23,7 +23,7 @@ No test runner or linter is configured.
   - `suppressLoadingToggle` â skips per-call `loading` true/false flips for high-volume updates (default behavior remains unchanged when omitted)
 
 **Persistence split:**
-- `src/db/indexdb.js` â IndexedDB ("VariationTrackerDB" v4) with store `variations` for VO records and store `issueLogs` for Issue Log records. All operations return Promises.
+- `src/db/indexdb.js` â IndexedDB ("VariationTrackerDB" v5) with store `variations` for VO records and store `issueLogs` for Issue Log records. Issue Log rows can now persist attachment blobs plus metadata (`id`, `name`, `type`, `size`, `lastModified`, `blob`). All operations return Promises.
 - `localStorage` â UI state (active view/tab, including `currentView`), invoice prep IDs, flagged VO IDs (`flaggedVOIds`), flagged VO notes (`flaggedVONotes`), activity log (no cap â all entries preserved), global admin data (sites, VO categories, PO supplier categories, PO suppliers, scopes, settings), PO supplier breakdown data (`poSupplierBreakdownData`), site status data (`siteStatusData`).
 - `DATABASE_DIAGRAM.md` â schema reference for IndexedDB stores/indexes plus the localStorage-backed persistence map.
 
@@ -40,6 +40,11 @@ No test runner or linter is configured.
 - `src/utils/logger.js` â `addLog`, `diffVOs` (returns field-level diff array), `getLogs`, `clearLogs`. Activity log lives in localStorage under key `voActivityLog`.
 - `src/utils/import.js` â `importFromFile(file, existingVOs)` parses `.xlsx/.xls/.csv` via SheetJS. Required columns: Site ID, VO Description, VO Amount. Returns `{ vos, warnings }` with row-level errors. Duplicate detection: same description+no PO blocked; same description+different PO allowed; same ticket number or same PO number always blocked.
 - `src/utils/export.js` â `exportToExcel` / `exportToCSV` with auto-timestamped filenames. Columns include `Comment` as the last field.
+
+**Attachment / email preview dependencies:**
+- `@kenjiuno/msgreader` â parses Outlook `.msg` files in-browser for Issue Log attachment preview.
+- `rtf.js` â renders Outlook compressed RTF fallback when a `.msg` has no HTML body.
+- `vite-plugin-node-polyfills` â required so the `.msg` parser can run in the Vite browser bundle.
 
 **Invoice Status Import** (`ImportExport.vue` â `parseInvoiceImportFile`): Bulk-updates invoice statuses from `.xlsx/.xls/.csv`. Columns: `PO Number` (required), `VO Amount` (optional), `Invoice Status` (optional). Match is by PO number only. Rows appear in the diff preview when status differs OR amount differs from the existing VO. Amount-mismatch rows: displayed with the current amount struck through and the imported amount in orange; row background is orange when selected. The diff object includes `amountMismatch: boolean`, `importedAmount: number|null`, and `siteId`. On apply, `invoiceStatus`, `invoiceDate`, and `invoiceLog` are updated; if `amountMismatch` is true, `voAmount` is also updated to `importedAmount`. Preview table columns: Checkbox Â· Site ID Â· PO Number Â· VO Description Â· Amount (with mismatch indicator) Â· Current Status â New Status Â· Invoice Date. The toolbar shows a badge counting rows with amount changes. Success message reports how many amounts were also updated.
 
@@ -71,6 +76,19 @@ Dedicated view (`issue-log`) for tracking site issues independently from VOs. Da
 - `amount`
 - `status` (`open` | `clear`)
 - `comment`
+- `attachments` â array of persisted file records `{ id, name, type, size, lastModified, blob }`
+
+**Attachment modal behavior:**
+- The Issue Log modal is intentionally large (`max-w-[112rem]`) and split into form + preview panels.
+- Upload supports both file picker and drag/drop. Outlook drag/drop commonly arrives as a `.msg` file.
+- Inline preview supports:
+  - `.msg` â parsed email header/body preview with `HTML View` / `Text View`
+  - HTML-bodied `.msg` â rendered in a sandboxed iframe using sanitized original email HTML
+  - RTF-only `.msg` â rendered through `rtf.js` after decompressing `compressedRtf`
+  - `.pdf` â native browser inline iframe preview
+  - Excel / CSV â first worksheet rendered via `xlsx.utils.sheet_to_html`
+  - images / text â inline image or text preview
+- Unsupported file types are still stored with the issue and downloadable even when inline preview is unavailable.
 
 **Strict Admin autocomplete rules (modal):**
 - `siteId` + `siteName` must be selected from Admin `globalData.sites` via one linked site picker (single selection fills both fields).
@@ -224,16 +242,20 @@ All currency in Dashboard uses `formatCompact()` (e.g., $1.23M, $456.7K, $999).
 
 Dedicated view (`monthly-invoice`) for reviewing invoices per calendar month. Month picker with prev/next navigation, defaults to current month. Pagination: 25 rows per page (page resets on month change). Rows are click-to-edit via VOForm modal.
 
-**Carry-over logic:** VOs from any prior month whose `invoiceDate` month is before `selectedMonth` AND whose `invoiceStatus` is `'To Be Sent to Nokia'` or `'Request to Nokia'` are pulled into the current view as carry-overs (`CARRYOVER_STATUSES` Set). They appear after current-month rows in the table, separated by an orange divider row, with amber row highlighting and a "â© Prior Month" badge.
+**Carry-over logic (VO rows):** VOs from any prior month whose `invoiceDate` month is before `selectedMonth` and whose `invoiceStatus` is in `CARRYOVER_STATUSES` (`'To Be Sent to Nokia'`, `'Request to Nokia'`, `'SIT Wrong Amount'`) are pulled into the current view as carry-overs. They appear after current-month rows in the table, separated by an orange divider row, with amber row highlighting and a "Prior Month" badge.
 
-**KPI row (3â4 cards):** Total This Month (= current month + carry-over combined, gray), Variation Orders (blue, current month only), Base PO (amber, current month only), Carried Over (orange, shown only when carry-over > 0).
+**Manual invoice lines:** `manualInvoiceEntries` in localStorage is keyed by month (`YYYY-MM`). In month mode, the manual section includes both:
+- entries saved in `selectedMonth`, and
+- prior-month entries whose `invoiceStatus` is in `CARRYOVER_STATUSES` (manual carry-over).
+Manual carry-over rows show a source-month badge (for example `Mar 2026`), and edits/deletes always update the original source month bucket (not the currently selected month).
 
-**Status breakdown cards:** Current month items only, grouped by `invoiceStatus` in `STATUS_ORDER`, each card shows amount, count, and a proportional progress bar (% of month total).
+**KPI row (dynamic cards):** Always includes Total This Month, Variation Orders, and Base PO. Optional cards appear for Carried Over, Manual Lines, and SIT Wrong Amount when those buckets are non-empty.
 
-**Detail table columns:** Site ID Â· Site Name Â· Job No. Â· Description Â· Category Â· Scope Â· PO Number Â· Invoice Status Â· Invoice Date Â· Amount. Footer row shows combined total with "(X this month + Y carried over)" note.
+**Status breakdown cards:** Grouped by `invoiceStatus` for all displayed items (current month + carry-over + manual lines), each card shows amount, count, and a proportional progress bar (% of month total).
 
-**Export:** Includes "Carry Over" and "Invoice Month" columns in addition to the detail columns; filename `Monthly_Invoicing_YYYY-MM.xlsx`.
+**Detail table columns:** Site ID | Site Name | Job No. | Description | Category | Scope | PO Number | Invoice Status | Invoice Date | Amount. Footer row shows combined total with "(X this month + Y carried over)" note.
 
+**Export:** Includes "Carry Over" and "Invoice Month" columns in addition to the detail columns; manual rows export their source month and carry-over flag when applicable. Filename `Monthly_Invoicing_YYYY-MM.xlsx`.
 ## PO Received Summary View (`src/components/POReceivedSummary.vue`)
 
 Dedicated view (`po-received-summary`, teal-themed) for reviewing received POs day by day. It reads directly from `store.vos.value`, includes only records with a non-empty `poNumber`, and groups rows by PO received date.
@@ -291,6 +313,10 @@ The primary UI chrome uses `blue-600/700` for action buttons and table headers, 
 **Bulk Scope Edit:** When rows are selected, indigo "Edit Scope" button opens a modal. Pick scope from admin list â applies to all selected VOs at once. Closes and clears selection on apply.
 
 **Column Visibility:** Toggle columns via "Columns" button. Persisted to localStorage. Reset to defaults via modal button.
+
+**Column Resizing / Overflow:** TableView columns should fit the available width by default and only switch into fixed pixel widths after the user manually drags a resize handle. Custom widths persist in localStorage under the v2 width key, and Reset restores the auto-fit default. Keep the header resize behavior, but row cells must not bleed past their column width.
+
+**Row Cell Clipping:** For text-heavy data cells in TableView (for example Site ID, Site Name, Job Number, Description, Scope, Category, PO Supplier Category, Ticket Number, and PO Number), wrap the content in a full-width truncating container (`overflow-hidden` + `truncate`) so row data clips inside the resized column while the header remains readable.
 
 **Row Selection:** Cleared automatically when search text or filters change (prevents stale multi-page selections).
 
@@ -446,4 +472,3 @@ Dedicated view (`site-status`, emerald-themed) for tracking construction progres
 - **Left column card** â Export Data (Excel + CSV buttons) stacked above Import Data (file drop zone + 3-step preview/confirm flow), separated by a thin divider within the same card.
 - **Right column card** â Import Template (download blank xlsx + required/optional column reference).
 - **Full-width card** â Backup & Restore (Export Backup left / Restore Backup right, divided by a vertical rule). Restore button uses amber to signal destructive action.
-

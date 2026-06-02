@@ -39,7 +39,7 @@
       {{ syncMessage.text }}
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3">
       <div class="bg-white border border-gray-200 rounded-xl px-4 py-3">
         <p class="text-[11px] uppercase tracking-wider text-gray-500 font-semibold">Jobs</p>
         <p class="text-2xl font-bold text-gray-900 mt-1">{{ jobs.length }}</p>
@@ -48,10 +48,23 @@
         <p class="text-[11px] uppercase tracking-wider text-teal-600 font-semibold">PO Entries</p>
         <p class="text-2xl font-bold text-teal-700 mt-1">{{ totalEntries }}</p>
       </div>
-      <div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
-        <p class="text-[11px] uppercase tracking-wider text-blue-600 font-semibold">Total Amount</p>
-        <p class="text-2xl font-bold text-blue-700 mt-1">{{ formatCompact(totalAmount) }}</p>
+      <div class="bg-teal-50 border border-teal-200 rounded-xl px-4 py-3">
+        <p class="text-[11px] uppercase tracking-wider text-teal-600 font-semibold">Supplier PO Total</p>
+        <p class="text-2xl font-bold text-teal-700 mt-1">{{ formatCompact(totalAmount) }}</p>
         <p class="text-xs text-gray-500 mt-1">{{ formatCurrency(totalAmount) }}</p>
+      </div>
+      <div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+        <p class="text-[11px] uppercase tracking-wider text-blue-600 font-semibold">3rd Party VO Total</p>
+        <p class="text-2xl font-bold text-blue-700 mt-1">{{ formatCompact(totalThirdPartyVOAmount) }}</p>
+        <p class="text-xs text-gray-500 mt-1">{{ formatCurrency(totalThirdPartyVOAmount) }}</p>
+      </div>
+      <div class="rounded-xl px-4 py-3 border" :class="criticalGapCardClass(totalCriticalGap)">
+        <p class="text-[11px] uppercase tracking-wider font-semibold">Critical Gap (PO &gt; VO)</p>
+        <p class="text-2xl font-bold mt-1">{{ formatCurrency(totalCriticalGap) }}</p>
+        <p class="text-xs mt-1">
+          <span v-if="criticalJobsCount > 0">{{ criticalJobsCount }} job{{ criticalJobsCount === 1 ? '' : 's' }} need extra claim from customer.</span>
+          <span v-else>No critical shortfall.</span>
+        </p>
       </div>
       <div class="bg-white border border-gray-200 rounded-xl px-4 py-3">
         <p class="text-[11px] uppercase tracking-wider text-gray-500 font-semibold">With Breakdown</p>
@@ -92,7 +105,9 @@
               <th class="px-4 py-3 text-left font-semibold">Site Name</th>
               <th class="px-4 py-3 text-left font-semibold">Job #</th>
               <th class="px-4 py-3 text-center font-semibold">PO Entries</th>
-              <th class="px-4 py-3 text-right font-semibold">PO Total</th>
+              <th class="px-4 py-3 text-right font-semibold">3rd Party VO</th>
+              <th class="px-4 py-3 text-right font-semibold">Supplier PO</th>
+              <th class="px-4 py-3 text-right font-semibold">Critical Gap</th>
               <th class="px-4 py-3 text-center font-semibold">Actions</th>
             </tr>
           </thead>
@@ -107,7 +122,15 @@
                     {{ job.entries.length }}
                   </span>
                 </td>
+                <td class="px-4 py-3 text-right font-semibold text-blue-700 whitespace-nowrap">{{ formatCurrency(jobVOThirdPartyTotal(job)) }}</td>
                 <td class="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(jobTotal(job)) }}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                  <template v-if="jobCriticalGap(job) > 0">
+                    <span class="font-semibold text-red-700">{{ formatCurrency(jobCriticalGap(job)) }}</span>
+                    <div class="text-[10px] font-semibold text-red-600 uppercase tracking-wider">Critical</div>
+                  </template>
+                  <span v-else class="text-gray-400">-</span>
+                </td>
                 <td class="px-4 py-3 text-center whitespace-nowrap">
                   <button
                     @click="openEntryModal(job)"
@@ -125,40 +148,136 @@
               </tr>
 
               <tr v-if="expandedJobs[job.key]">
-                <td colspan="6" class="px-4 py-4 bg-gray-50">
-                  <div v-if="job.entries.length === 0" class="text-xs text-gray-500">
-                    No PO breakdown entries yet for this job.
+                <td colspan="8" class="px-4 py-4 bg-gray-50">
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                    <div class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+                      <p class="text-[10px] uppercase tracking-wider text-blue-600 font-semibold">3rd Party VO</p>
+                      <p class="text-sm font-bold text-blue-700 mt-0.5">{{ formatCurrency(jobVOThirdPartyTotal(job)) }}</p>
+                    </div>
+                    <div class="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2">
+                      <p class="text-[10px] uppercase tracking-wider text-teal-600 font-semibold">Supplier PO</p>
+                      <p class="text-sm font-bold text-teal-700 mt-0.5">{{ formatCurrency(jobTotal(job)) }}</p>
+                    </div>
+                    <div class="rounded-lg border px-3 py-2" :class="criticalGapPanelClass(jobCriticalGap(job))">
+                      <p class="text-[10px] uppercase tracking-wider font-semibold">Critical Gap (PO &gt; VO)</p>
+                      <p class="text-sm font-bold mt-0.5">{{ formatCurrency(jobCriticalGap(job)) }}</p>
+                    </div>
                   </div>
-                  <div v-else class="overflow-x-auto">
+
+                  <div v-if="jobCategoryComparisons(job).length > 0" class="mb-4 overflow-x-auto">
                     <table class="min-w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
-                      <thead class="bg-gray-100 text-gray-700 uppercase tracking-wider">
+                      <thead class="bg-blue-50 text-blue-700 uppercase tracking-wider">
                         <tr>
-                          <th class="px-3 py-2 text-left font-semibold">PO Number</th>
-                          <th class="px-3 py-2 text-left font-semibold">Supplier</th>
-                          <th class="px-3 py-2 text-left font-semibold">Category</th>
-                          <th class="px-3 py-2 text-right font-semibold">Amount</th>
-                          <th class="px-3 py-2 text-left font-semibold">Comment</th>
-                          <th class="px-3 py-2 text-left font-semibold">Updated</th>
-                          <th class="px-3 py-2 text-center font-semibold w-32">Actions</th>
+                          <th class="px-3 py-2 text-left font-semibold">PO Supplier Category</th>
+                          <th class="px-3 py-2 text-right font-semibold">3rd Party VO</th>
+                          <th class="px-3 py-2 text-right font-semibold">Supplier PO</th>
+                          <th class="px-3 py-2 text-right font-semibold">Critical Gap</th>
+                          <th class="px-3 py-2 text-left font-semibold">Summary Comment</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-200 bg-white">
-                        <tr v-for="entry in job.entries" :key="entry.id" class="hover:bg-gray-50">
-                          <td class="px-3 py-2 font-mono text-gray-800 whitespace-nowrap">{{ entry.poNumber }}</td>
-                          <td class="px-3 py-2 text-gray-800 whitespace-nowrap">{{ entry.supplier }}</td>
-                          <td class="px-3 py-2 text-gray-700 whitespace-nowrap">{{ entry.category || '-' }}</td>
-                          <td class="px-3 py-2 text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(entry.amount) }}</td>
-                          <td class="px-3 py-2 text-gray-600 max-w-sm">
-                            <div class="truncate" :title="entry.comment || ''">{{ entry.comment || '-' }}</div>
+                        <tr v-for="row in jobCategoryComparisons(job)" :key="`${job.key}-${row.category}`" class="hover:bg-gray-50">
+                          <td class="px-3 py-2 text-gray-800">{{ row.category }}</td>
+                          <td class="px-3 py-2 text-right font-semibold text-blue-700 whitespace-nowrap">{{ formatCurrency(row.voAmount) }}</td>
+                          <td class="px-3 py-2 text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(row.supplierAmount) }}</td>
+                          <td class="px-3 py-2 text-right whitespace-nowrap">
+                            <span
+                              class="font-semibold"
+                              :class="criticalGapTextClass(rowCriticalGap(row))"
+                            >
+                              {{ rowCriticalGap(row) > 0 ? formatCurrency(rowCriticalGap(row)) : '-' }}
+                            </span>
                           </td>
-                          <td class="px-3 py-2 text-gray-500 whitespace-nowrap">{{ formatDate(entry.updatedAt || entry.createdAt) }}</td>
-                          <td class="px-3 py-2 text-center whitespace-nowrap">
-                            <button @click="openEntryModal(job, entry)" class="px-2 py-1 rounded text-blue-600 hover:bg-blue-50 font-semibold">Edit</button>
-                            <button @click="removeEntry(job.key, entry.id)" class="px-2 py-1 rounded text-red-600 hover:bg-red-50 font-semibold">Delete</button>
+                          <td class="px-3 py-2 text-gray-700 min-w-[220px]">
+                            <input
+                              type="text"
+                              :value="getCategorySummaryComment(job, row.category)"
+                              @change="setCategorySummaryComment(job.key, row.category, $event.target.value)"
+                              placeholder="Add category comment..."
+                              class="w-full px-2.5 py-1.5 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
                           </td>
                         </tr>
                       </tbody>
                     </table>
+                  </div>
+
+                  <div v-if="job.entries.length === 0" class="text-xs text-gray-500">
+                    No PO breakdown entries yet for this job.
+                  </div>
+                  <div v-else class="space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
+                      <div class="text-xs text-gray-600">
+                        Selected: <span class="font-semibold text-gray-900">{{ selectedEntryCount(job) }}</span>
+                        <span class="mx-1 text-gray-300">|</span>
+                        Subtotal:
+                        <span class="font-semibold text-blue-700">{{ formatCurrency(selectedEntrySubtotal(job)) }}</span>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <button
+                          @click="selectAllEntriesForJob(job)"
+                          class="px-2.5 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          @click="clearSelectedEntriesForJob(job.key)"
+                          :disabled="selectedEntryCount(job) === 0"
+                          class="px-2.5 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                      <table class="min-w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
+                        <thead class="bg-gray-100 text-gray-700 uppercase tracking-wider">
+                          <tr>
+                            <th class="px-3 py-2 text-center font-semibold w-10">
+                              <input
+                                type="checkbox"
+                                :checked="areAllEntriesSelected(job)"
+                                @change="toggleSelectAllEntriesForJob(job)"
+                                class="w-4 h-4 rounded border-gray-300 cursor-pointer accent-blue-600"
+                                title="Select all rows"
+                              />
+                            </th>
+                            <th class="px-3 py-2 text-left font-semibold">PO Number</th>
+                            <th class="px-3 py-2 text-left font-semibold">Supplier</th>
+                            <th class="px-3 py-2 text-left font-semibold">Category</th>
+                            <th class="px-3 py-2 text-right font-semibold">Amount</th>
+                            <th class="px-3 py-2 text-left font-semibold">Comment</th>
+                            <th class="px-3 py-2 text-left font-semibold">Updated</th>
+                            <th class="px-3 py-2 text-center font-semibold w-32">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 bg-white">
+                          <tr v-for="entry in job.entries" :key="entry.id" class="hover:bg-gray-50">
+                            <td class="px-3 py-2 text-center">
+                              <input
+                                type="checkbox"
+                                :checked="isEntrySelected(job.key, entry.id)"
+                                @change="toggleEntrySelection(job.key, entry.id)"
+                                class="w-4 h-4 rounded border-gray-300 cursor-pointer accent-blue-600"
+                              />
+                            </td>
+                            <td class="px-3 py-2 font-mono text-gray-800 whitespace-nowrap">{{ entry.poNumber }}</td>
+                            <td class="px-3 py-2 text-gray-800 whitespace-nowrap">{{ entry.supplier }}</td>
+                            <td class="px-3 py-2 text-gray-700 whitespace-nowrap">{{ entry.category || '-' }}</td>
+                            <td class="px-3 py-2 text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(entry.amount) }}</td>
+                            <td class="px-3 py-2 text-gray-600 max-w-sm">
+                              <div class="truncate" :title="entry.comment || ''">{{ entry.comment || '-' }}</div>
+                            </td>
+                            <td class="px-3 py-2 text-gray-500 whitespace-nowrap">{{ formatDate(entry.updatedAt || entry.createdAt) }}</td>
+                            <td class="px-3 py-2 text-center whitespace-nowrap">
+                              <button @click="openEntryModal(job, entry)" class="px-2 py-1 rounded text-blue-600 hover:bg-blue-50 font-semibold">Edit</button>
+                              <button @click="removeEntry(job.key, entry.id)" class="px-2 py-1 rounded text-red-600 hover:bg-red-50 font-semibold">Delete</button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -227,7 +346,7 @@
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Amount *</label>
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Amount (Base) *</label>
             <input
               v-model.number="entryForm.amount"
               type="number"
@@ -236,6 +355,9 @@
               required
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            <p class="text-[11px] text-gray-400 mt-1">
+              PO amount with 10% markup: <span class="font-semibold text-teal-700">{{ formatCurrency(entryMarkedUpAmount) }}</span>
+            </p>
           </div>
 
           <div>
@@ -272,6 +394,9 @@ import { useVOStore } from '../stores/voStore'
 import { formatCompact, formatCurrency, formatDate } from '../utils/formatters'
 
 const STORAGE_KEY = 'poSupplierBreakdownData'
+const THIRD_PARTY_CATEGORY_KEY = 'third party'
+const UNASSIGNED_CATEGORY = 'Unassigned'
+const PO_MARKUP_RATE = 0.1
 
 const store = useVOStore()
 
@@ -280,6 +405,7 @@ const lastSyncedAt = ref(null)
 const syncMessage = ref(null)
 const searchText = ref('')
 const expandedJobs = ref({})
+const selectedEntryIdsByJob = ref({})
 const categoryOptions = ref([])
 const supplierOptions = ref([])
 
@@ -295,8 +421,28 @@ const entryForm = ref({
   comment: '',
 })
 
+const entryMarkedUpAmount = computed(() => applyPOMarkup(entryForm.value.amount))
+
 function normalize(value) {
   return String(value ?? '').trim()
+}
+
+function toAmount(value) {
+  const amount = Number(value)
+  return Number.isFinite(amount) ? amount : 0
+}
+
+function applyPOMarkup(baseAmount) {
+  const markedUp = toAmount(baseAmount) * (1 + PO_MARKUP_RATE)
+  return Math.round((markedUp + Number.EPSILON) * 100) / 100
+}
+
+function normalizeCategory(value) {
+  return normalize(value) || UNASSIGNED_CATEGORY
+}
+
+function isThirdPartyVO(vo) {
+  return normalize(vo?.voCategory).toLowerCase() === THIRD_PARTY_CATEGORY_KEY
 }
 
 function makeJobKey({ siteId, siteName, jobNumber }) {
@@ -309,12 +455,21 @@ function makeId() {
 }
 
 function sanitizeEntry(rawEntry) {
+  const legacyAmount = toAmount(rawEntry?.amount)
+  const rawAmount = rawEntry?.rawAmount !== undefined && rawEntry?.rawAmount !== null && rawEntry?.rawAmount !== ''
+    ? toAmount(rawEntry.rawAmount)
+    : legacyAmount
+  const alreadyMarkedUp = rawEntry?.markupApplied === true
+  const finalAmount = alreadyMarkedUp ? legacyAmount : applyPOMarkup(rawAmount)
+
   return {
     id: normalize(rawEntry?.id) || makeId(),
     poNumber: normalize(rawEntry?.poNumber),
     supplier: normalize(rawEntry?.supplier),
     category: normalize(rawEntry?.category),
-    amount: Number(rawEntry?.amount || 0),
+    rawAmount,
+    amount: finalAmount,
+    markupApplied: true,
     comment: normalize(rawEntry?.comment),
     createdAt: rawEntry?.createdAt || new Date().toISOString(),
     updatedAt: rawEntry?.updatedAt || rawEntry?.createdAt || new Date().toISOString(),
@@ -367,12 +522,22 @@ function sanitizeJob(rawJob) {
   const siteId = normalize(rawJob?.siteId)
   const siteName = normalize(rawJob?.siteName)
   const jobNumber = normalize(rawJob?.jobNumber)
+  const categorySummaryComments = {}
+  const rawComments = rawJob?.categorySummaryComments && typeof rawJob.categorySummaryComments === 'object'
+    ? rawJob.categorySummaryComments
+    : {}
+  for (const [key, value] of Object.entries(rawComments)) {
+    const k = normalize(key)
+    const v = normalize(value)
+    if (k && v) categorySummaryComments[k] = v
+  }
   return {
     key: makeJobKey({ siteId, siteName, jobNumber }),
     siteId,
     siteName,
     jobNumber,
     entries: Array.isArray(rawJob?.entries) ? rawJob.entries.map(sanitizeEntry) : [],
+    categorySummaryComments,
     createdAt: rawJob?.createdAt || new Date().toISOString(),
     updatedAt: rawJob?.updatedAt || rawJob?.createdAt || new Date().toISOString(),
   }
@@ -474,18 +639,52 @@ const filteredJobs = computed(() => {
       job.siteName.toLowerCase().includes(q) ||
       job.jobNumber.toLowerCase().includes(q)
     if (jobHit) return true
-    return job.entries.some(entry =>
+    if (job.entries.some(entry =>
       entry.poNumber.toLowerCase().includes(q) ||
       entry.supplier.toLowerCase().includes(q) ||
       (entry.category || '').toLowerCase().includes(q) ||
       entry.comment.toLowerCase().includes(q)
-    )
+    )) return true
+    return jobCategoryComparisons(job).some(row => row.category.toLowerCase().includes(q))
   })
 })
 
 const totalEntries = computed(() => jobs.value.reduce((sum, job) => sum + job.entries.length, 0))
-const totalAmount = computed(() => jobs.value.reduce((sum, job) => sum + job.entries.reduce((jobSum, entry) => jobSum + Number(entry.amount || 0), 0), 0))
+const totalAmount = computed(() => jobs.value.reduce((sum, job) => sum + job.entries.reduce((jobSum, entry) => jobSum + toAmount(entry.amount), 0), 0))
 const jobsWithEntries = computed(() => jobs.value.filter(job => job.entries.length > 0).length)
+
+const thirdPartyVOSummaryByJob = computed(() => {
+  const summary = new Map()
+  for (const vo of (store.vos.value || [])) {
+    if (!isThirdPartyVO(vo)) continue
+    const key = makeJobKey({
+      siteId: normalize(vo.siteId),
+      siteName: normalize(vo.siteName),
+      jobNumber: normalize(vo.jobNumber),
+    })
+    const voAmount = toAmount(vo.voAmount)
+    const category = normalizeCategory(vo.poSupplierCategory)
+    if (!summary.has(key)) {
+      summary.set(key, { total: 0, byCategory: {} })
+    }
+    const jobSummary = summary.get(key)
+    jobSummary.total += voAmount
+    jobSummary.byCategory[category] = (jobSummary.byCategory[category] || 0) + voAmount
+  }
+  return summary
+})
+
+const totalThirdPartyVOAmount = computed(() =>
+  [...thirdPartyVOSummaryByJob.value.values()].reduce((sum, item) => sum + item.total, 0)
+)
+
+const totalCriticalGap = computed(() =>
+  jobs.value.reduce((sum, job) => sum + jobCriticalGap(job), 0)
+)
+
+const criticalJobsCount = computed(() =>
+  jobs.value.filter(job => jobCriticalGap(job) > 0).length
+)
 
 const entryContext = computed(() => jobs.value.find(job => job.key === entryJobKey.value) || {
   siteId: '',
@@ -494,7 +693,147 @@ const entryContext = computed(() => jobs.value.find(job => job.key === entryJobK
 })
 
 function jobTotal(job) {
-  return job.entries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0)
+  return job.entries.reduce((sum, entry) => sum + toAmount(entry.amount), 0)
+}
+
+function jobThirdPartyVOSummary(job) {
+  return thirdPartyVOSummaryByJob.value.get(job.key) || { total: 0, byCategory: {} }
+}
+
+function jobVOThirdPartyTotal(job) {
+  return jobThirdPartyVOSummary(job).total
+}
+
+function calculateCriticalGap(supplierAmount, voAmount) {
+  const diff = toAmount(supplierAmount) - toAmount(voAmount)
+  return diff > 0 ? diff : 0
+}
+
+function jobCriticalGap(job) {
+  return jobCategoryComparisons(job).reduce((sum, row) => sum + rowCriticalGap(row), 0)
+}
+
+function rowCriticalGap(row) {
+  return calculateCriticalGap(row.supplierAmount, row.voAmount)
+}
+
+function criticalGapTextClass(amount) {
+  return amount > 0 ? 'text-red-700' : 'text-gray-400'
+}
+
+function criticalGapPanelClass(amount) {
+  if (amount > 0) return 'border-red-200 bg-red-50 text-red-700'
+  return 'border-green-200 bg-green-50 text-green-700'
+}
+
+function criticalGapCardClass(amount) {
+  if (amount > 0) return 'border-red-200 bg-red-50 text-red-700'
+  return 'border-green-200 bg-green-50 text-green-700'
+}
+
+function supplierTotalsByCategory(job) {
+  const totals = {}
+  for (const entry of (job.entries || [])) {
+    const category = normalizeCategory(entry.category)
+    totals[category] = (totals[category] || 0) + toAmount(entry.amount)
+  }
+  return totals
+}
+
+function jobCategoryComparisons(job) {
+  const voByCategory = jobThirdPartyVOSummary(job).byCategory || {}
+  const supplierByCategory = supplierTotalsByCategory(job)
+  const categories = new Set([
+    ...Object.keys(voByCategory),
+    ...Object.keys(supplierByCategory),
+  ])
+  return [...categories]
+    .sort((a, b) => a.localeCompare(b))
+    .map(category => {
+      const voAmount = toAmount(voByCategory[category])
+      const supplierAmount = toAmount(supplierByCategory[category])
+      return {
+        category,
+        voAmount,
+        supplierAmount,
+        variance: supplierAmount - voAmount,
+      }
+    })
+}
+
+function getCategorySummaryComment(job, category) {
+  const key = normalizeCategory(category)
+  return normalize(job?.categorySummaryComments?.[key] || '')
+}
+
+function setCategorySummaryComment(jobKey, category, value) {
+  const jobIdx = jobs.value.findIndex(job => job.key === jobKey)
+  if (jobIdx === -1) return
+
+  const key = normalizeCategory(category)
+  const nextComment = normalize(value)
+  const job = jobs.value[jobIdx]
+  const nextComments = { ...(job.categorySummaryComments || {}) }
+
+  if (nextComment) nextComments[key] = nextComment
+  else delete nextComments[key]
+
+  job.categorySummaryComments = nextComments
+  job.updatedAt = new Date().toISOString()
+  jobs.value = [...jobs.value]
+  saveStorage()
+}
+
+function getSelectedEntryIds(jobKey) {
+  return selectedEntryIdsByJob.value[jobKey] || []
+}
+
+function selectedEntriesForJob(job) {
+  const selectedIds = new Set(getSelectedEntryIds(job.key))
+  return (job.entries || []).filter(entry => selectedIds.has(entry.id))
+}
+
+function selectedEntryCount(job) {
+  return selectedEntriesForJob(job).length
+}
+
+function selectedEntrySubtotal(job) {
+  return selectedEntriesForJob(job).reduce((sum, entry) => sum + toAmount(entry.amount), 0)
+}
+
+function isEntrySelected(jobKey, entryId) {
+  return getSelectedEntryIds(jobKey).includes(entryId)
+}
+
+function toggleEntrySelection(jobKey, entryId) {
+  const selected = new Set(getSelectedEntryIds(jobKey))
+  if (selected.has(entryId)) selected.delete(entryId)
+  else selected.add(entryId)
+  selectedEntryIdsByJob.value = { ...selectedEntryIdsByJob.value, [jobKey]: [...selected] }
+}
+
+function clearSelectedEntriesForJob(jobKey) {
+  if (!(jobKey in selectedEntryIdsByJob.value)) return
+  const next = { ...selectedEntryIdsByJob.value }
+  delete next[jobKey]
+  selectedEntryIdsByJob.value = next
+}
+
+function selectAllEntriesForJob(job) {
+  selectedEntryIdsByJob.value = {
+    ...selectedEntryIdsByJob.value,
+    [job.key]: (job.entries || []).map(entry => entry.id),
+  }
+}
+
+function areAllEntriesSelected(job) {
+  const entries = job.entries || []
+  return entries.length > 0 && selectedEntryCount(job) === entries.length
+}
+
+function toggleSelectAllEntriesForJob(job) {
+  if (areAllEntriesSelected(job)) clearSelectedEntriesForJob(job.key)
+  else selectAllEntriesForJob(job)
 }
 
 function toggleExpanded(key) {
@@ -526,7 +865,7 @@ function openEntryModal(job, entry = null) {
       poNumber: entry.poNumber,
       supplier: entry.supplier,
       category: entry.category || '',
-      amount: Number(entry.amount || 0),
+      amount: Number(entry.rawAmount ?? entry.amount ?? 0),
       comment: entry.comment || '',
     }
   } else {
@@ -548,7 +887,8 @@ function saveEntry() {
   const poNumber = normalize(entryForm.value.poNumber)
   const supplier = normalize(entryForm.value.supplier)
   const category = normalize(entryForm.value.category)
-  const amount = Number(entryForm.value.amount || 0)
+  const baseAmount = Number(entryForm.value.amount || 0)
+  const markedUpAmount = applyPOMarkup(baseAmount)
   const comment = normalize(entryForm.value.comment)
 
   if (!poNumber || !supplier) {
@@ -569,7 +909,7 @@ function saveEntry() {
       : 'Category must be selected from Admin > PO Supplier Categories.'
     return
   }
-  if (!Number.isFinite(amount) || amount < 0) {
+  if (!Number.isFinite(baseAmount) || baseAmount < 0) {
     modalError.value = 'Amount must be a valid number (0 or more).'
     return
   }
@@ -586,7 +926,17 @@ function saveEntry() {
   if (editingEntryId.value) {
     job.entries = job.entries.map(entry =>
       entry.id === editingEntryId.value
-        ? { ...entry, poNumber, supplier: supplierMatch.name, category, amount, comment, updatedAt: now }
+        ? {
+            ...entry,
+            poNumber,
+            supplier: supplierMatch.name,
+            category,
+            rawAmount: baseAmount,
+            amount: markedUpAmount,
+            markupApplied: true,
+            comment,
+            updatedAt: now
+          }
         : entry
     )
   } else {
@@ -595,7 +945,9 @@ function saveEntry() {
       poNumber,
       supplier: supplierMatch.name,
       category,
-      amount,
+      rawAmount: baseAmount,
+      amount: markedUpAmount,
+      markupApplied: true,
       comment,
       createdAt: now,
       updatedAt: now,
@@ -619,6 +971,12 @@ function removeEntry(jobKey, entryId) {
 
   jobs.value[jobIdx].updatedAt = new Date().toISOString()
   jobs.value = [...jobs.value]
+  if (isEntrySelected(jobKey, entryId)) {
+    const selected = new Set(getSelectedEntryIds(jobKey))
+    selected.delete(entryId)
+    if (selected.size === 0) clearSelectedEntriesForJob(jobKey)
+    else selectedEntryIdsByJob.value = { ...selectedEntryIdsByJob.value, [jobKey]: [...selected] }
+  }
   saveStorage()
 }
 

@@ -1,11 +1,32 @@
 import { v4 as uuidv4 } from 'uuid'
 
 const DB_NAME = 'VariationTrackerDB'
-const DB_VERSION = 4
+const DB_VERSION = 5
 const STORE_NAME = 'variations'
 const ISSUE_STORE_NAME = 'issueLogs'
 
 let db = null
+
+function normalizeIssueAttachments(attachments = []) {
+  return (Array.isArray(attachments) ? attachments : [])
+    .map((attachment) => {
+      const blob = attachment?.blob instanceof Blob
+        ? attachment.blob
+        : (attachment?.file instanceof Blob ? attachment.file : null)
+
+      if (!(blob instanceof Blob)) return null
+
+      return {
+        id: attachment?.id || uuidv4(),
+        name: attachment?.name || 'Attachment',
+        type: attachment?.type || blob.type || '',
+        size: Number(attachment?.size ?? blob.size ?? 0),
+        lastModified: Number(attachment?.lastModified ?? Date.now()),
+        blob
+      }
+    })
+    .filter(Boolean)
+}
 
 /**
  * Initialize IndexedDB database
@@ -23,40 +44,49 @@ export function initDatabase() {
 
     request.onupgradeneeded = (event) => {
       const database = event.target.result
-      const oldVersion = event.oldVersion
+      const store = database.objectStoreNames.contains(STORE_NAME)
+        ? event.target.transaction.objectStore(STORE_NAME)
+        : database.createObjectStore(STORE_NAME, { keyPath: 'id' })
 
-      if (!database.objectStoreNames.contains(STORE_NAME)) {
-        // Fresh install — create store with all indexes
-        const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' })
-        store.createIndex('siteId', 'siteId', { unique: false })
-        store.createIndex('voStatus', 'voStatus', { unique: false })
-        store.createIndex('voCategory', 'voCategory', { unique: false })
-        store.createIndex('voAmount', 'voAmount', { unique: false })
-        store.createIndex('emailApprovedFromNokia', 'emailApprovedFromNokia', { unique: false })
-        store.createIndex('siteName', 'siteName', { unique: false })
-        store.createIndex('ticketNumber', 'ticketNumber', { unique: false })
-        store.createIndex('createdAt', 'createdAt', { unique: false })
-        store.createIndex('jobNumber', 'jobNumber', { unique: false })
-      } else {
-        const store = event.target.transaction.objectStore(STORE_NAME)
-        if (oldVersion < 2 && !store.indexNames.contains('jobNumber')) {
-          store.createIndex('jobNumber', 'jobNumber', { unique: false })
-        }
-        if (oldVersion < 3) {
-          if (!store.indexNames.contains('poNumber'))       store.createIndex('poNumber',       'poNumber',       { unique: false })
-          if (!store.indexNames.contains('invoiceStatus'))  store.createIndex('invoiceStatus',  'invoiceStatus',  { unique: false })
-          if (!store.indexNames.contains('invoiceDate'))    store.createIndex('invoiceDate',    'invoiceDate',    { unique: false })
-          if (!store.indexNames.contains('amountChangeFlag')) store.createIndex('amountChangeFlag', 'amountChangeFlag', { unique: false })
+      const variationIndexes = [
+        ['siteId', 'siteId'],
+        ['voStatus', 'voStatus'],
+        ['voCategory', 'voCategory'],
+        ['voAmount', 'voAmount'],
+        ['emailApprovedFromNokia', 'emailApprovedFromNokia'],
+        ['siteName', 'siteName'],
+        ['ticketNumber', 'ticketNumber'],
+        ['createdAt', 'createdAt'],
+        ['jobNumber', 'jobNumber'],
+        ['poNumber', 'poNumber'],
+        ['invoiceStatus', 'invoiceStatus'],
+        ['invoiceDate', 'invoiceDate'],
+        ['amountChangeFlag', 'amountChangeFlag'],
+        ['poSupplierCategory', 'poSupplierCategory'],
+      ]
+
+      for (const [name, keyPath] of variationIndexes) {
+        if (!store.indexNames.contains(name)) {
+          store.createIndex(name, keyPath, { unique: false })
         }
       }
 
-      if (!database.objectStoreNames.contains(ISSUE_STORE_NAME)) {
-        const issueStore = database.createObjectStore(ISSUE_STORE_NAME, { keyPath: 'id' })
-        issueStore.createIndex('siteId', 'siteId', { unique: false })
-        issueStore.createIndex('siteName', 'siteName', { unique: false })
-        issueStore.createIndex('status', 'status', { unique: false })
-        issueStore.createIndex('registerLog', 'registerLog', { unique: false })
-        issueStore.createIndex('createdAt', 'createdAt', { unique: false })
+      const issueStore = database.objectStoreNames.contains(ISSUE_STORE_NAME)
+        ? event.target.transaction.objectStore(ISSUE_STORE_NAME)
+        : database.createObjectStore(ISSUE_STORE_NAME, { keyPath: 'id' })
+
+      const issueIndexes = [
+        ['siteId', 'siteId'],
+        ['siteName', 'siteName'],
+        ['status', 'status'],
+        ['registerLog', 'registerLog'],
+        ['createdAt', 'createdAt'],
+      ]
+
+      for (const [name, keyPath] of issueIndexes) {
+        if (!issueStore.indexNames.contains(name)) {
+          issueStore.createIndex(name, keyPath, { unique: false })
+        }
       }
     }
   })
@@ -84,6 +114,7 @@ export function addVO(voData) {
       id: uuidv4(),
       ...voData,
       isDuplicate: voData.isDuplicate === true,
+      poSupplierCategory: typeof voData.poSupplierCategory === 'string' ? voData.poSupplierCategory.trim() : '',
       createdAt: new Date(),
       updatedAt: new Date()
     }
@@ -111,9 +142,15 @@ export function updateVO(id, voData) {
         return
       }
 
+      const hasPoSupplierCategory = Object.prototype.hasOwnProperty.call(voData, 'poSupplierCategory')
+      const normalizedPoSupplierCategory = hasPoSupplierCategory
+        ? (typeof voData.poSupplierCategory === 'string' ? voData.poSupplierCategory.trim() : '')
+        : (typeof vo.poSupplierCategory === 'string' ? vo.poSupplierCategory : '')
+
       const updatedVO = JSON.parse(JSON.stringify({
         ...vo,
         ...voData,
+        poSupplierCategory: normalizedPoSupplierCategory,
         id: vo.id,
         createdAt: vo.createdAt,
         updatedAt: new Date()
@@ -260,6 +297,7 @@ export function bulkInsertVOs(vos) {
         id: voData.id || uuidv4(),
         ...voData,
         isDuplicate: voData.isDuplicate === true,
+        poSupplierCategory: typeof voData.poSupplierCategory === 'string' ? voData.poSupplierCategory.trim() : '',
         createdAt: voData.createdAt || new Date(),
         updatedAt: new Date()
       }
@@ -317,6 +355,7 @@ export function addIssueLog(issueData) {
       amount: Number(issueData.amount || 0),
       status: issueData.status || 'open',
       comment: issueData.comment || '',
+      attachments: normalizeIssueAttachments(issueData.attachments),
       createdAt: issueData.createdAt || new Date(),
       updatedAt: new Date()
     }
@@ -344,11 +383,14 @@ export function updateIssueLog(id, issueData) {
         return
       }
 
+      const hasAttachments = Object.prototype.hasOwnProperty.call(issueData, 'attachments')
+
       const updatedIssue = {
         ...issue,
         ...issueData,
         id: issue.id,
         amount: Number(issueData.amount ?? issue.amount ?? 0),
+        attachments: hasAttachments ? normalizeIssueAttachments(issueData.attachments) : normalizeIssueAttachments(issue.attachments),
         createdAt: issue.createdAt,
         updatedAt: new Date()
       }
