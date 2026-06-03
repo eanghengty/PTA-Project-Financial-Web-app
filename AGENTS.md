@@ -282,7 +282,14 @@ Each job supports multiple PO breakdown rows with fields:
 - `supplier`
 - `category`
 - `amount`
+- `quotationAmount`
+- `receiptStatus`
+- `coverIn`
 - `comment`
+
+Job summary rows in the main breakdown table show derived cover totals from `coverIn`: **BOQ Cover Amount** sums PO entry amounts marked `boq`, **VO Cover Amount** sums PO entry amounts marked `vo`, and **Yet to Cover Amount** is currently a blank placeholder column.
+
+In the PO Supplier category summary table, the **3rd Party VO** amount is clickable when matching VOs exist for that job/category and opens a right-side detail drawer listing those underlying VO records.
 
 **Strict Admin-linked selectors (modal):**
 - `category` must be selected from Admin `globalData.poSupplierCategories`.

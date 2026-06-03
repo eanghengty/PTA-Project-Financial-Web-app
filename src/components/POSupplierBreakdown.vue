@@ -107,6 +107,9 @@
               <th class="px-4 py-3 text-center font-semibold">PO Entries</th>
               <th class="px-4 py-3 text-right font-semibold">3rd Party VO</th>
               <th class="px-4 py-3 text-right font-semibold">Supplier PO</th>
+              <th class="px-4 py-3 text-right font-semibold">BOQ Cover Amount</th>
+              <th class="px-4 py-3 text-right font-semibold">VO Cover Amount</th>
+              <th class="px-4 py-3 text-right font-semibold">Yet to Cover Amount</th>
               <th class="px-4 py-3 text-right font-semibold">Critical Gap</th>
               <th class="px-4 py-3 text-center font-semibold">Actions</th>
             </tr>
@@ -124,6 +127,9 @@
                 </td>
                 <td class="px-4 py-3 text-right font-semibold text-blue-700 whitespace-nowrap">{{ formatCurrency(jobVOThirdPartyTotal(job)) }}</td>
                 <td class="px-4 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(jobTotal(job)) }}</td>
+                <td class="px-4 py-3 text-right font-semibold text-emerald-700 whitespace-nowrap">{{ formatCurrency(jobBOQCoverAmount(job)) }}</td>
+                <td class="px-4 py-3 text-right font-semibold text-sky-700 whitespace-nowrap">{{ formatCurrency(jobVOCoverAmount(job)) }}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap"></td>
                 <td class="px-4 py-3 text-right whitespace-nowrap">
                   <template v-if="jobCriticalGap(job) > 0">
                     <span class="font-semibold text-red-700">{{ formatCurrency(jobCriticalGap(job)) }}</span>
@@ -148,7 +154,7 @@
               </tr>
 
               <tr v-if="expandedJobs[job.key]">
-                <td colspan="8" class="px-4 py-4 bg-gray-50">
+                <td colspan="11" class="px-4 py-4 bg-gray-50">
                   <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                     <div class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
                       <p class="text-[10px] uppercase tracking-wider text-blue-600 font-semibold">3rd Party VO</p>
@@ -168,17 +174,48 @@
                     <table class="min-w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
                       <thead class="bg-blue-50 text-blue-700 uppercase tracking-wider">
                         <tr>
-                          <th class="px-3 py-2 text-left font-semibold">PO Supplier Category</th>
-                          <th class="px-3 py-2 text-right font-semibold">3rd Party VO</th>
-                          <th class="px-3 py-2 text-right font-semibold">Supplier PO</th>
-                          <th class="px-3 py-2 text-right font-semibold">Critical Gap</th>
-                          <th class="px-3 py-2 text-left font-semibold">Summary Comment</th>
+                          <th class="px-3 py-2 text-left font-semibold">
+                            <button type="button" @click="toggleCategorySort(job.key, 'category')" class="inline-flex items-center hover:text-blue-900">
+                              <span>PO Supplier Category</span>
+                            </button>
+                          </th>
+                          <th class="px-3 py-2 text-right font-semibold">
+                            <button type="button" @click="toggleCategorySort(job.key, 'voAmount')" class="inline-flex items-center hover:text-blue-900">
+                              <span>3rd Party VO</span>
+                            </button>
+                          </th>
+                          <th class="px-3 py-2 text-right font-semibold">
+                            <button type="button" @click="toggleCategorySort(job.key, 'supplierAmount')" class="inline-flex items-center hover:text-blue-900">
+                              <span>Supplier PO</span>
+                            </button>
+                          </th>
+                          <th class="px-3 py-2 text-right font-semibold">
+                            <button type="button" @click="toggleCategorySort(job.key, 'criticalGap')" class="inline-flex items-center hover:text-blue-900">
+                              <span>Critical Gap</span>
+                            </button>
+                          </th>
+                          <th class="px-3 py-2 text-left font-semibold">
+                            <button type="button" @click="toggleCategorySort(job.key, 'summaryComment')" class="inline-flex items-center hover:text-blue-900">
+                              <span>Summary Comment</span>
+                            </button>
+                          </th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-200 bg-white">
-                        <tr v-for="row in jobCategoryComparisons(job)" :key="`${job.key}-${row.category}`" class="hover:bg-gray-50">
+                        <tr v-for="row in paginatedCategoryRows(job)" :key="`${job.key}-${row.category}`" class="hover:bg-gray-50">
                           <td class="px-3 py-2 text-gray-800">{{ row.category }}</td>
-                          <td class="px-3 py-2 text-right font-semibold text-blue-700 whitespace-nowrap">{{ formatCurrency(row.voAmount) }}</td>
+                          <td class="px-3 py-2 text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              @click="openCategoryVODetail(job, row)"
+                              :disabled="row.voItems.length === 0"
+                              class="rounded-md px-2 py-1 font-semibold transition"
+                              :class="row.voItems.length > 0 ? 'text-blue-700 hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 cursor-pointer' : 'text-gray-300 cursor-default'"
+                              :title="row.voItems.length > 0 ? 'Click to view 3rd Party VO detail' : ''"
+                            >
+                              {{ row.voAmount > 0 ? formatCurrency(row.voAmount) : '-' }}
+                            </button>
+                          </td>
                           <td class="px-3 py-2 text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(row.supplierAmount) }}</td>
                           <td class="px-3 py-2 text-right whitespace-nowrap">
                             <span
@@ -200,6 +237,30 @@
                         </tr>
                       </tbody>
                     </table>
+                    <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-500">
+                      <span>
+                        Showing {{ categoryRangeLabel(job) }} of {{ sortedCategoryRows(job).length }} categor{{ sortedCategoryRows(job).length === 1 ? 'y' : 'ies' }}
+                      </span>
+                      <div class="flex items-center gap-2">
+                        <button
+                          type="button"
+                          @click="changeCategoryPage(job, -1)"
+                          :disabled="categoryPage(job) === 1"
+                          class="px-2.5 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Prev
+                        </button>
+                        <span>Page {{ categoryPage(job) }} / {{ categoryTotalPages(job) }}</span>
+                        <button
+                          type="button"
+                          @click="changeCategoryPage(job, 1)"
+                          :disabled="categoryPage(job) === categoryTotalPages(job)"
+                          class="px-2.5 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <div v-if="job.entries.length === 0" class="text-xs text-gray-500">
@@ -243,17 +304,61 @@
                                 title="Select all rows"
                               />
                             </th>
-                            <th class="px-3 py-2 text-left font-semibold">PO Number</th>
-                            <th class="px-3 py-2 text-left font-semibold">Supplier</th>
-                            <th class="px-3 py-2 text-left font-semibold">Category</th>
-                            <th class="px-3 py-2 text-right font-semibold">Amount</th>
-                            <th class="px-3 py-2 text-left font-semibold">Comment</th>
-                            <th class="px-3 py-2 text-left font-semibold">Updated</th>
+                            <th class="px-3 py-2 text-left font-semibold">
+                              <button type="button" @click="toggleEntrySort(job.key, 'poNumber')" class="inline-flex items-center hover:text-gray-900">
+                                <span>PO Number</span>
+                              </button>
+                            </th>
+                            <th class="px-3 py-2 text-left font-semibold">
+                              <button type="button" @click="toggleEntrySort(job.key, 'supplier')" class="inline-flex items-center hover:text-gray-900">
+                                <span>Supplier</span>
+                              </button>
+                            </th>
+                            <th class="px-3 py-2 text-left font-semibold">
+                              <button type="button" @click="toggleEntrySort(job.key, 'category')" class="inline-flex items-center hover:text-gray-900">
+                                <span>Category</span>
+                              </button>
+                            </th>
+                            <th class="px-3 py-2 text-right font-semibold">
+                              <button type="button" @click="toggleEntrySort(job.key, 'amount')" class="inline-flex items-center hover:text-gray-900">
+                                <span>Amount</span>
+                              </button>
+                            </th>
+                            <th class="px-3 py-2 text-right font-semibold">
+                              <button type="button" @click="toggleEntrySort(job.key, 'quotationAmount')" class="inline-flex items-center hover:text-gray-900">
+                                <span>Quotation Amount</span>
+                              </button>
+                            </th>
+                            <th class="px-3 py-2 text-right font-semibold">
+                              <button type="button" @click="toggleEntrySort(job.key, 'coverage')" class="inline-flex items-center hover:text-gray-900">
+                                <span>Coverage</span>
+                              </button>
+                            </th>
+                            <th class="px-3 py-2 text-left font-semibold">
+                              <button type="button" @click="toggleEntrySort(job.key, 'receiptStatus')" class="inline-flex items-center hover:text-gray-900">
+                                <span>Receipt Status</span>
+                              </button>
+                            </th>
+                            <th class="px-3 py-2 text-left font-semibold">
+                              <button type="button" @click="toggleEntrySort(job.key, 'coverIn')" class="inline-flex items-center hover:text-gray-900">
+                                <span>Cover In?</span>
+                              </button>
+                            </th>
+                            <th class="px-3 py-2 text-left font-semibold">
+                              <button type="button" @click="toggleEntrySort(job.key, 'comment')" class="inline-flex items-center hover:text-gray-900">
+                                <span>Comment</span>
+                              </button>
+                            </th>
+                            <th class="px-3 py-2 text-left font-semibold">
+                              <button type="button" @click="toggleEntrySort(job.key, 'updatedAt')" class="inline-flex items-center hover:text-gray-900">
+                                <span>Updated</span>
+                              </button>
+                            </th>
                             <th class="px-3 py-2 text-center font-semibold w-32">Actions</th>
                           </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
-                          <tr v-for="entry in job.entries" :key="entry.id" class="hover:bg-gray-50">
+                          <tr v-for="entry in paginatedEntries(job)" :key="entry.id" class="hover:bg-gray-50">
                             <td class="px-3 py-2 text-center">
                               <input
                                 type="checkbox"
@@ -266,6 +371,44 @@
                             <td class="px-3 py-2 text-gray-800 whitespace-nowrap">{{ entry.supplier }}</td>
                             <td class="px-3 py-2 text-gray-700 whitespace-nowrap">{{ entry.category || '-' }}</td>
                             <td class="px-3 py-2 text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(entry.amount) }}</td>
+                            <td class="px-3 py-2 min-w-[140px]">
+                              <input
+                                :value="entry.quotationAmount ?? ''"
+                                @change="updateEntryAmountField(job.key, entry.id, 'quotationAmount', $event.target.value)"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                class="w-full px-2 py-1 border border-gray-300 rounded-md bg-white text-right text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </td>
+                            <td class="px-3 py-2 text-right font-semibold whitespace-nowrap" :class="coverageTextClass(getEntryCoverage(entry))">
+                              {{ formatCoverage(getEntryCoverage(entry)) }}
+                            </td>
+                            <td class="px-3 py-2 min-w-[130px]">
+                              <select
+                                :value="entry.receiptStatus"
+                                @change="updateEntryField(job.key, entry.id, 'receiptStatus', $event.target.value)"
+                                class="w-full px-2 py-1 border border-gray-300 rounded-md bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">-</option>
+                                <option v-for="option in receiptStatusOptions" :key="option" :value="option">
+                                  {{ formatOptionLabel(option) }}
+                                </option>
+                              </select>
+                            </td>
+                            <td class="px-3 py-2 min-w-[120px]">
+                              <select
+                                :value="entry.coverIn"
+                                @change="updateEntryField(job.key, entry.id, 'coverIn', $event.target.value)"
+                                class="w-full px-2 py-1 border border-gray-300 rounded-md bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">-</option>
+                                <option v-for="option in coverInOptions" :key="option" :value="option">
+                                  {{ formatOptionLabel(option) }}
+                                </option>
+                              </select>
+                            </td>
                             <td class="px-3 py-2 text-gray-600 max-w-sm">
                               <div class="truncate" :title="entry.comment || ''">{{ entry.comment || '-' }}</div>
                             </td>
@@ -277,6 +420,30 @@
                           </tr>
                         </tbody>
                       </table>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-gray-500">
+                      <span>
+                        Showing {{ entryRangeLabel(job) }} of {{ sortedEntries(job).length }} PO entr{{ sortedEntries(job).length === 1 ? 'y' : 'ies' }}
+                      </span>
+                      <div class="flex items-center gap-2">
+                        <button
+                          type="button"
+                          @click="changeEntryPage(job, -1)"
+                          :disabled="entryPage(job) === 1"
+                          class="px-2.5 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Prev
+                        </button>
+                        <span>Page {{ entryPage(job) }} / {{ entryTotalPages(job) }}</span>
+                        <button
+                          type="button"
+                          @click="changeEntryPage(job, 1)"
+                          :disabled="entryPage(job) === entryTotalPages(job)"
+                          class="px-2.5 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </td>
@@ -343,6 +510,41 @@
               </select>
               <p class="text-[11px] text-gray-400 mt-1">Categories come from Admin > PO Supplier Categories.</p>
             </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Receipt Status</label>
+              <select
+                v-model="entryForm.receiptStatus"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">Select receipt status...</option>
+                <option v-for="option in receiptStatusOptions" :key="option" :value="option">
+                  {{ formatOptionLabel(option) }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Cover In?</label>
+              <select
+                v-model="entryForm.coverIn"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">Blank</option>
+                <option v-for="option in coverInOptions" :key="option" :value="option">
+                  {{ formatOptionLabel(option) }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Quotation Amount</label>
+              <input
+                v-model="entryForm.quotationAmount"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
 
           <div>
@@ -357,6 +559,9 @@
             />
             <p class="text-[11px] text-gray-400 mt-1">
               PO amount with 10% markup: <span class="font-semibold text-teal-700">{{ formatCurrency(entryMarkedUpAmount) }}</span>
+            </p>
+            <p class="text-[11px] text-gray-400 mt-1">
+              Coverage: <span class="font-semibold" :class="coverageTextClass(entryCoveragePreview)">{{ formatCoverage(entryCoveragePreview) }}</span>
             </p>
           </div>
 
@@ -385,6 +590,83 @@
         </form>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div v-if="categoryVODetailDrawer" class="fixed inset-0 z-50 flex">
+        <div class="absolute inset-0 bg-slate-900/40" @click="closeCategoryVODetail"></div>
+        <div class="relative ml-auto flex h-full w-full max-w-4xl flex-col bg-white shadow-2xl">
+          <div class="border-b border-blue-200 bg-blue-700 px-6 py-4 shrink-0">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <h3 class="text-base font-bold text-white">3rd Party VO Detail</h3>
+                <p class="mt-0.5 text-xs text-blue-100">
+                  {{ categoryVODetailDrawer.job.siteId || '-' }} · {{ categoryVODetailDrawer.job.siteName || '-' }} · Job {{ categoryVODetailDrawer.job.jobNumber || '-' }}
+                </p>
+                <p class="mt-1 text-xs font-semibold uppercase tracking-wider text-white/80">
+                  PO Supplier Category: {{ categoryVODetailDrawer.row.category }}
+                </p>
+              </div>
+              <button
+                type="button"
+                @click="closeCategoryVODetail"
+                class="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15 text-white transition hover:bg-white/25"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 border-b border-gray-200 bg-blue-50 px-6 py-3 shrink-0">
+            <div class="rounded-xl border border-blue-100 bg-white px-3 py-1.5">
+              <div class="text-[11px] uppercase tracking-wider text-gray-500">Items</div>
+              <div class="text-sm font-bold text-gray-900">{{ categoryVODetailDrawer.items.length }}</div>
+            </div>
+            <div class="rounded-xl border border-blue-100 bg-white px-3 py-1.5">
+              <div class="text-[11px] uppercase tracking-wider text-gray-500">Total</div>
+              <div class="text-sm font-bold text-blue-700">{{ formatCurrency(categoryVODetailDrawer.total) }}</div>
+            </div>
+          </div>
+
+          <div class="flex-1 overflow-auto">
+            <table class="min-w-full text-sm">
+              <thead class="sticky top-0 z-10 bg-gray-100 text-xs uppercase tracking-wider text-gray-600">
+                <tr>
+                  <th class="px-5 py-3 text-left font-bold">Description</th>
+                  <th class="px-4 py-3 text-left font-bold whitespace-nowrap">Scope</th>
+                  <th class="px-4 py-3 text-left font-bold whitespace-nowrap">VO Status</th>
+                  <th class="px-4 py-3 text-left font-bold whitespace-nowrap">PO Number</th>
+                  <th class="px-4 py-3 text-left font-bold whitespace-nowrap">Ticket Number</th>
+                  <th class="px-4 py-3 text-left font-bold whitespace-nowrap">Invoice Status</th>
+                  <th class="px-4 py-3 text-right font-bold whitespace-nowrap">VO Amount</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 bg-white">
+                <tr v-for="vo in categoryVODetailDrawer.items" :key="vo.id" class="hover:bg-blue-50/40 transition">
+                  <td class="px-5 py-3">
+                    <div class="max-w-md truncate font-medium text-gray-800" :title="vo.voDescription || ''">{{ vo.voDescription || '-' }}</div>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.scope || '-' }}</td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                      {{ vo.voStatus || '-' }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap">
+                    <span v-if="vo.poNumber" class="rounded bg-teal-50 px-2 py-0.5 font-mono text-xs text-teal-700">{{ vo.poNumber }}</span>
+                    <span v-else class="text-gray-300">-</span>
+                  </td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.ticketNumber || '-' }}</td>
+                  <td class="px-4 py-3 whitespace-nowrap text-gray-600">{{ vo.invoiceStatus || '-' }}</td>
+                  <td class="px-4 py-3 text-right font-semibold whitespace-nowrap text-blue-700">{{ formatCurrency(vo.voAmount) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -397,6 +679,11 @@ const STORAGE_KEY = 'poSupplierBreakdownData'
 const THIRD_PARTY_CATEGORY_KEY = 'third party'
 const UNASSIGNED_CATEGORY = 'Unassigned'
 const PO_MARKUP_RATE = 0.1
+const TABLE_PAGE_SIZE = 15
+const DEFAULT_CATEGORY_SORT = { key: 'category', direction: 'asc' }
+const DEFAULT_ENTRY_SORT = { key: 'updatedAt', direction: 'desc' }
+const RECEIPT_STATUS_OPTIONS = ['yes', 'no']
+const COVER_IN_OPTIONS = ['boq', 'vo']
 
 const store = useVOStore()
 
@@ -406,8 +693,15 @@ const syncMessage = ref(null)
 const searchText = ref('')
 const expandedJobs = ref({})
 const selectedEntryIdsByJob = ref({})
+const categoryPageByJob = ref({})
+const entryPageByJob = ref({})
+const categorySortByJob = ref({})
+const entrySortByJob = ref({})
+const categoryVODetailDrawer = ref(null)
 const categoryOptions = ref([])
 const supplierOptions = ref([])
+const receiptStatusOptions = RECEIPT_STATUS_OPTIONS
+const coverInOptions = COVER_IN_OPTIONS
 
 const showEntryModal = ref(false)
 const editingEntryId = ref(null)
@@ -418,10 +712,14 @@ const entryForm = ref({
   supplier: '',
   category: '',
   amount: 0,
+  receiptStatus: 'no',
+  coverIn: '',
+  quotationAmount: '',
   comment: '',
 })
 
 const entryMarkedUpAmount = computed(() => applyPOMarkup(entryForm.value.amount))
+const entryCoveragePreview = computed(() => calculateCoverage(parseOptionalAmount(entryForm.value.quotationAmount), entryMarkedUpAmount.value))
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -470,10 +768,58 @@ function sanitizeEntry(rawEntry) {
     rawAmount,
     amount: finalAmount,
     markupApplied: true,
+    receiptStatus: normalizeReceiptStatus(rawEntry?.receiptStatus),
+    coverIn: normalizeCoverIn(rawEntry?.coverIn),
+    quotationAmount: parseOptionalAmount(rawEntry?.quotationAmount),
     comment: normalize(rawEntry?.comment),
     createdAt: rawEntry?.createdAt || new Date().toISOString(),
     updatedAt: rawEntry?.updatedAt || rawEntry?.createdAt || new Date().toISOString(),
   }
+}
+
+function parseOptionalAmount(value) {
+  if (value === '' || value === null || value === undefined) return null
+  const amount = Number(value)
+  return Number.isFinite(amount) ? amount : null
+}
+
+function calculateCoverage(quotationAmount, supplierAmount) {
+  if (quotationAmount === null) return null
+  return Math.round(((quotationAmount - toAmount(supplierAmount)) + Number.EPSILON) * 100) / 100
+}
+
+function getEntryCoverage(entry) {
+  return calculateCoverage(parseOptionalAmount(entry?.quotationAmount), entry?.amount)
+}
+
+function normalizeReceiptStatus(value) {
+  const normalized = normalize(value).toLowerCase()
+  return RECEIPT_STATUS_OPTIONS.includes(normalized) ? normalized : ''
+}
+
+function normalizeCoverIn(value) {
+  const normalized = normalize(value).toLowerCase()
+  return COVER_IN_OPTIONS.includes(normalized) ? normalized : ''
+}
+
+function formatOptionLabel(value) {
+  const normalized = normalize(value).toLowerCase()
+  if (normalized === 'boq') return 'BOQ'
+  if (normalized === 'vo') return 'VO'
+  if (normalized === 'yes') return 'Yes'
+  if (normalized === 'no') return 'No'
+  return value
+}
+
+function formatCoverage(value) {
+  return value === null ? '-' : formatCurrency(value)
+}
+
+function coverageTextClass(value) {
+  if (value === null) return 'text-gray-400'
+  if (value < 0) return 'text-red-700'
+  if (value > 0) return 'text-green-700'
+  return 'text-gray-700'
 }
 
 function loadCategoryOptions() {
@@ -571,6 +917,63 @@ function sortJobs(a, b) {
   return (a.jobNumber || '').localeCompare(b.jobNumber || '')
 }
 
+function getSortState(mapRef, jobKey, defaults) {
+  return mapRef.value[jobKey] || defaults
+}
+
+function compareValues(left, right, direction = 'asc') {
+  let result = 0
+
+  if (typeof left === 'number' && typeof right === 'number') {
+    result = left - right
+  } else {
+    result = String(left ?? '').localeCompare(String(right ?? ''), undefined, { numeric: true, sensitivity: 'base' })
+  }
+
+  if (result === 0) return 0
+  return direction === 'desc' ? -result : result
+}
+
+function getTotalPages(totalItems) {
+  return Math.max(1, Math.ceil(totalItems / TABLE_PAGE_SIZE))
+}
+
+function getPage(mapRef, jobKey, totalItems) {
+  const requestedPage = Number(mapRef.value[jobKey] || 1)
+  return Math.min(Math.max(requestedPage, 1), getTotalPages(totalItems))
+}
+
+function getRangeLabel(page, totalItems) {
+  if (totalItems === 0) return '0-0'
+  const start = (page - 1) * TABLE_PAGE_SIZE + 1
+  const end = Math.min(page * TABLE_PAGE_SIZE, totalItems)
+  return `${start}-${end}`
+}
+
+function setPage(mapRef, jobKey, nextPage, totalItems) {
+  const totalPages = getTotalPages(totalItems)
+  mapRef.value = {
+    ...mapRef.value,
+    [jobKey]: Math.min(Math.max(nextPage, 1), totalPages),
+  }
+}
+
+function toggleSort(mapRef, pageRef, jobKey, key, defaults) {
+  const current = getSortState(mapRef, jobKey, defaults)
+  const nextDirection = current.key === key
+    ? (current.direction === 'asc' ? 'desc' : 'asc')
+    : (key === 'updatedAt' ? 'desc' : 'asc')
+
+  mapRef.value = {
+    ...mapRef.value,
+    [jobKey]: { key, direction: nextDirection },
+  }
+  pageRef.value = {
+    ...pageRef.value,
+    [jobKey]: 1,
+  }
+}
+
 function syncJobsFromVariations() {
   const incoming = new Map()
 
@@ -643,6 +1046,10 @@ const filteredJobs = computed(() => {
       entry.poNumber.toLowerCase().includes(q) ||
       entry.supplier.toLowerCase().includes(q) ||
       (entry.category || '').toLowerCase().includes(q) ||
+      String(entry.quotationAmount ?? '').toLowerCase().includes(q) ||
+      (entry.receiptStatus || '').toLowerCase().includes(q) ||
+      (entry.coverIn || '').toLowerCase().includes(q) ||
+      String(getEntryCoverage(entry) ?? '').toLowerCase().includes(q) ||
       entry.comment.toLowerCase().includes(q)
     )) return true
     return jobCategoryComparisons(job).some(row => row.category.toLowerCase().includes(q))
@@ -665,11 +1072,13 @@ const thirdPartyVOSummaryByJob = computed(() => {
     const voAmount = toAmount(vo.voAmount)
     const category = normalizeCategory(vo.poSupplierCategory)
     if (!summary.has(key)) {
-      summary.set(key, { total: 0, byCategory: {} })
+      summary.set(key, { total: 0, byCategory: {}, itemsByCategory: {} })
     }
     const jobSummary = summary.get(key)
     jobSummary.total += voAmount
     jobSummary.byCategory[category] = (jobSummary.byCategory[category] || 0) + voAmount
+    if (!jobSummary.itemsByCategory[category]) jobSummary.itemsByCategory[category] = []
+    jobSummary.itemsByCategory[category].push(vo)
   }
   return summary
 })
@@ -702,6 +1111,26 @@ function jobThirdPartyVOSummary(job) {
 
 function jobVOThirdPartyTotal(job) {
   return jobThirdPartyVOSummary(job).total
+}
+
+function jobVOCategoryItems(job, category) {
+  const key = normalizeCategory(category)
+  return jobThirdPartyVOSummary(job).itemsByCategory?.[key] || []
+}
+
+function jobCoverAmount(job, coverIn) {
+  return (job.entries || []).reduce(
+    (sum, entry) => sum + (normalizeCoverIn(entry.coverIn) === coverIn ? toAmount(entry.amount) : 0),
+    0
+  )
+}
+
+function jobBOQCoverAmount(job) {
+  return jobCoverAmount(job, 'boq')
+}
+
+function jobVOCoverAmount(job) {
+  return jobCoverAmount(job, 'vo')
 }
 
 function calculateCriticalGap(supplierAmount, voAmount) {
@@ -755,10 +1184,75 @@ function jobCategoryComparisons(job) {
       return {
         category,
         voAmount,
+        voItems: jobVOCategoryItems(job, category),
         supplierAmount,
         variance: supplierAmount - voAmount,
       }
     })
+}
+
+function openCategoryVODetail(job, row) {
+  const items = row?.voItems || []
+  if (!items.length) return
+  categoryVODetailDrawer.value = {
+    job,
+    row,
+    items,
+    total: items.reduce((sum, vo) => sum + toAmount(vo.voAmount), 0),
+  }
+}
+
+function closeCategoryVODetail() {
+  categoryVODetailDrawer.value = null
+}
+
+function getCategorySort(jobKey) {
+  return getSortState(categorySortByJob, jobKey, DEFAULT_CATEGORY_SORT)
+}
+
+function toggleCategorySort(jobKey, key) {
+  toggleSort(categorySortByJob, categoryPageByJob, jobKey, key, DEFAULT_CATEGORY_SORT)
+}
+
+function getCategorySortValue(job, row, key) {
+  if (key === 'criticalGap') return rowCriticalGap(row)
+  if (key === 'summaryComment') return getCategorySummaryComment(job, row.category)
+  return row[key]
+}
+
+function sortedCategoryRows(job) {
+  const sortState = getCategorySort(job.key)
+  return [...jobCategoryComparisons(job)].sort((a, b) =>
+    compareValues(
+      getCategorySortValue(job, a, sortState.key),
+      getCategorySortValue(job, b, sortState.key),
+      sortState.direction
+    )
+  )
+}
+
+function categoryTotalPages(job) {
+  return getTotalPages(sortedCategoryRows(job).length)
+}
+
+function categoryPage(job) {
+  return getPage(categoryPageByJob, job.key, sortedCategoryRows(job).length)
+}
+
+function paginatedCategoryRows(job) {
+  const rows = sortedCategoryRows(job)
+  const page = categoryPage(job)
+  const start = (page - 1) * TABLE_PAGE_SIZE
+  return rows.slice(start, start + TABLE_PAGE_SIZE)
+}
+
+function categoryRangeLabel(job) {
+  return getRangeLabel(categoryPage(job), sortedCategoryRows(job).length)
+}
+
+function changeCategoryPage(job, delta) {
+  const totalItems = sortedCategoryRows(job).length
+  setPage(categoryPageByJob, job.key, categoryPage(job) + delta, totalItems)
 }
 
 function getCategorySummaryComment(job, category) {
@@ -840,12 +1334,128 @@ function toggleExpanded(key) {
   expandedJobs.value = { ...expandedJobs.value, [key]: !expandedJobs.value[key] }
 }
 
+function updateEntryField(jobKey, entryId, field, value) {
+  const jobIdx = jobs.value.findIndex(job => job.key === jobKey)
+  if (jobIdx === -1) return
+
+  const normalizedValue = field === 'receiptStatus'
+    ? normalizeReceiptStatus(value)
+    : field === 'coverIn'
+      ? normalizeCoverIn(value)
+      : normalize(value)
+
+  let changed = false
+  const now = new Date().toISOString()
+
+  jobs.value[jobIdx].entries = jobs.value[jobIdx].entries.map(entry => {
+    if (entry.id !== entryId) return entry
+    if ((entry[field] || '') === normalizedValue) return entry
+    changed = true
+    return {
+      ...entry,
+      [field]: normalizedValue,
+      updatedAt: now,
+    }
+  })
+
+  if (!changed) return
+
+  jobs.value[jobIdx].updatedAt = now
+  jobs.value = [...jobs.value]
+  saveStorage()
+}
+
+function updateEntryAmountField(jobKey, entryId, field, value) {
+  const jobIdx = jobs.value.findIndex(job => job.key === jobKey)
+  if (jobIdx === -1) return
+
+  const normalizedValue = parseOptionalAmount(value)
+  if (normalizedValue !== null && normalizedValue < 0) return
+
+  let changed = false
+  const now = new Date().toISOString()
+
+  jobs.value[jobIdx].entries = jobs.value[jobIdx].entries.map(entry => {
+    if (entry.id !== entryId) return entry
+    const currentValue = parseOptionalAmount(entry[field])
+    if (currentValue === normalizedValue) return entry
+    changed = true
+    return {
+      ...entry,
+      [field]: normalizedValue,
+      updatedAt: now,
+    }
+  })
+
+  if (!changed) return
+
+  jobs.value[jobIdx].updatedAt = now
+  jobs.value = [...jobs.value]
+  saveStorage()
+}
+
+function getEntrySort(jobKey) {
+  return getSortState(entrySortByJob, jobKey, DEFAULT_ENTRY_SORT)
+}
+
+function toggleEntrySort(jobKey, key) {
+  toggleSort(entrySortByJob, entryPageByJob, jobKey, key, DEFAULT_ENTRY_SORT)
+}
+
+function getEntrySortValue(entry, key) {
+  if (key === 'amount') return toAmount(entry.amount)
+  if (key === 'quotationAmount') return parseOptionalAmount(entry.quotationAmount) ?? Number.NEGATIVE_INFINITY
+  if (key === 'coverage') return getEntryCoverage(entry) ?? Number.NEGATIVE_INFINITY
+  if (key === 'updatedAt') return Date.parse(entry.updatedAt || entry.createdAt || '') || 0
+  if (key === 'receiptStatus') return normalizeReceiptStatus(entry.receiptStatus)
+  if (key === 'coverIn') return normalizeCoverIn(entry.coverIn)
+  return normalize(entry[key])
+}
+
+function sortedEntries(job) {
+  const sortState = getEntrySort(job.key)
+  return [...(job.entries || [])].sort((a, b) =>
+    compareValues(
+      getEntrySortValue(a, sortState.key),
+      getEntrySortValue(b, sortState.key),
+      sortState.direction
+    )
+  )
+}
+
+function entryTotalPages(job) {
+  return getTotalPages(sortedEntries(job).length)
+}
+
+function entryPage(job) {
+  return getPage(entryPageByJob, job.key, sortedEntries(job).length)
+}
+
+function paginatedEntries(job) {
+  const rows = sortedEntries(job)
+  const page = entryPage(job)
+  const start = (page - 1) * TABLE_PAGE_SIZE
+  return rows.slice(start, start + TABLE_PAGE_SIZE)
+}
+
+function entryRangeLabel(job) {
+  return getRangeLabel(entryPage(job), sortedEntries(job).length)
+}
+
+function changeEntryPage(job, delta) {
+  const totalItems = sortedEntries(job).length
+  setPage(entryPageByJob, job.key, entryPage(job) + delta, totalItems)
+}
+
 function resetEntryForm() {
   entryForm.value = {
     poNumber: '',
     supplier: '',
     category: '',
     amount: 0,
+    receiptStatus: 'no',
+    coverIn: '',
+    quotationAmount: '',
     comment: '',
   }
   editingEntryId.value = null
@@ -866,6 +1476,9 @@ function openEntryModal(job, entry = null) {
       supplier: entry.supplier,
       category: entry.category || '',
       amount: Number(entry.rawAmount ?? entry.amount ?? 0),
+      receiptStatus: normalizeReceiptStatus(entry.receiptStatus) || 'no',
+      coverIn: normalizeCoverIn(entry.coverIn),
+      quotationAmount: entry.quotationAmount ?? '',
       comment: entry.comment || '',
     }
   } else {
@@ -889,6 +1502,9 @@ function saveEntry() {
   const category = normalize(entryForm.value.category)
   const baseAmount = Number(entryForm.value.amount || 0)
   const markedUpAmount = applyPOMarkup(baseAmount)
+  const receiptStatus = normalizeReceiptStatus(entryForm.value.receiptStatus) || 'no'
+  const coverIn = normalizeCoverIn(entryForm.value.coverIn)
+  const quotationAmount = parseOptionalAmount(entryForm.value.quotationAmount)
   const comment = normalize(entryForm.value.comment)
 
   if (!poNumber || !supplier) {
@@ -913,6 +1529,10 @@ function saveEntry() {
     modalError.value = 'Amount must be a valid number (0 or more).'
     return
   }
+  if (quotationAmount !== null && quotationAmount < 0) {
+    modalError.value = 'Quotation Amount must be a valid number (0 or more).'
+    return
+  }
 
   const jobIdx = jobs.value.findIndex(job => job.key === entryJobKey.value)
   if (jobIdx === -1) {
@@ -934,6 +1554,9 @@ function saveEntry() {
             rawAmount: baseAmount,
             amount: markedUpAmount,
             markupApplied: true,
+            receiptStatus,
+            coverIn,
+            quotationAmount,
             comment,
             updatedAt: now
           }
@@ -948,6 +1571,9 @@ function saveEntry() {
       rawAmount: baseAmount,
       amount: markedUpAmount,
       markupApplied: true,
+      receiptStatus,
+      coverIn,
+      quotationAmount,
       comment,
       createdAt: now,
       updatedAt: now,

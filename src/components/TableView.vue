@@ -246,27 +246,22 @@
               <th class="px-5 py-3 text-center text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap bg-blue-700 border-b-2 border-blue-800">Actions</th>
               <template v-for="col in renderedColumns" :key="col.key">
                 <th :data-column-key="col.key" class="relative bg-blue-700 border-b-2 border-blue-800 p-0">
-                  <div class="flex items-stretch w-full pr-3">
-                    <!-- Sort button (label area) -->
-                    <button type="button" @click="toggleSort(col.key)"
-                      class="flex-1 px-3 py-3 flex items-center gap-1.5 hover:bg-blue-600 transition-colors text-left min-w-0">
-                      <span class="text-xs font-bold text-white uppercase tracking-wider whitespace-normal leading-tight break-words">{{ col.headerLabel }}</span>
-                      <!-- sort indicator -->
-                      <span class="flex-shrink-0">
-                        <svg v-if="sortColumn === col.key && sortDir === 'asc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
-                        <svg v-else-if="sortColumn === col.key && sortDir === 'desc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                        <svg v-else class="w-3 h-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zM3 6a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm4 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z"/></svg>
-                      </span>
-                    </button>
-                    <!-- Filter button (funnel icon) -->
-                    <button type="button" @click="toggleFilterMenu(col.key, $event)"
-                      class="px-2 py-3 hover:bg-blue-600 transition-colors border-l border-blue-600 flex-shrink-0 flex items-center">
-                      <span class="relative">
-                        <svg class="w-3.5 h-3.5 transition-colors" :class="filters[col.key]?.length ? 'text-yellow-300' : 'text-blue-300 hover:text-blue-100'" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L13 10.414V15a1 1 0 01-.553.894l-4 2A1 1 0 017 17v-6.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd"/></svg>
-                        <span v-if="filters[col.key]?.length" class="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full"></span>
-                      </span>
-                    </button>
-                  </div>
+                  <button type="button" @click="toggleSort(col.key)"
+                    class="flex w-full items-center gap-1.5 overflow-hidden px-3 py-3 pr-11 text-left transition-colors hover:bg-blue-600">
+                    <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-bold text-white uppercase tracking-wider leading-tight">{{ col.headerLabel }}</span>
+                    <span class="flex-shrink-0">
+                      <svg v-if="sortColumn === col.key && sortDir === 'asc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
+                      <svg v-else-if="sortColumn === col.key && sortDir === 'desc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                      <svg v-else class="w-3 h-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zM3 6a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm4 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z"/></svg>
+                    </span>
+                  </button>
+                  <button type="button" @click="toggleFilterMenu(col.key, $event)"
+                    class="absolute inset-y-0 right-3 flex w-8 items-center justify-center border-l border-blue-500/70 transition-colors hover:bg-blue-600">
+                    <span class="relative">
+                      <svg class="w-3.5 h-3.5 transition-colors" :class="filters[col.key]?.length ? 'text-yellow-300' : 'text-blue-300 hover:text-blue-100'" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L13 10.414V15a1 1 0 01-.553.894l-4 2A1 1 0 017 17v-6.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd"/></svg>
+                      <span v-if="filters[col.key]?.length" class="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full"></span>
+                    </span>
+                  </button>
                   <button
                     type="button"
                     :title="`Resize ${col.label}`"
@@ -486,24 +481,22 @@
                 <th class="px-5 py-3 text-center text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap bg-blue-700 border-b-2 border-blue-800">Actions</th>
                 <template v-for="col in renderedColumns" :key="col.key">
                   <th :data-column-key="col.key" class="relative bg-blue-700 border-b-2 border-blue-800 p-0">
-                    <div class="flex items-stretch w-full pr-3">
-                      <button type="button" @click="toggleSort(col.key)"
-                        class="flex-1 px-3 py-3 flex items-center gap-1.5 hover:bg-blue-600 transition-colors text-left min-w-0">
-                        <span class="text-xs font-bold text-white uppercase tracking-wider whitespace-normal leading-tight break-words">{{ col.headerLabel }}</span>
-                        <span class="flex-shrink-0">
-                          <svg v-if="sortColumn === col.key && sortDir === 'asc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
-                          <svg v-else-if="sortColumn === col.key && sortDir === 'desc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                          <svg v-else class="w-3 h-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zM3 6a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm4 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z"/></svg>
-                        </span>
-                      </button>
-                      <button type="button" @click="toggleFilterMenu(col.key, $event)"
-                        class="px-2 py-3 hover:bg-blue-600 transition-colors border-l border-blue-600 flex-shrink-0 flex items-center">
-                        <span class="relative">
-                          <svg class="w-3.5 h-3.5 transition-colors" :class="filters[col.key]?.length ? 'text-yellow-300' : 'text-blue-300 hover:text-blue-100'" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L13 10.414V15a1 1 0 01-.553.894l-4 2A1 1 0 017 17v-6.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd"/></svg>
-                          <span v-if="filters[col.key]?.length" class="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full"></span>
-                        </span>
-                      </button>
-                    </div>
+                    <button type="button" @click="toggleSort(col.key)"
+                      class="flex w-full items-center gap-1.5 overflow-hidden px-3 py-3 pr-11 text-left transition-colors hover:bg-blue-600">
+                      <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-bold text-white uppercase tracking-wider leading-tight">{{ col.headerLabel }}</span>
+                      <span class="flex-shrink-0">
+                        <svg v-if="sortColumn === col.key && sortDir === 'asc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
+                        <svg v-else-if="sortColumn === col.key && sortDir === 'desc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                        <svg v-else class="w-3 h-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zM3 6a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm4 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z"/></svg>
+                      </span>
+                    </button>
+                    <button type="button" @click="toggleFilterMenu(col.key, $event)"
+                      class="absolute inset-y-0 right-3 flex w-8 items-center justify-center border-l border-blue-500/70 transition-colors hover:bg-blue-600">
+                      <span class="relative">
+                        <svg class="w-3.5 h-3.5 transition-colors" :class="filters[col.key]?.length ? 'text-yellow-300' : 'text-blue-300 hover:text-blue-100'" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L13 10.414V15a1 1 0 01-.553.894l-4 2A1 1 0 017 17v-6.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd"/></svg>
+                        <span v-if="filters[col.key]?.length" class="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full"></span>
+                      </span>
+                    </button>
                     <button
                       type="button"
                       :title="`Resize ${col.label}`"
@@ -1159,15 +1152,13 @@ const tableMinWidth = computed(() =>
 )
 
 const tableStyle = computed(() => ({
-  width: hasCustomColumnWidths.value ? `${tableMinWidth.value}px` : '100%',
+  width: `${tableMinWidth.value}px`,
   minWidth: '100%'
 }))
 
-const getRenderedColumnStyle = (columnKey) => (
-  hasCustomColumnWidths.value
-    ? { width: `${getColumnWidth(columnKey)}px` }
-    : undefined
-)
+const getRenderedColumnStyle = (columnKey) => ({
+  width: `${getColumnWidth(columnKey)}px`
+})
 
 let resizeStartX = 0
 let resizeStartWidth = 0

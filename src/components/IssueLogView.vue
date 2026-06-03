@@ -302,9 +302,62 @@
                         </svg>
                         Attach Files
                       </button>
+                      <button
+                        v-if="clipboardReadSupported"
+                        type="button"
+                        @click="refreshClipboardImagePrompt(false)"
+                        class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        :disabled="clipboardChecking"
+                      >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5a2 2 0 002 2h2a2 2 0 002-2m-6 9h6" />
+                        </svg>
+                        {{ clipboardChecking ? 'Checking Clipboard...' : 'Check Clipboard' }}
+                      </button>
                       <span class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
                         {{ form.attachments.length }} file{{ form.attachments.length === 1 ? '' : 's' }}
                       </span>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="clipboardImageAttachment || clipboardStatusMessage || clipboardReadSupported"
+                    class="mt-4 rounded-2xl border px-4 py-3"
+                    :class="clipboardImageAttachment ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white'"
+                  >
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div class="min-w-0">
+                        <p v-if="clipboardImageAttachment" class="text-sm font-semibold text-amber-800">
+                          Image found in your clipboard. Paste it into this issue?
+                        </p>
+                        <p v-else-if="clipboardStatusMessage" class="text-sm font-medium text-slate-700">
+                          {{ clipboardStatusMessage }}
+                        </p>
+                        <p v-else class="text-sm font-medium text-slate-700">
+                          You can paste a screenshot straight into attachments.
+                        </p>
+                        <p class="mt-1 text-xs text-slate-500">
+                          Press `Ctrl+V` while this modal is open, or use `Check Clipboard` to look for an image ready to paste.
+                        </p>
+                      </div>
+                      <div class="flex shrink-0 flex-wrap items-center gap-2">
+                        <button
+                          v-if="clipboardImageAttachment"
+                          type="button"
+                          @click="pasteClipboardImage"
+                          class="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600"
+                        >
+                          Paste Image
+                        </button>
+                        <button
+                          v-if="clipboardImageAttachment"
+                          type="button"
+                          @click="dismissClipboardImagePrompt"
+                          class="rounded-xl border border-amber-200 bg-white px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -343,7 +396,29 @@
                       class="flex flex-wrap items-center gap-3 rounded-xl border px-3 py-3 transition"
                       :class="attachment.id === selectedAttachmentId ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white'"
                     >
+                      <div v-if="renameAttachmentId === attachment.id" class="min-w-0 flex-1">
+                        <div class="flex items-center gap-2">
+                          <span class="rounded-full px-2 py-1 text-[11px] font-bold uppercase tracking-wider"
+                            :class="attachmentBadgeClass(attachment)">
+                            {{ attachmentKindLabel(attachment) }}
+                          </span>
+                          <input
+                            v-model.trim="renameAttachmentName"
+                            type="text"
+                            class="min-w-0 flex-1 rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter file name"
+                            @keydown.enter.prevent="applyAttachmentRename(attachment.id)"
+                            @keydown.esc.prevent="cancelAttachmentRename"
+                          />
+                        </div>
+                        <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
+                          <span>{{ formatFileSize(attachment.size) }}</span>
+                          <span v-if="attachment.type">{{ attachment.type }}</span>
+                          <span>Press Enter to save or Esc to cancel</span>
+                        </div>
+                      </div>
                       <button
+                        v-else
                         type="button"
                         class="min-w-0 flex-1 text-left"
                         @click="setSelectedAttachment(attachment.id)"
@@ -363,20 +438,45 @@
                         </div>
                       </button>
                       <div class="flex items-center gap-2">
-                        <button
-                          type="button"
-                          class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                          @click="downloadAttachment(attachment)"
-                        >
-                          Download
-                        </button>
-                        <button
-                          type="button"
-                          class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
-                          @click="removeAttachment(attachment.id)"
-                        >
-                          Remove
-                        </button>
+                        <template v-if="renameAttachmentId === attachment.id">
+                          <button
+                            type="button"
+                            class="rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                            @click="applyAttachmentRename(attachment.id)"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                            @click="cancelAttachmentRename"
+                          >
+                            Cancel
+                          </button>
+                        </template>
+                        <template v-else>
+                          <button
+                            type="button"
+                            class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                            @click="downloadAttachment(attachment)"
+                          >
+                            Download
+                          </button>
+                          <button
+                            type="button"
+                            class="rounded-lg border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                            @click="startAttachmentRename(attachment)"
+                          >
+                            Rename
+                          </button>
+                          <button
+                            type="button"
+                            class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                            @click="removeAttachment(attachment.id)"
+                          >
+                            Remove
+                          </button>
+                        </template>
                       </div>
                     </div>
                   </div>
@@ -396,6 +496,35 @@
                         </p>
                       </div>
                       <div class="flex items-center gap-2">
+                        <div
+                          v-if="selectedAttachmentType === 'image'"
+                          class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1"
+                        >
+                          <button
+                            type="button"
+                            class="rounded-md px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            :disabled="imageZoom <= IMAGE_ZOOM_MIN"
+                            @click="changeImageZoom(-IMAGE_ZOOM_STEP)"
+                          >
+                            -
+                          </button>
+                          <span class="min-w-[3.5rem] text-center text-xs font-semibold text-slate-600">{{ imageZoomLabel }}</span>
+                          <button
+                            type="button"
+                            class="rounded-md px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            :disabled="imageZoom >= IMAGE_ZOOM_MAX"
+                            @click="changeImageZoom(IMAGE_ZOOM_STEP)"
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            class="rounded-md px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                            @click="resetImageZoom"
+                          >
+                            Reset
+                          </button>
+                        </div>
                         <button
                           type="button"
                           class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
@@ -554,8 +683,21 @@
                       </button>
                     </div>
 
-                    <div v-else-if="selectedAttachmentType === 'image' && previewUrl" class="flex h-full items-center justify-center overflow-auto bg-slate-200 p-4">
-                      <img :src="previewUrl" :alt="selectedAttachment.name" class="max-h-full max-w-full rounded-lg bg-white shadow-sm" />
+                    <div
+                      v-else-if="selectedAttachmentType === 'image' && previewUrl"
+                      class="flex h-full flex-col bg-slate-200"
+                    >
+                      <div class="border-b border-slate-300 bg-slate-100 px-4 py-2 text-xs text-slate-500">
+                        Use the zoom controls above, or hold `Ctrl` / `Cmd` and scroll to zoom.
+                      </div>
+                      <div class="flex flex-1 items-center justify-center overflow-auto p-4" @wheel="handleImagePreviewWheel">
+                        <img
+                          :src="previewUrl"
+                          :alt="selectedAttachment.name"
+                          class="rounded-lg bg-white shadow-sm transition-transform duration-150 ease-out"
+                          :style="{ transform: `scale(${imageZoom})` }"
+                        />
+                      </div>
                     </div>
 
                     <div v-else-if="selectedAttachmentType === 'spreadsheet'" class="h-full overflow-auto bg-white p-4">
@@ -613,6 +755,9 @@ const spreadsheetMimeTypes = new Set([
   'application/csv'
 ])
 const textExtensions = new Set(['txt', 'log', 'json', 'md', 'csv'])
+const IMAGE_ZOOM_MIN = 0.5
+const IMAGE_ZOOM_MAX = 4
+const IMAGE_ZOOM_STEP = 0.25
 
 const store = useVOStore()
 
@@ -641,7 +786,14 @@ const previewLoading = ref(false)
 const previewError = ref('')
 const isDragActive = ref(false)
 const isPreviewExpanded = ref(false)
+const renameAttachmentId = ref('')
+const renameAttachmentName = ref('')
+const imageZoom = ref(1)
+const clipboardImageAttachment = ref(null)
+const clipboardStatusMessage = ref('')
+const clipboardChecking = ref(false)
 const pdfPreviewSupported = typeof navigator === 'undefined' ? true : navigator.pdfViewerEnabled !== false
+const clipboardReadSupported = typeof navigator !== 'undefined' && typeof navigator.clipboard?.read === 'function'
 
 let activePreviewUrl = ''
 let previewRequestId = 0
@@ -666,6 +818,7 @@ function createBlankForm() {
 }
 
 const form = ref(createBlankForm())
+const imageZoomLabel = computed(() => `${Math.round(imageZoom.value * 100)}%`)
 
 function getAttachmentExtension(name = '') {
   const parts = String(name).toLowerCase().split('.')
@@ -684,12 +837,67 @@ function normalizeAttachment(attachment) {
 
   return {
     id: attachment?.id || attachmentId,
-    name: attachment?.name || 'Attachment',
+    name: sanitizeAttachmentNameInput(attachment?.name, 'Attachment'),
     type: attachment?.type || blob.type || '',
     size: Number(attachment?.size ?? blob.size ?? 0),
     lastModified: Number(attachment?.lastModified ?? Date.now()),
     blob
   }
+}
+
+function sanitizeAttachmentNameInput(value, fallbackName = 'Attachment') {
+  const fallback = String(fallbackName || 'Attachment').trim() || 'Attachment'
+  const fallbackExtension = getAttachmentExtension(fallback)
+  let nextName = String(value || '')
+    .replace(/[\\/:*?"<>|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!nextName) return fallback
+
+  const nextExtension = getAttachmentExtension(nextName)
+  if (!nextExtension && fallbackExtension) {
+    nextName = `${nextName}.${fallbackExtension}`
+  }
+
+  return nextName
+}
+
+function extensionForMimeType(type = '') {
+  const normalized = String(type || '').toLowerCase()
+  if (normalized === 'image/png') return 'png'
+  if (normalized === 'image/jpeg') return 'jpg'
+  if (normalized === 'image/webp') return 'webp'
+  if (normalized === 'image/gif') return 'gif'
+  if (normalized === 'image/bmp') return 'bmp'
+  return 'png'
+}
+
+function makeClipboardImageName(type = 'image/png') {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  return `clipboard-image-${stamp}.${extensionForMimeType(type)}`
+}
+
+function createClipboardImageAttachment(blob, sourceType = '') {
+  if (!(blob instanceof Blob)) return null
+  return normalizeAttachment({
+    name: makeClipboardImageName(sourceType || blob.type),
+    type: sourceType || blob.type || 'image/png',
+    size: blob.size,
+    lastModified: Date.now(),
+    blob
+  })
+}
+
+async function extractClipboardImageFromItems(items = []) {
+  for (const item of items) {
+    const types = Array.from(item?.types || [])
+    const imageType = types.find((type) => String(type).toLowerCase().startsWith('image/'))
+    if (!imageType || typeof item.getType !== 'function') continue
+    const blob = await item.getType(imageType)
+    return createClipboardImageAttachment(blob, imageType)
+  }
+  return null
 }
 
 function normalizeAttachments(attachments = []) {
@@ -760,6 +968,7 @@ function resetPreviewState(clearSelection = false) {
   previewMsgData.value = null
   previewMsgMode.value = 'html'
   previewSheetName.value = ''
+  imageZoom.value = 1
   revokePreviewUrl()
   if (clearSelection) {
     selectedAttachmentId.value = ''
@@ -896,6 +1105,11 @@ function resetForm() {
   dragDepth = 0
   isDragActive.value = false
   isPreviewExpanded.value = false
+  renameAttachmentId.value = ''
+  renameAttachmentName.value = ''
+  clipboardImageAttachment.value = null
+  clipboardStatusMessage.value = ''
+  clipboardChecking.value = false
   resetPreviewState(true)
   if (attachmentInput.value) {
     attachmentInput.value.value = ''
@@ -920,6 +1134,7 @@ function openCreate() {
   editingId.value = null
   resetForm()
   showModal.value = true
+  void refreshClipboardImagePrompt(true)
 }
 
 function openEdit(issue) {
@@ -960,6 +1175,7 @@ function openEdit(issue) {
   validationError.value = ''
   showModal.value = true
   syncSelectedAttachment()
+  void refreshClipboardImagePrompt(true)
 }
 
 function closeModal() {
@@ -996,6 +1212,22 @@ function handleSelectedFiles(fileList) {
   syncSelectedAttachment()
 }
 
+function appendNormalizedAttachments(nextAttachments = []) {
+  const normalized = normalizeAttachments(nextAttachments)
+  if (!normalized.length) return
+
+  form.value.attachments = [...form.value.attachments, ...normalized]
+  validationError.value = ''
+  clipboardStatusMessage.value = `Added ${normalized.length} clipboard image${normalized.length === 1 ? '' : 's'} to this issue.`
+  clipboardImageAttachment.value = null
+
+  if (normalized[0]) {
+    selectedAttachmentId.value = normalized[0].id
+  }
+
+  syncSelectedAttachment()
+}
+
 function handleAttachmentInput(event) {
   handleSelectedFiles(event.target?.files)
   if (attachmentInput.value) {
@@ -1010,7 +1242,114 @@ function setSelectedAttachment(attachmentId) {
 
 function removeAttachment(attachmentId) {
   form.value.attachments = form.value.attachments.filter((attachment) => attachment.id !== attachmentId)
+  if (renameAttachmentId.value === attachmentId) {
+    cancelAttachmentRename()
+  }
   syncSelectedAttachment()
+}
+
+function startAttachmentRename(attachment) {
+  const normalized = normalizeAttachment(attachment)
+  if (!normalized) return
+  renameAttachmentId.value = normalized.id
+  renameAttachmentName.value = normalized.name
+}
+
+function cancelAttachmentRename() {
+  renameAttachmentId.value = ''
+  renameAttachmentName.value = ''
+}
+
+function applyAttachmentRename(attachmentId) {
+  const currentAttachment = form.value.attachments.find((attachment) => attachment.id === attachmentId)
+  if (!currentAttachment) {
+    cancelAttachmentRename()
+    return
+  }
+
+  const nextName = sanitizeAttachmentNameInput(renameAttachmentName.value, currentAttachment.name)
+  form.value.attachments = form.value.attachments.map((attachment) =>
+    attachment.id === attachmentId
+      ? {
+          ...attachment,
+          name: nextName
+        }
+      : attachment
+  )
+  cancelAttachmentRename()
+}
+
+async function refreshClipboardImagePrompt(silent = false) {
+  if (!clipboardReadSupported || !showModal.value) return
+
+  clipboardChecking.value = true
+  if (!silent) {
+    clipboardStatusMessage.value = ''
+  }
+
+  try {
+    const items = await navigator.clipboard.read()
+    const imageAttachment = await extractClipboardImageFromItems(items)
+    clipboardImageAttachment.value = imageAttachment
+
+    if (!imageAttachment && !silent) {
+      clipboardStatusMessage.value = 'No image was found in your clipboard right now.'
+    }
+  } catch (error) {
+    clipboardImageAttachment.value = null
+    if (!silent) {
+      clipboardStatusMessage.value = 'Clipboard access is blocked right now. You can still press Ctrl+V to paste an image directly.'
+    }
+  } finally {
+    clipboardChecking.value = false
+  }
+}
+
+function dismissClipboardImagePrompt() {
+  clipboardImageAttachment.value = null
+}
+
+function pasteClipboardImage() {
+  if (!clipboardImageAttachment.value) return
+  appendNormalizedAttachments([clipboardImageAttachment.value])
+}
+
+function resetImageZoom() {
+  imageZoom.value = 1
+}
+
+function setImageZoom(nextZoom) {
+  imageZoom.value = Math.min(IMAGE_ZOOM_MAX, Math.max(IMAGE_ZOOM_MIN, Math.round((nextZoom + Number.EPSILON) * 100) / 100))
+}
+
+function changeImageZoom(delta) {
+  setImageZoom(imageZoom.value + delta)
+}
+
+function handleImagePreviewWheel(event) {
+  if (!(event.ctrlKey || event.metaKey)) return
+  event.preventDefault()
+  changeImageZoom(event.deltaY < 0 ? IMAGE_ZOOM_STEP : -IMAGE_ZOOM_STEP)
+}
+
+function handleWindowPaste(event) {
+  if (!showModal.value) return
+
+  const items = Array.from(event.clipboardData?.items || [])
+  const imageItem = items.find((item) => item.kind === 'file' && String(item.type || '').toLowerCase().startsWith('image/'))
+  if (!imageItem) return
+
+  const blob = imageItem.getAsFile()
+  const attachment = createClipboardImageAttachment(blob, imageItem.type)
+  if (!attachment) return
+
+  event.preventDefault()
+  appendNormalizedAttachments([attachment])
+}
+
+function handleWindowFocus() {
+  if (!showModal.value || !clipboardReadSupported) return
+  void refreshClipboardImagePrompt(true)
 }
 
 function downloadAttachment(attachment) {
@@ -1331,10 +1670,26 @@ onMounted(async () => {
   }
 })
 
+watch(showModal, (isOpen) => {
+  if (isOpen) {
+    window.addEventListener('paste', handleWindowPaste)
+    window.addEventListener('focus', handleWindowFocus)
+    return
+  }
+
+  window.removeEventListener('paste', handleWindowPaste)
+  window.removeEventListener('focus', handleWindowFocus)
+  clipboardImageAttachment.value = null
+  clipboardStatusMessage.value = ''
+  clipboardChecking.value = false
+})
+
 onBeforeUnmount(() => {
   previewRequestId += 1
   dragDepth = 0
   isDragActive.value = false
+  window.removeEventListener('paste', handleWindowPaste)
+  window.removeEventListener('focus', handleWindowFocus)
   resetPreviewState(true)
 })
 </script>
