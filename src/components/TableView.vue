@@ -224,9 +224,22 @@
         </template>
       </div>
 
+      <div v-if="filteredSiteNameConflicts.length" class="px-4 py-2 bg-amber-50 border-b border-amber-200 flex items-start gap-3 text-xs">
+        <svg class="w-4 h-4 text-amber-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01M10.29 3.86l-7.4 12.82A1 1 0 003.76 18h16.48a1 1 0 00.87-1.5l-7.4-12.82a1 1 0 00-1.72 0z"/>
+        </svg>
+        <div class="min-w-0">
+          <p class="font-semibold text-amber-800">
+            {{ filteredSiteNameConflicts.length }} site ID{{ filteredSiteNameConflicts.length === 1 ? '' : 's' }}
+            {{ filteredSiteNameConflicts.length === 1 ? 'does' : 'do' }} not match Admin site data in this view.
+          </p>
+          <p class="text-amber-700 truncate" :title="siteNameConflictBannerText">{{ siteNameConflictBannerText }}</p>
+        </div>
+      </div>
+
       <!-- Scrollable Table Wrapper - scrolls both ways; thead sticks inside this container -->
       <div class="overflow-auto" style="max-height: calc(100vh - 280px);">
-        <table class="w-full border-collapse table-fixed" :style="tableStyle">
+        <table :class="tableClass" :style="tableStyle">
           <colgroup>
             <col :style="{ width: `${TABLE_SELECT_WIDTH}px` }" />
             <col :style="{ width: `${TABLE_ACTIONS_WIDTH}px` }" />
@@ -236,45 +249,19 @@
               :style="getRenderedColumnStyle(col.key)"
             />
           </colgroup>
-          <thead class="sticky top-0 z-20">
-            <tr>
-              <!-- Select All Checkbox -->
-              <th class="px-4 py-3 bg-blue-700 border-b-2 border-blue-800 w-12 text-center">
-                <input type="checkbox" :checked="isAllSelected" :indeterminate="isIndeterminate"
-                  @change="toggleSelectAll" class="w-4 h-4 rounded cursor-pointer accent-white" title="Select all"/>
-              </th>
-              <th class="px-5 py-3 text-center text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap bg-blue-700 border-b-2 border-blue-800">Actions</th>
-              <template v-for="col in renderedColumns" :key="col.key">
-                <th :data-column-key="col.key" class="relative bg-blue-700 border-b-2 border-blue-800 p-0">
-                  <button type="button" @click="toggleSort(col.key)"
-                    class="flex w-full items-center gap-1.5 overflow-hidden px-3 py-3 pr-11 text-left transition-colors hover:bg-blue-600">
-                    <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-bold text-white uppercase tracking-wider leading-tight">{{ col.headerLabel }}</span>
-                    <span class="flex-shrink-0">
-                      <svg v-if="sortColumn === col.key && sortDir === 'asc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
-                      <svg v-else-if="sortColumn === col.key && sortDir === 'desc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                      <svg v-else class="w-3 h-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zM3 6a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm4 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z"/></svg>
-                    </span>
-                  </button>
-                  <button type="button" @click="toggleFilterMenu(col.key, $event)"
-                    class="absolute inset-y-0 right-3 flex w-8 items-center justify-center border-l border-blue-500/70 transition-colors hover:bg-blue-600">
-                    <span class="relative">
-                      <svg class="w-3.5 h-3.5 transition-colors" :class="filters[col.key]?.length ? 'text-yellow-300' : 'text-blue-300 hover:text-blue-100'" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L13 10.414V15a1 1 0 01-.553.894l-4 2A1 1 0 017 17v-6.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd"/></svg>
-                      <span v-if="filters[col.key]?.length" class="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full"></span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    :title="`Resize ${col.label}`"
-                    class="absolute top-0 right-0 h-full w-3 cursor-col-resize hover:bg-blue-500/40 transition-colors"
-                    @mousedown.stop.prevent="startColumnResize($event, col.key)"
-                    @dblclick.stop.prevent="resetColumnWidth(col.key)"
-                  >
-                    <span class="mx-auto block h-full w-px bg-blue-500/70"></span>
-                  </button>
-                </th>
-              </template>
-            </tr>
-          </thead>
+          <VariationTableHeader
+            :rendered-columns="renderedColumns"
+            :sort-column="sortColumn"
+            :sort-dir="sortDir"
+            :filters="filters"
+            :is-all-selected="isAllSelected"
+            :is-indeterminate="isIndeterminate"
+            @toggle-select-all="toggleSelectAll"
+            @toggle-sort="toggleSort"
+            @toggle-filter="toggleFilterMenu"
+            @start-resize="startColumnResize"
+            @reset-width="resetColumnWidth"
+          />
           <tbody class="divide-y divide-gray-200">
             <tr
               v-for="vo in paginatedVOs"
@@ -311,20 +298,26 @@
                   </svg>
                 </button>
               </td>
-              <td v-if="visibleColumns.siteId" class="px-5 py-4 text-sm font-semibold text-gray-900 overflow-hidden">
-                <div class="block w-full truncate" :title="vo.siteId">{{ vo.siteId }}</div>
+              <td v-if="visibleColumns.siteId" :class="['px-5 py-4 text-sm font-semibold overflow-hidden', hasSiteNameConflict(vo) ? 'bg-amber-50 text-amber-900' : 'text-gray-900']">
+                <div class="flex w-full min-w-0 items-center gap-2" :title="getSiteNameConflictTitle(vo)">
+                  <span class="block min-w-0 flex-1 truncate">{{ vo.siteId || '—' }}</span>
+                  <span v-if="hasSiteNameConflict(vo)" class="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">!</span>
+                </div>
               </td>
-              <td v-if="visibleColumns.siteName" class="px-5 py-4 text-sm text-gray-900 font-medium overflow-hidden">
-                <div class="block w-full truncate" :title="vo.siteName">{{ vo.siteName }}</div>
+              <td v-if="visibleColumns.siteName" :class="['px-5 py-4 text-sm font-medium overflow-hidden', hasSiteNameConflict(vo) ? 'bg-amber-50 text-amber-900' : 'text-gray-900']">
+                <div class="flex w-full min-w-0 items-center gap-2" :title="getSiteNameConflictTitle(vo)">
+                  <span class="block min-w-0 flex-1 truncate">{{ vo.siteName || '—' }}</span>
+                  <span v-if="hasSiteNameConflict(vo)" class="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Mismatch</span>
+                </div>
               </td>
               <td v-if="visibleColumns.jobNumber" class="px-5 py-4 text-sm font-medium text-gray-900 overflow-hidden">
                 <div class="block w-full truncate" :title="vo.jobNumber || '—'">{{ vo.jobNumber || '—' }}</div>
               </td>
-              <td v-if="visibleColumns.voDescription" class="px-5 py-4 text-sm text-gray-700">
-                <div class="block w-full truncate" :title="vo.voDescription">{{ vo.voDescription }}</div>
+              <td v-if="visibleColumns.voDescription" class="px-5 py-4 text-sm text-gray-700 overflow-hidden">
+                <div class="block max-w-full truncate" :title="vo.voDescription">{{ vo.voDescription }}</div>
               </td>
-              <td v-if="visibleColumns.scope" class="px-5 py-4 text-sm text-gray-700">
-                <div class="block w-full truncate" :title="vo.scope">{{ vo.scope }}</div>
+              <td v-if="visibleColumns.scope" class="px-5 py-4 text-sm text-gray-700 overflow-hidden">
+                <div class="block max-w-full truncate" :title="vo.scope">{{ vo.scope }}</div>
               </td>
               <td v-if="visibleColumns.voCategory" class="px-5 py-4 text-sm text-gray-700 overflow-hidden">
                 <div class="block w-full truncate" :title="vo.voCategory">{{ vo.voCategory }}</div>
@@ -463,7 +456,19 @@
         </div>
         <!-- Reuse the same table in fullscreen -->
         <div class="flex-1 overflow-auto bg-white">
-          <table class="w-full border-collapse table-fixed" :style="tableStyle">
+          <div v-if="filteredSiteNameConflicts.length" class="px-6 py-3 bg-amber-50 border-b border-amber-200 flex items-start gap-3 text-xs">
+            <svg class="w-4 h-4 text-amber-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01M10.29 3.86l-7.4 12.82A1 1 0 003.76 18h16.48a1 1 0 00.87-1.5l-7.4-12.82a1 1 0 00-1.72 0z"/>
+            </svg>
+            <div class="min-w-0">
+              <p class="font-semibold text-amber-800">
+                {{ filteredSiteNameConflicts.length }} site ID{{ filteredSiteNameConflicts.length === 1 ? '' : 's' }}
+                {{ filteredSiteNameConflicts.length === 1 ? 'does' : 'do' }} not match Admin site data in this view.
+              </p>
+              <p class="text-amber-700 truncate" :title="siteNameConflictBannerText">{{ siteNameConflictBannerText }}</p>
+            </div>
+          </div>
+          <table :class="tableClass" :style="tableStyle">
             <colgroup>
               <col :style="{ width: `${TABLE_SELECT_WIDTH}px` }" />
               <col :style="{ width: `${TABLE_ACTIONS_WIDTH}px` }" />
@@ -473,43 +478,19 @@
                 :style="getRenderedColumnStyle(col.key)"
               />
             </colgroup>
-            <thead class="sticky top-0 z-20">
-              <tr>
-                <th class="px-4 py-3 bg-blue-700 border-b-2 border-blue-800 w-12 text-center">
-                  <input type="checkbox" :checked="isAllSelected" :indeterminate="isIndeterminate" @change="toggleSelectAll" class="w-4 h-4 rounded cursor-pointer accent-white" />
-                </th>
-                <th class="px-5 py-3 text-center text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap bg-blue-700 border-b-2 border-blue-800">Actions</th>
-                <template v-for="col in renderedColumns" :key="col.key">
-                  <th :data-column-key="col.key" class="relative bg-blue-700 border-b-2 border-blue-800 p-0">
-                    <button type="button" @click="toggleSort(col.key)"
-                      class="flex w-full items-center gap-1.5 overflow-hidden px-3 py-3 pr-11 text-left transition-colors hover:bg-blue-600">
-                      <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-xs font-bold text-white uppercase tracking-wider leading-tight">{{ col.headerLabel }}</span>
-                      <span class="flex-shrink-0">
-                        <svg v-if="sortColumn === col.key && sortDir === 'asc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg>
-                        <svg v-else-if="sortColumn === col.key && sortDir === 'desc'" class="w-3 h-3 text-white" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                        <svg v-else class="w-3 h-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zM3 6a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm4 8a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z"/></svg>
-                      </span>
-                    </button>
-                    <button type="button" @click="toggleFilterMenu(col.key, $event)"
-                      class="absolute inset-y-0 right-3 flex w-8 items-center justify-center border-l border-blue-500/70 transition-colors hover:bg-blue-600">
-                      <span class="relative">
-                        <svg class="w-3.5 h-3.5 transition-colors" :class="filters[col.key]?.length ? 'text-yellow-300' : 'text-blue-300 hover:text-blue-100'" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L13 10.414V15a1 1 0 01-.553.894l-4 2A1 1 0 017 17v-6.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd"/></svg>
-                        <span v-if="filters[col.key]?.length" class="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full"></span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      :title="`Resize ${col.label}`"
-                      class="absolute top-0 right-0 h-full w-3 cursor-col-resize hover:bg-blue-500/40 transition-colors"
-                      @mousedown.stop.prevent="startColumnResize($event, col.key)"
-                      @dblclick.stop.prevent="resetColumnWidth(col.key)"
-                    >
-                      <span class="mx-auto block h-full w-px bg-blue-500/70"></span>
-                    </button>
-                  </th>
-                </template>
-              </tr>
-            </thead>
+            <VariationTableHeader
+              :rendered-columns="renderedColumns"
+              :sort-column="sortColumn"
+              :sort-dir="sortDir"
+              :filters="filters"
+              :is-all-selected="isAllSelected"
+              :is-indeterminate="isIndeterminate"
+              @toggle-select-all="toggleSelectAll"
+              @toggle-sort="toggleSort"
+              @toggle-filter="toggleFilterMenu"
+              @start-resize="startColumnResize"
+              @reset-width="resetColumnWidth"
+            />
             <tbody class="divide-y divide-gray-200">
               <tr v-for="vo in paginatedVOs" :key="vo.id"
                 :class="['transition-colors cursor-pointer',
@@ -531,11 +512,21 @@
                     </svg>
                   </button>
                 </td>
-                <td v-if="visibleColumns.siteId" class="px-5 py-4 text-sm font-semibold text-gray-900 overflow-hidden"><div class="block w-full truncate" :title="vo.siteId">{{ vo.siteId }}</div></td>
-                <td v-if="visibleColumns.siteName" class="px-5 py-4 text-sm text-gray-900 font-medium overflow-hidden"><div class="block w-full truncate" :title="vo.siteName">{{ vo.siteName }}</div></td>
+                <td v-if="visibleColumns.siteId" :class="['px-5 py-4 text-sm font-semibold overflow-hidden', hasSiteNameConflict(vo) ? 'bg-amber-50 text-amber-900' : 'text-gray-900']">
+                  <div class="flex w-full min-w-0 items-center gap-2" :title="getSiteNameConflictTitle(vo)">
+                    <span class="block min-w-0 flex-1 truncate">{{ vo.siteId || '—' }}</span>
+                    <span v-if="hasSiteNameConflict(vo)" class="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">!</span>
+                  </div>
+                </td>
+                <td v-if="visibleColumns.siteName" :class="['px-5 py-4 text-sm font-medium overflow-hidden', hasSiteNameConflict(vo) ? 'bg-amber-50 text-amber-900' : 'text-gray-900']">
+                  <div class="flex w-full min-w-0 items-center gap-2" :title="getSiteNameConflictTitle(vo)">
+                    <span class="block min-w-0 flex-1 truncate">{{ vo.siteName || '—' }}</span>
+                    <span v-if="hasSiteNameConflict(vo)" class="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Mismatch</span>
+                  </div>
+                </td>
                 <td v-if="visibleColumns.jobNumber" class="px-5 py-4 text-sm font-medium text-gray-900 overflow-hidden"><div class="block w-full truncate" :title="vo.jobNumber || '—'">{{ vo.jobNumber || '—' }}</div></td>
-                <td v-if="visibleColumns.voDescription" class="px-5 py-4 text-sm text-gray-700"><div class="block w-full truncate" :title="vo.voDescription">{{ vo.voDescription }}</div></td>
-                <td v-if="visibleColumns.scope" class="px-5 py-4 text-sm text-gray-700"><div class="block w-full truncate" :title="vo.scope">{{ vo.scope }}</div></td>
+                <td v-if="visibleColumns.voDescription" class="px-5 py-4 text-sm text-gray-700 overflow-hidden"><div class="block max-w-full truncate" :title="vo.voDescription">{{ vo.voDescription }}</div></td>
+                <td v-if="visibleColumns.scope" class="px-5 py-4 text-sm text-gray-700 overflow-hidden"><div class="block max-w-full truncate" :title="vo.scope">{{ vo.scope }}</div></td>
                 <td v-if="visibleColumns.voCategory" class="px-5 py-4 text-sm text-gray-700 overflow-hidden"><div class="block w-full truncate" :title="vo.voCategory">{{ vo.voCategory }}</div></td>
                 <td v-if="visibleColumns.poSupplierCategory" class="px-5 py-4 text-sm text-gray-700 overflow-hidden"><div class="block w-full truncate" :title="vo.poSupplierCategory || '-'">{{ vo.poSupplierCategory || '-' }}</div></td>
                 <td v-if="visibleColumns.voAmount" class="px-5 py-4 text-sm text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(vo.voAmount) }}</td>
@@ -762,6 +753,7 @@ import * as XLSX from 'xlsx'
 import { useVOStore } from '../stores/voStore'
 import VOForm from './VOForm.vue'
 import FilterPopover from './FilterPopover.vue'
+import VariationTableHeader from './VariationTableHeader.vue'
 import { formatCurrency } from '../utils/formatters'
 
 const store = useVOStore()
@@ -773,6 +765,7 @@ const activeFilterAnchorRect = ref(null)
 const isExpanded = ref(false)
 const showFlaggedOnly = ref(false)
 const flaggedCount = computed(() => store.flaggedIds.value.size)
+const adminDataRevision = ref(0)
 
 // Flag description modal
 const flagModal = ref({ show: false, voId: null, description: '', isFlagged: false })
@@ -871,6 +864,53 @@ const combinedFilterOptions = [
 const activeCombinedFilterLabel = computed(() =>
   combinedFilterOptions.find(option => option.key === activeCombinedFilter.value)?.label || ''
 )
+
+function normalizeSiteConflictValue(value) {
+  return String(value ?? '').trim()
+}
+
+function normalizeSiteConflictKey(value) {
+  return normalizeSiteConflictValue(value).toLowerCase()
+}
+
+function getExactSiteNameValue(value) {
+  return String(value ?? '')
+}
+
+function formatConflictSiteName(value) {
+  const exact = getExactSiteNameValue(value)
+  return exact ? `"${exact}"` : '(blank)'
+}
+
+const adminSiteReferences = computed(() => {
+  void adminDataRevision.value
+
+  const globalData = loadLS('globalData', {})
+  const bySiteId = new Map()
+
+  for (const rawSite of globalData?.sites || []) {
+    const site = typeof rawSite === 'string'
+      ? { siteId: '', siteName: rawSite, jobNumber: '', comment: '' }
+      : (rawSite || {})
+
+    const siteId = normalizeSiteConflictValue(site.siteId)
+    if (!siteId) continue
+
+    const key = normalizeSiteConflictKey(siteId)
+    if (!bySiteId.has(key)) {
+      bySiteId.set(key, {
+        siteId,
+        siteNames: new Map(),
+      })
+    }
+
+    const entry = bySiteId.get(key)
+    const exactSiteName = getExactSiteNameValue(site.siteName)
+    entry.siteNames.set(exactSiteName, formatConflictSiteName(exactSiteName))
+  }
+
+  return bySiteId
+})
 
 // Row selection
 const selectedRows = ref(new Set())
@@ -1132,6 +1172,7 @@ const columnDefinitions = [
 ]
 
 const allColumns = columnDefinitions.map(({ key, label }) => ({ key, label }))
+const columnDefinitionsByKey = Object.fromEntries(columnDefinitions.map(col => [col.key, col]))
 const defaultColumnWidths = Object.fromEntries(columnDefinitions.map(col => [col.key, col.width]))
 const columnMinWidths = Object.fromEntries(columnDefinitions.map(col => [col.key, col.minWidth]))
 const savedColumnWidths = loadLS(COLUMN_WIDTHS_STORAGE_KEY, null)
@@ -1141,24 +1182,81 @@ const renderedColumns = computed(() => columnDefinitions.filter(col => visibleCo
 
 const getColumnWidth = (columnKey) => {
   const fallbackWidth = defaultColumnWidths[columnKey] || 140
-  const minWidth = columnMinWidths[columnKey] || 100
+  const minWidth = getEffectiveColumnMinWidth(columnKey)
   return Math.max(minWidth, Number(columnWidths.value[columnKey]) || fallbackWidth)
 }
 
-const tableMinWidth = computed(() =>
+let headerMeasureContext = null
+const HEADER_FONT = '700 12px "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif'
+const HEADER_TRACKING_PX = 0.7
+const HEADER_SORT_AREA_PX = 44
+const HEADER_ACTIONS_AREA_PX = 46
+
+const measureHeaderTextWidth = (text) => {
+  if (!text) return 0
+
+  if (typeof document === 'undefined') {
+    return Math.ceil((text.length * 8.8) + (Math.max(0, text.length - 1) * HEADER_TRACKING_PX))
+  }
+
+  if (!headerMeasureContext) {
+    headerMeasureContext = document.createElement('canvas').getContext('2d')
+  }
+
+  if (!headerMeasureContext) {
+    return Math.ceil((text.length * 8.8) + (Math.max(0, text.length - 1) * HEADER_TRACKING_PX))
+  }
+
+  headerMeasureContext.font = HEADER_FONT
+  const glyphWidth = headerMeasureContext.measureText(text.toUpperCase()).width
+  const trackingWidth = Math.max(0, text.length - 1) * HEADER_TRACKING_PX
+  return Math.ceil(glyphWidth + trackingWidth)
+}
+
+const getHeaderDrivenMinWidth = (columnKey) => {
+  const column = columnDefinitionsByKey[columnKey]
+  const headerText = column?.headerLabel || column?.label || ''
+  const headerTextWidth = measureHeaderTextWidth(headerText)
+  const headerChromeWidth = HEADER_SORT_AREA_PX + HEADER_ACTIONS_AREA_PX
+  return Math.max(columnMinWidths[columnKey] || 100, headerTextWidth + headerChromeWidth)
+}
+
+const getEffectiveColumnMinWidth = (columnKey) => getHeaderDrivenMinWidth(columnKey)
+
+const tableManualWidth = computed(() =>
   TABLE_SELECT_WIDTH +
   TABLE_ACTIONS_WIDTH +
   renderedColumns.value.reduce((sum, col) => sum + getColumnWidth(col.key), 0)
 )
 
-const tableStyle = computed(() => ({
-  width: `${tableMinWidth.value}px`,
-  minWidth: '100%'
-}))
+const tableAutoMinWidth = computed(() =>
+  TABLE_SELECT_WIDTH +
+  TABLE_ACTIONS_WIDTH +
+  renderedColumns.value.reduce((sum, col) => sum + getEffectiveColumnMinWidth(col.key), 0)
+)
 
-const getRenderedColumnStyle = (columnKey) => ({
-  width: `${getColumnWidth(columnKey)}px`
-})
+const tableClass = computed(() => [
+  'w-full border-collapse',
+  hasCustomColumnWidths.value ? 'table-fixed' : 'table-auto'
+])
+
+const tableStyle = computed(() => (
+  hasCustomColumnWidths.value
+    ? {
+        width: `${tableManualWidth.value}px`,
+        minWidth: '100%'
+      }
+    : {
+        width: '100%',
+        minWidth: `${tableAutoMinWidth.value}px`
+      }
+))
+
+const getRenderedColumnStyle = (columnKey) => (
+  hasCustomColumnWidths.value
+    ? { width: `${getColumnWidth(columnKey)}px` }
+    : { minWidth: `${getEffectiveColumnMinWidth(columnKey)}px` }
+)
 
 let resizeStartX = 0
 let resizeStartWidth = 0
@@ -1168,7 +1266,7 @@ const handleColumnResize = (event) => {
   if (!resizingColumn.value) return
   const nextWidth = resizeStartWidth + (event.clientX - resizeStartX)
   columnWidths.value[resizingColumn.value] = Math.max(
-    columnMinWidths[resizingColumn.value] || 100,
+    getEffectiveColumnMinWidth(resizingColumn.value),
     nextWidth
   )
 }
@@ -1189,7 +1287,7 @@ const syncColumnWidthsFromTable = (tableEl) => {
     const key = cell.dataset.columnKey
     if (!key) return
     measuredWidths[key] = Math.max(
-      columnMinWidths[key] || 100,
+      getEffectiveColumnMinWidth(key),
       Math.round(cell.getBoundingClientRect().width)
     )
   })
@@ -1309,6 +1407,80 @@ const filteredVOs = computed(() => {
   return vosArray
 })
 
+const filteredSiteNameConflicts = computed(() => {
+  const mismatchesBySiteId = new Map()
+
+  for (const vo of filteredVOs.value) {
+    const key = normalizeSiteConflictKey(vo.siteId)
+    if (!key) continue
+
+    const adminEntry = adminSiteReferences.value.get(key)
+    const currentSiteName = getExactSiteNameValue(vo.siteName)
+    const matchesAdmin = adminEntry?.siteNames?.has(currentSiteName)
+
+    if (matchesAdmin) continue
+
+    if (!mismatchesBySiteId.has(key)) {
+      mismatchesBySiteId.set(key, {
+        siteId: normalizeSiteConflictValue(vo.siteId),
+        currentSiteNames: new Map(),
+        expectedSiteNames: adminEntry ? [...adminEntry.siteNames.values()].sort((a, b) => a.localeCompare(b)) : [],
+      })
+    }
+
+    const mismatch = mismatchesBySiteId.get(key)
+    mismatch.currentSiteNames.set(currentSiteName, formatConflictSiteName(currentSiteName))
+  }
+
+  return [...mismatchesBySiteId.values()].map(item => ({
+    ...item,
+    currentSiteNames: [...item.currentSiteNames.values()].sort((a, b) => a.localeCompare(b)),
+  }))
+})
+
+const siteNameConflictBannerText = computed(() => {
+  if (!filteredSiteNameConflicts.value.length) return ''
+
+  const preview = filteredSiteNameConflicts.value
+    .slice(0, 3)
+    .map(conflict => {
+      const expected = conflict.expectedSiteNames.length
+        ? conflict.expectedSiteNames.join(' / ')
+        : 'no Admin site'
+      return `${conflict.siteId}: expected ${expected}; found ${conflict.currentSiteNames.join(' / ')}`
+    })
+    .join(' | ')
+
+  const remaining = filteredSiteNameConflicts.value.length - 3
+  return remaining > 0 ? `${preview} | +${remaining} more` : preview
+})
+
+function getSiteNameConflict(siteId) {
+  const key = normalizeSiteConflictKey(siteId)
+  return key ? filteredSiteNameConflicts.value.find(conflict => normalizeSiteConflictKey(conflict.siteId) === key) || null : null
+}
+
+function hasSiteNameConflict(vo) {
+  const key = normalizeSiteConflictKey(vo?.siteId)
+  if (!key) return false
+
+  const adminEntry = adminSiteReferences.value.get(key)
+  if (!adminEntry) return true
+
+  return !adminEntry.siteNames.has(getExactSiteNameValue(vo?.siteName))
+}
+
+function getSiteNameConflictTitle(vo) {
+  if (!hasSiteNameConflict(vo)) return [vo.siteId, vo.siteName].filter(Boolean).join(' - ')
+
+  const conflict = getSiteNameConflict(vo.siteId)
+  if (!conflict) return [vo.siteId, vo.siteName].filter(Boolean).join(' - ')
+  if (!conflict.expectedSiteNames.length) {
+    return `Site ID ${conflict.siteId} is not in Admin site data. Current row site name: ${formatConflictSiteName(vo.siteName)}`
+  }
+  return `Site ID ${conflict.siteId} does not match Admin site data. Expected ${conflict.expectedSiteNames.join(', ')}; current row has ${formatConflictSiteName(vo.siteName)}`
+}
+
 const matchesCombinedFilter = (vo) => {
   switch (activeCombinedFilter.value) {
     case 'po-have-not-invoice':
@@ -1336,6 +1508,10 @@ const matchesAllFilters = (vo) => {
       voValue = statusMap[voValue] || voValue
     } else if (column === 'voAmount') {
       voValue = formatCurrency(voValue)
+    }
+
+    if (column === 'invoiceStatus' && !String(voValue || '').trim()) {
+      voValue = BLANK_INVOICE_STATUS_FILTER_LABEL
     }
 
     // Check if value is in selected values
@@ -1441,6 +1617,8 @@ const getStatusColor = (status) => {
   return colorMap[status] || 'bg-gray-200 text-gray-800'
 }
 
+const BLANK_INVOICE_STATUS_FILTER_LABEL = '(Blank)'
+
 const getInvoiceStatusColor = (status) => {
   const colorMap = {
     'Not Yet Sent': 'bg-gray-100 text-gray-600',
@@ -1471,6 +1649,27 @@ const resetColumns = () => {
 }
 
 // Filter functions
+const getFilterDisplayValue = (vo, columnKey) => {
+  let value = vo?.[columnKey]
+
+  if (columnKey === 'boqRelated' || columnKey === 'amountChangeFlag' || columnKey === 'isDuplicate') {
+    value = value ? 'Yes' : 'No'
+  } else if (columnKey === 'poStatus') {
+    value = vo?.poNumber?.trim() ? 'Have PO' : 'No PO'
+  } else if (['emailSentToNokia', 'emailApprovedFromNokia', 'ticketSubmissionDate', 'ticketApprovalDate', 'invoiceDate'].includes(columnKey)) {
+    value = value ? new Date(value).toLocaleDateString('en-AU') : 'â€”'
+  } else if (columnKey === 'voStatus') {
+    const statusMap = { 'draft': 'Draft', 'submitted': 'Submitted', 'pending-approval': 'Pending', 'approved': 'Approved', 'rejected': 'Rejected' }
+    value = statusMap[value] || value
+  } else if (columnKey === 'voAmount') {
+    value = formatCurrency(value)
+  } else if (columnKey === 'invoiceStatus' && !String(value || '').trim()) {
+    value = BLANK_INVOICE_STATUS_FILTER_LABEL
+  }
+
+  return value
+}
+
 const getUniqueValues = (columnKey) => {
   const vosArray = store.vos.value || []
   const uniqueSet = new Set()
@@ -1490,6 +1689,10 @@ const getUniqueValues = (columnKey) => {
       value = statusMap[value] || value
     } else if (columnKey === 'voAmount') {
       value = formatCurrency(value)
+    }
+
+    if (columnKey === 'invoiceStatus' && !String(value || '').trim()) {
+      value = BLANK_INVOICE_STATUS_FILTER_LABEL
     }
 
     if (value !== null && value !== undefined && value !== '') {
@@ -1549,9 +1752,14 @@ watch(hasCustomColumnWidths, (value) => {
 })
 
 const _onEsc = (e) => { if (e.key === 'Escape') isExpanded.value = false }
-onMounted(() => document.addEventListener('keydown', _onEsc))
+const _onAdminDataUpdated = () => { adminDataRevision.value++ }
+onMounted(() => {
+  document.addEventListener('keydown', _onEsc)
+  window.addEventListener('adminDataUpdated', _onAdminDataUpdated)
+})
 onUnmounted(() => {
   document.removeEventListener('keydown', _onEsc)
+  window.removeEventListener('adminDataUpdated', _onAdminDataUpdated)
   stopColumnResize()
 })
 </script>

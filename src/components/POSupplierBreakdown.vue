@@ -50,8 +50,28 @@
       </div>
       <div class="bg-teal-50 border border-teal-200 rounded-xl px-4 py-3">
         <p class="text-[11px] uppercase tracking-wider text-teal-600 font-semibold">Supplier PO Total</p>
-        <p class="text-2xl font-bold text-teal-700 mt-1">{{ formatCompact(totalAmount) }}</p>
-        <p class="text-xs text-gray-500 mt-1">{{ formatCurrency(totalAmount) }}</p>
+        <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div class="rounded-lg border border-teal-200 bg-white/70 px-3 py-2">
+            <p class="text-[10px] uppercase tracking-wider text-teal-600 font-semibold">With GST</p>
+            <p class="mt-0.5 text-lg font-bold text-teal-700">{{ formatCompact(totalAmount) }}</p>
+            <p class="text-xs text-gray-500 mt-1">{{ formatCurrency(totalAmount) }}</p>
+          </div>
+          <div class="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2">
+            <p class="text-[10px] uppercase tracking-wider text-cyan-700 font-semibold">Without GST</p>
+            <p class="mt-0.5 text-lg font-bold text-cyan-800">{{ formatCompact(totalBaseAmount) }}</p>
+            <p class="text-xs text-gray-500 mt-1">{{ formatCurrency(totalBaseAmount) }}</p>
+          </div>
+        </div>
+        <div class="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+          <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5">
+            <p class="uppercase tracking-wider text-emerald-700 font-semibold">Receipt</p>
+            <p class="mt-0.5 text-emerald-800 font-bold">{{ formatCurrency(totalReceiptYesAmount) }}</p>
+          </div>
+          <div class="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5">
+            <p class="uppercase tracking-wider text-amber-700 font-semibold">Not Receipt</p>
+            <p class="mt-0.5 text-amber-800 font-bold">{{ formatCurrency(totalReceiptNoAmount) }}</p>
+          </div>
+        </div>
       </div>
       <div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
         <p class="text-[11px] uppercase tracking-wider text-blue-600 font-semibold">3rd Party VO Total</p>
@@ -162,7 +182,44 @@
                     </div>
                     <div class="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2">
                       <p class="text-[10px] uppercase tracking-wider text-teal-600 font-semibold">Supplier PO</p>
-                      <p class="text-sm font-bold text-teal-700 mt-0.5">{{ formatCurrency(jobTotal(job)) }}</p>
+                      <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <div class="rounded-md border border-teal-200 bg-white/70 px-2 py-1.5">
+                          <p class="text-[10px] uppercase tracking-wider text-teal-600 font-semibold">With GST</p>
+                          <p class="mt-0.5 font-bold text-teal-700">{{ formatCurrency(jobTotal(job)) }}</p>
+                        </div>
+                        <div class="rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1.5">
+                          <p class="text-[10px] uppercase tracking-wider text-cyan-700 font-semibold">Without GST</p>
+                          <p class="mt-0.5 font-bold text-cyan-800">{{ formatCurrency(jobBaseTotal(job)) }}</p>
+                        </div>
+                      </div>
+                      <div class="mt-2 grid grid-cols-2 gap-2 text-[10px]">
+                        <div class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5">
+                          <p class="uppercase tracking-wider text-emerald-700 font-semibold">Receipt</p>
+                          <div class="mt-1 space-y-1">
+                            <div>
+                              <p class="text-[9px] uppercase tracking-wider text-emerald-600">With GST</p>
+                              <p class="font-bold text-emerald-800">{{ formatCurrency(jobReceiptYesAmount(job)) }}</p>
+                            </div>
+                            <div>
+                              <p class="text-[9px] uppercase tracking-wider text-emerald-600">Without GST</p>
+                              <p class="font-bold text-emerald-800">{{ formatCurrency(jobReceiptYesBaseAmount(job)) }}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5">
+                          <p class="uppercase tracking-wider text-amber-700 font-semibold">Not Receipt</p>
+                          <div class="mt-1 space-y-1">
+                            <div>
+                              <p class="text-[9px] uppercase tracking-wider text-amber-600">With GST</p>
+                              <p class="font-bold text-amber-800">{{ formatCurrency(jobReceiptNoAmount(job)) }}</p>
+                            </div>
+                            <div>
+                              <p class="text-[9px] uppercase tracking-wider text-amber-600">Without GST</p>
+                              <p class="font-bold text-amber-800">{{ formatCurrency(jobReceiptNoBaseAmount(job)) }}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                     <div class="rounded-lg border px-3 py-2" :class="criticalGapPanelClass(jobCriticalGap(job))">
                       <p class="text-[10px] uppercase tracking-wider font-semibold">Critical Gap (PO &gt; VO)</p>
@@ -273,6 +330,9 @@
                         <span class="mx-1 text-gray-300">|</span>
                         Subtotal:
                         <span class="font-semibold text-blue-700">{{ formatCurrency(selectedEntrySubtotal(job)) }}</span>
+                        <span class="mx-1 text-gray-300">|</span>
+                        Without GST:
+                        <span class="font-semibold text-cyan-700">{{ formatCurrency(selectedEntryBaseSubtotal(job)) }}</span>
                       </div>
                       <div class="flex items-center gap-2">
                         <button
@@ -325,6 +385,16 @@
                               </button>
                             </th>
                             <th class="px-3 py-2 text-right font-semibold">
+                              <button type="button" @click="toggleEntrySort(job.key, 'voAmountManual')" class="inline-flex items-center hover:text-gray-900">
+                                <span>VO Amount Manual</span>
+                              </button>
+                            </th>
+                            <th class="px-3 py-2 text-right font-semibold">
+                              <button type="button" @click="toggleEntrySort(job.key, 'poAmountManual')" class="inline-flex items-center hover:text-gray-900">
+                                <span>PO Amount Manual</span>
+                              </button>
+                            </th>
+                            <th class="px-3 py-2 text-right font-semibold">
                               <button type="button" @click="toggleEntrySort(job.key, 'quotationAmount')" class="inline-flex items-center hover:text-gray-900">
                                 <span>Quotation Amount</span>
                               </button>
@@ -371,6 +441,29 @@
                             <td class="px-3 py-2 text-gray-800 whitespace-nowrap">{{ entry.supplier }}</td>
                             <td class="px-3 py-2 text-gray-700 whitespace-nowrap">{{ entry.category || '-' }}</td>
                             <td class="px-3 py-2 text-right font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(entry.amount) }}</td>
+                            <td class="px-3 py-2 min-w-[140px]">
+                              <input
+                                :value="entry.voAmountManual ?? ''"
+                                @change="updateEntryAmountField(job.key, entry.id, 'voAmountManual', $event.target.value)"
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                class="w-full px-2 py-1 border border-gray-300 rounded-md bg-white text-right text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </td>
+                            <td class="px-3 py-2 min-w-[150px]">
+                              <input
+                                :value="entry.poAmountManual ?? ''"
+                                @change="updateEntryAmountField(job.key, entry.id, 'poAmountManual', $event.target.value)"
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                class="w-full px-2 py-1 border border-gray-300 rounded-md bg-white text-right text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <p class="mt-1 text-[10px] text-cyan-600 text-right">
+                                With GST: {{ formatCurrency(getEntryManualPOAmount(entry)) }}
+                              </p>
+                            </td>
                             <td class="px-3 py-2 min-w-[140px]">
                               <input
                                 :value="entry.quotationAmount ?? ''"
@@ -770,6 +863,8 @@ function sanitizeEntry(rawEntry) {
     markupApplied: true,
     receiptStatus: normalizeReceiptStatus(rawEntry?.receiptStatus),
     coverIn: normalizeCoverIn(rawEntry?.coverIn),
+    voAmountManual: parseOptionalAmount(rawEntry?.voAmountManual),
+    poAmountManual: parseOptionalAmount(rawEntry?.poAmountManual),
     quotationAmount: parseOptionalAmount(rawEntry?.quotationAmount),
     comment: normalize(rawEntry?.comment),
     createdAt: rawEntry?.createdAt || new Date().toISOString(),
@@ -789,7 +884,7 @@ function calculateCoverage(quotationAmount, supplierAmount) {
 }
 
 function getEntryCoverage(entry) {
-  return calculateCoverage(parseOptionalAmount(entry?.quotationAmount), entry?.amount)
+  return calculateCoverage(parseOptionalAmount(entry?.quotationAmount), toAmount(entry?.amount) + getEntryManualPOAmount(entry))
 }
 
 function normalizeReceiptStatus(value) {
@@ -1046,6 +1141,8 @@ const filteredJobs = computed(() => {
       entry.poNumber.toLowerCase().includes(q) ||
       entry.supplier.toLowerCase().includes(q) ||
       (entry.category || '').toLowerCase().includes(q) ||
+      String(entry.voAmountManual ?? '').toLowerCase().includes(q) ||
+      String(entry.poAmountManual ?? '').toLowerCase().includes(q) ||
       String(entry.quotationAmount ?? '').toLowerCase().includes(q) ||
       (entry.receiptStatus || '').toLowerCase().includes(q) ||
       (entry.coverIn || '').toLowerCase().includes(q) ||
@@ -1057,8 +1154,11 @@ const filteredJobs = computed(() => {
 })
 
 const totalEntries = computed(() => jobs.value.reduce((sum, job) => sum + job.entries.length, 0))
-const totalAmount = computed(() => jobs.value.reduce((sum, job) => sum + job.entries.reduce((jobSum, entry) => jobSum + toAmount(entry.amount), 0), 0))
+const totalAmount = computed(() => jobs.value.reduce((sum, job) => sum + jobTotal(job), 0))
+const totalBaseAmount = computed(() => jobs.value.reduce((sum, job) => sum + jobBaseTotal(job), 0))
 const jobsWithEntries = computed(() => jobs.value.filter(job => job.entries.length > 0).length)
+const totalReceiptYesAmount = computed(() => jobs.value.reduce((sum, job) => sum + jobReceiptAmount(job, 'yes'), 0))
+const totalReceiptNoAmount = computed(() => jobs.value.reduce((sum, job) => sum + jobReceiptAmount(job, 'no'), 0))
 
 const thirdPartyVOSummaryByJob = computed(() => {
   const summary = new Map()
@@ -1079,6 +1179,21 @@ const thirdPartyVOSummaryByJob = computed(() => {
     jobSummary.byCategory[category] = (jobSummary.byCategory[category] || 0) + voAmount
     if (!jobSummary.itemsByCategory[category]) jobSummary.itemsByCategory[category] = []
     jobSummary.itemsByCategory[category].push(vo)
+  }
+  for (const job of (jobs.value || [])) {
+    const key = job.key
+    for (const entry of (job.entries || [])) {
+      const manualAmount = getEntryManualVOAmount(entry)
+      if (manualAmount === 0) continue
+      const category = normalizeCategory(entry.category)
+      if (!summary.has(key)) {
+        summary.set(key, { total: 0, byCategory: {}, itemsByCategory: {} })
+      }
+      const jobSummary = summary.get(key)
+      jobSummary.total += manualAmount
+      jobSummary.byCategory[category] = (jobSummary.byCategory[category] || 0) + manualAmount
+      if (!jobSummary.itemsByCategory[category]) jobSummary.itemsByCategory[category] = []
+    }
   }
   return summary
 })
@@ -1102,7 +1217,70 @@ const entryContext = computed(() => jobs.value.find(job => job.key === entryJobK
 })
 
 function jobTotal(job) {
-  return job.entries.reduce((sum, entry) => sum + toAmount(entry.amount), 0)
+  return job.entries.reduce((sum, entry) => sum + toAmount(entry.amount) + getEntryManualPOAmount(entry), 0)
+}
+
+function jobBaseTotal(job) {
+  return (job.entries || []).reduce((sum, entry) => sum + getEntryBaseAmount(entry) + getEntryManualPOBaseAmount(entry), 0)
+}
+
+function getEntryBaseAmount(entry) {
+  if (entry?.rawAmount !== undefined && entry?.rawAmount !== null && entry?.rawAmount !== '') {
+    return toAmount(entry.rawAmount)
+  }
+
+  if (entry?.markupApplied === true) {
+    const baseAmount = toAmount(entry.amount) / (1 + PO_MARKUP_RATE)
+    return Math.round((baseAmount + Number.EPSILON) * 100) / 100
+  }
+
+  return toAmount(entry?.amount)
+}
+
+function getEntryManualVOAmount(entry) {
+  return parseOptionalAmount(entry?.voAmountManual) ?? 0
+}
+
+function getEntryManualPOBaseAmount(entry) {
+  return parseOptionalAmount(entry?.poAmountManual) ?? 0
+}
+
+function getEntryManualPOAmount(entry) {
+  return applyPOMarkup(getEntryManualPOBaseAmount(entry))
+}
+
+function getReceiptBucket(entry) {
+  return normalizeReceiptStatus(entry?.receiptStatus) === 'yes' ? 'yes' : 'no'
+}
+
+function jobReceiptAmount(job, bucket) {
+  return (job.entries || []).reduce(
+    (sum, entry) => sum + (getReceiptBucket(entry) === bucket ? toAmount(entry.amount) + getEntryManualPOAmount(entry) : 0),
+    0
+  )
+}
+
+function jobReceiptBaseAmount(job, bucket) {
+  return (job.entries || []).reduce(
+    (sum, entry) => sum + (getReceiptBucket(entry) === bucket ? getEntryBaseAmount(entry) + getEntryManualPOBaseAmount(entry) : 0),
+    0
+  )
+}
+
+function jobReceiptYesAmount(job) {
+  return jobReceiptAmount(job, 'yes')
+}
+
+function jobReceiptNoAmount(job) {
+  return jobReceiptAmount(job, 'no')
+}
+
+function jobReceiptYesBaseAmount(job) {
+  return jobReceiptBaseAmount(job, 'yes')
+}
+
+function jobReceiptNoBaseAmount(job) {
+  return jobReceiptBaseAmount(job, 'no')
 }
 
 function jobThirdPartyVOSummary(job) {
@@ -1164,7 +1342,7 @@ function supplierTotalsByCategory(job) {
   const totals = {}
   for (const entry of (job.entries || [])) {
     const category = normalizeCategory(entry.category)
-    totals[category] = (totals[category] || 0) + toAmount(entry.amount)
+    totals[category] = (totals[category] || 0) + toAmount(entry.amount) + getEntryManualPOAmount(entry)
   }
   return totals
 }
@@ -1292,7 +1470,11 @@ function selectedEntryCount(job) {
 }
 
 function selectedEntrySubtotal(job) {
-  return selectedEntriesForJob(job).reduce((sum, entry) => sum + toAmount(entry.amount), 0)
+  return selectedEntriesForJob(job).reduce((sum, entry) => sum + toAmount(entry.amount) + getEntryManualPOAmount(entry), 0)
+}
+
+function selectedEntryBaseSubtotal(job) {
+  return selectedEntriesForJob(job).reduce((sum, entry) => sum + getEntryBaseAmount(entry) + getEntryManualPOBaseAmount(entry), 0)
 }
 
 function isEntrySelected(jobKey, entryId) {
@@ -1370,7 +1552,8 @@ function updateEntryAmountField(jobKey, entryId, field, value) {
   if (jobIdx === -1) return
 
   const normalizedValue = parseOptionalAmount(value)
-  if (normalizedValue !== null && normalizedValue < 0) return
+  const allowNegative = field === 'voAmountManual' || field === 'poAmountManual'
+  if (!allowNegative && normalizedValue !== null && normalizedValue < 0) return
 
   let changed = false
   const now = new Date().toISOString()
@@ -1404,6 +1587,8 @@ function toggleEntrySort(jobKey, key) {
 
 function getEntrySortValue(entry, key) {
   if (key === 'amount') return toAmount(entry.amount)
+  if (key === 'voAmountManual') return getEntryManualVOAmount(entry)
+  if (key === 'poAmountManual') return getEntryManualPOBaseAmount(entry)
   if (key === 'quotationAmount') return parseOptionalAmount(entry.quotationAmount) ?? Number.NEGATIVE_INFINITY
   if (key === 'coverage') return getEntryCoverage(entry) ?? Number.NEGATIVE_INFINITY
   if (key === 'updatedAt') return Date.parse(entry.updatedAt || entry.createdAt || '') || 0
@@ -1556,6 +1741,8 @@ function saveEntry() {
             markupApplied: true,
             receiptStatus,
             coverIn,
+            voAmountManual: parseOptionalAmount(entry.voAmountManual),
+            poAmountManual: parseOptionalAmount(entry.poAmountManual),
             quotationAmount,
             comment,
             updatedAt: now
@@ -1573,6 +1760,8 @@ function saveEntry() {
       markupApplied: true,
       receiptStatus,
       coverIn,
+      voAmountManual: null,
+      poAmountManual: null,
       quotationAmount,
       comment,
       createdAt: now,

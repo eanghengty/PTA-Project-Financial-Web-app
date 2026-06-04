@@ -1152,7 +1152,10 @@ const loadGlobalData = () => {
   } catch (e) { console.error('Error loading global data', e) }
 }
 
-const saveGlobalData = () => localStorage.setItem('globalData', JSON.stringify(globalData.value))
+const saveGlobalData = () => {
+  localStorage.setItem('globalData', JSON.stringify(globalData.value))
+  window.dispatchEvent(new Event('adminDataUpdated'))
+}
 
 // ── Sync from VOs ──
 const syncModal = reactive({

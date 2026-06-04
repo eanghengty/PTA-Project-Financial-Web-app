@@ -344,26 +344,64 @@
       <!-- Status Breakdown Cards (includes manual entries) -->
       <div v-if="statusGroups.length > 0" class="border border-blue-100 rounded-xl overflow-hidden">
         <div class="px-4 py-3 bg-blue-50/40 border-b border-blue-100 flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-gray-700">Invoice Status Breakdown</h3>
-          <span class="text-xs text-gray-400">All items incl. carry-over &amp; manual · {{ allDisplayItems.length + manualEntries.length }} items · {{ formatCurrency(grandTotal) }}</span>
+          <div>
+            <h3 class="text-sm font-semibold text-gray-700">Invoice Status Breakdown</h3>
+            <span class="text-xs text-gray-400">
+              {{ invoiceBreakdownMode === 'scope' && selectedInvoiceBreakdownScopeLabel
+                ? `${selectedInvoiceBreakdownScopeLabel} only`
+                : 'All items incl. carry-over & manual' }}
+              · {{ statusBreakdownItemCount }} items · {{ formatCurrency(statusBreakdownGrandTotal) }}
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <select
+              v-if="invoiceBreakdownMode === 'scope'"
+              v-model="selectedInvoiceBreakdownScope"
+              class="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option v-for="scope in invoiceBreakdownScopes" :key="scope" :value="scope">{{ scope }}</option>
+            </select>
+            <div class="inline-flex items-center rounded-lg border border-blue-200 bg-white p-1 text-xs font-semibold">
+              <button
+                @click="invoiceBreakdownMode = 'total'"
+                :class="invoiceBreakdownMode === 'total' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                class="px-3 py-1.5 rounded-md transition"
+              >
+                Total
+              </button>
+              <button
+                @click="invoiceBreakdownMode = 'scope'"
+                :class="invoiceBreakdownMode === 'scope' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'"
+                class="px-3 py-1.5 rounded-md transition"
+              >
+                Split by Scope
+              </button>
+            </div>
+          </div>
         </div>
         <div class="p-4 grid gap-3"
-          :class="statusGroups.length >= 4 ? 'grid-cols-4' : statusGroups.length === 3 ? 'grid-cols-3' : statusGroups.length === 2 ? 'grid-cols-2' : 'grid-cols-1'">
-          <div v-for="g in statusGroups" :key="g.status"
+          :class="statusBreakdownGroups.length >= 4 ? 'grid-cols-4' : statusBreakdownGroups.length === 3 ? 'grid-cols-3' : statusBreakdownGroups.length === 2 ? 'grid-cols-2' : 'grid-cols-1'">
+          <div v-for="g in statusBreakdownGroups" :key="g.status"
             class="border rounded-xl p-4 bg-white" :class="g.cfg.border">
             <div class="flex items-center gap-2 mb-3">
               <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="g.cfg.dot"></span>
               <span class="text-xs font-bold uppercase tracking-wider leading-tight" :class="g.cfg.text">{{ g.status }}</span>
             </div>
             <p class="text-xl font-bold text-gray-900 mb-0.5">{{ formatCompact(g.total) }}</p>
-            <p class="text-xs text-gray-400">{{ g.count }} item{{ g.count !== 1 ? 's' : '' }}<span v-if="g.manualCount" class="text-violet-500"> ({{ g.manualCount }} manual)</span></p>
+            <p class="text-xs text-gray-400">
+              {{ g.count }} item{{ g.count !== 1 ? 's' : '' }}
+              <span v-if="g.manualCount" class="text-violet-500"> ({{ g.manualCount }} manual)</span>
+            </p>
+            <p v-if="invoiceBreakdownMode === 'scope'" class="mt-3 text-[11px] font-semibold text-blue-600">
+              Scope: {{ selectedInvoiceBreakdownScopeLabel }}
+            </p>
             <div class="mt-3 h-1.5 rounded-full bg-gray-100 overflow-hidden">
               <div class="h-full rounded-full transition-all" :class="g.cfg.bar"
-                :style="{ width: grandTotal > 0 ? ((g.total / grandTotal) * 100).toFixed(1) + '%' : '0%' }">
+                :style="{ width: statusBreakdownGrandTotal > 0 ? ((g.total / statusBreakdownGrandTotal) * 100).toFixed(1) + '%' : '0%' }">
               </div>
             </div>
             <p class="text-xs mt-1" :class="g.cfg.muted">
-              {{ grandTotal > 0 ? ((g.total / grandTotal) * 100).toFixed(1) : '0' }}% of total
+              {{ statusBreakdownGrandTotal > 0 ? ((g.total / statusBreakdownGrandTotal) * 100).toFixed(1) : '0' }}% of total
             </p>
           </div>
         </div>
@@ -1002,6 +1040,11 @@ const today = new Date()
 const selectedMonth  = ref(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`)
 const showAllMonths  = ref(false)
 const currentPage    = ref(1)
+const invoiceBreakdownMode = ref('total')
+const selectedInvoiceBreakdownScope = ref('')
+const getNormalizedScope = (value) => value?.trim() || '(No Scope)'
+const invoiceBreakdownScopeMatches = (value) =>
+  invoiceBreakdownMode.value !== 'scope' || getNormalizedScope(value) === selectedInvoiceBreakdownScopeLabel.value
 
 watch([selectedMonth, showAllMonths], () => { currentPage.value = 1 })
 
@@ -1075,6 +1118,7 @@ const tpServiceRows = computed(() => {
     service:    { label: 'Service',     dot: 'bg-blue-500',   total: 0, count: 0, byStatus: {} },
   }
   for (const vo of allDisplayItems.value) {
+    if (!invoiceBreakdownScopeMatches(vo.scope)) continue
     const key = (vo.voCategory || '').toLowerCase() === 'third party' ? 'thirdParty' : 'service'
     const g = groups[key]
     const amt = displayAmt(vo)
@@ -1086,6 +1130,7 @@ const tpServiceRows = computed(() => {
     g.byStatus[s].count++
   }
   for (const e of manualEntries.value) {
+    if (!invoiceBreakdownScopeMatches(e.scope)) continue
     const key = (e.category || '').toLowerCase() === 'third party' ? 'thirdParty' : 'service'
     const g = groups[key]
     const s = getDisplayInvoiceStatus(e, 'SIT Completed')
@@ -1322,23 +1367,85 @@ const statusGroups = computed(() => {
   const groups = {}
   allDisplayItems.value.forEach(vo => {
     const s = getDisplayInvoiceStatus(vo)
-    if (!groups[s]) groups[s] = { count: 0, total: 0, manualCount: 0 }
+    const scope = getNormalizedScope(vo.scope)
+    if (!groups[s]) groups[s] = { count: 0, total: 0, manualCount: 0, scopes: {} }
     groups[s].count++
     groups[s].total += displayAmt(vo)
+    if (!groups[s].scopes[scope]) groups[s].scopes[scope] = { amount: 0, count: 0, manualCount: 0 }
+    groups[s].scopes[scope].amount += displayAmt(vo)
+    groups[s].scopes[scope].count++
   })
   manualEntries.value.forEach(e => {
     const s = getDisplayInvoiceStatus(e, 'SIT Completed')
-    if (!groups[s]) groups[s] = { count: 0, total: 0, manualCount: 0 }
+    const scope = getNormalizedScope(e.scope)
+    if (!groups[s]) groups[s] = { count: 0, total: 0, manualCount: 0, scopes: {} }
     groups[s].count++
     groups[s].manualCount++
     groups[s].total += e.amount || 0
+    if (!groups[s].scopes[scope]) groups[s].scopes[scope] = { amount: 0, count: 0, manualCount: 0 }
+    groups[s].scopes[scope].amount += e.amount || 0
+    groups[s].scopes[scope].count++
+    groups[s].scopes[scope].manualCount++
   })
   return STATUS_ORDER.filter(s => groups[s]).map(s => ({
     status: s,
     ...groups[s],
+    scopes: Object.entries(groups[s].scopes || {})
+      .map(([scope, summary]) => ({ scope, ...summary }))
+      .sort((a, b) => b.amount - a.amount || a.scope.localeCompare(b.scope)),
     cfg: STATUS_CFG[s] || STATUS_CFG['Not Yet Sent'],
   }))
 })
+
+const invoiceBreakdownScopes = computed(() => {
+  const scopeSet = new Set()
+  statusGroups.value.forEach(group => {
+    ;(group.scopes || []).forEach(scopeEntry => scopeSet.add(scopeEntry.scope))
+  })
+  return [...scopeSet].sort((a, b) => a.localeCompare(b))
+})
+
+const selectedInvoiceBreakdownScopeLabel = computed(() =>
+  selectedInvoiceBreakdownScope.value || invoiceBreakdownScopes.value[0] || '(No Scope)'
+)
+
+watch(invoiceBreakdownScopes, (scopes) => {
+  if (!scopes.length) {
+    selectedInvoiceBreakdownScope.value = ''
+    return
+  }
+  if (!scopes.includes(selectedInvoiceBreakdownScope.value)) {
+    selectedInvoiceBreakdownScope.value = scopes[0]
+  }
+}, { immediate: true })
+
+const statusBreakdownGroups = computed(() => {
+  if (invoiceBreakdownMode.value !== 'scope') {
+    return statusGroups.value
+  }
+
+  const selectedScope = selectedInvoiceBreakdownScopeLabel.value
+  return statusGroups.value
+    .map(group => {
+      const scoped = (group.scopes || []).find(entry => entry.scope === selectedScope)
+      if (!scoped) return null
+      return {
+        ...group,
+        total: scoped.amount,
+        count: scoped.count,
+        manualCount: scoped.manualCount || 0,
+      }
+    })
+    .filter(Boolean)
+})
+
+const statusBreakdownGrandTotal = computed(() =>
+  statusBreakdownGroups.value.reduce((sum, group) => sum + (group.total || 0), 0)
+)
+
+const statusBreakdownItemCount = computed(() =>
+  statusBreakdownGroups.value.reduce((sum, group) => sum + (group.count || 0), 0)
+)
 
 const tableColumns = [
   { key: 'siteId',        label: 'Site ID',        minW: '80px'  },

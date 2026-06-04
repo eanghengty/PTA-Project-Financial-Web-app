@@ -251,7 +251,7 @@ Manual carry-over rows show a source-month badge (for example `Mar 2026`), and e
 
 **KPI row (dynamic cards):** Always includes Total This Month, Variation Orders, and Base PO. Optional cards appear for Carried Over, Manual Lines, and SIT Wrong Amount when those buckets are non-empty.
 
-**Status breakdown cards:** Grouped by `invoiceStatus` for all displayed items (current month + carry-over + manual lines), each card shows amount, count, and a proportional progress bar (% of month total).
+**Status breakdown cards:** Grouped by `invoiceStatus` for all displayed items (current month + carry-over + manual lines), each card shows amount, count, and a proportional progress bar (% of month total). The card header includes a `Total / Split by Scope` toggle; split mode exposes a scope selector and recalculates each status card's amount, item count, manual count, and percentage against the selected scope only.
 
 **Detail table columns:** Site ID | Site Name | Job No. | Description | Category | Scope | PO Number | Invoice Status | Invoice Date | Amount. Footer row shows combined total with "(X this month + Y carried over)" note.
 
@@ -324,6 +324,8 @@ The primary UI chrome uses `blue-600/700` for action buttons and table headers, 
 **Column Resizing / Overflow:** TableView columns should fit the available width by default and only switch into fixed pixel widths after the user manually drags a resize handle. Custom widths persist in localStorage under the v2 width key, and Reset restores the auto-fit default. Keep the header resize behavior, but row cells must not bleed past their column width.
 
 **Row Cell Clipping:** For text-heavy data cells in TableView (for example Site ID, Site Name, Job Number, Description, Scope, Category, PO Supplier Category, Ticket Number, and PO Number), wrap the content in a full-width truncating container (`overflow-hidden` + `truncate`) so row data clips inside the resized column while the header remains readable.
+
+**Site ID / Name Mismatch Warning:** TableView compares each Variation row against Admin site management data in `globalData.sites`, keyed by `siteId`. If a row's `siteId` has no Admin match or its `siteName` is not an exact match for that Admin `siteId`, the current list shows an amber summary strip and the affected Site ID / Site Name cells turn amber with warning markers in both normal and expanded table layouts. This check is intentionally exact for `siteName`, so whitespace-only differences still highlight. `AdminView.vue` dispatches `adminDataUpdated` after saving so the Variations view can refresh immediately.
 
 **Row Selection:** Cleared automatically when search text or filters change (prevents stale multi-page selections).
 
