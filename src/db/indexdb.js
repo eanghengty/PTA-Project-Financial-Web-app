@@ -324,6 +324,50 @@ export function bulkInsertVOs(vos) {
 }
 
 /**
+ * Bulk update existing VOs in one transaction
+ */
+export function bulkPutVOs(vos) {
+  return new Promise((resolve, reject) => {
+    const transaction = getDB().transaction([STORE_NAME], 'readwrite')
+    const store = transaction.objectStore(STORE_NAME)
+
+    const updatedVOs = []
+    let completed = 0
+    let hasError = false
+
+    if (!Array.isArray(vos) || vos.length === 0) {
+      resolve([])
+      return
+    }
+
+    vos.forEach((voData, index) => {
+      const vo = JSON.parse(JSON.stringify({
+        ...voData,
+        isDuplicate: voData.isDuplicate === true,
+        poSupplierCategory: typeof voData.poSupplierCategory === 'string' ? voData.poSupplierCategory.trim() : '',
+        id: voData.id,
+        createdAt: voData.createdAt || new Date(),
+        updatedAt: new Date()
+      }))
+
+      const request = store.put(vo)
+      request.onerror = () => {
+        if (hasError) return
+        hasError = true
+        reject(request.error)
+      }
+      request.onsuccess = () => {
+        updatedVOs[index] = vo
+        completed++
+        if (completed === vos.length && !hasError) {
+          resolve(updatedVOs.filter(Boolean))
+        }
+      }
+    })
+  })
+}
+
+/**
  * Clear all data
  */
 export function clearAllData() {

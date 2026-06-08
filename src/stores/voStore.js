@@ -13,6 +13,7 @@ import {
   getUniqueCategories,
   getUniqueSites,
   bulkInsertVOs,
+  bulkPutVOs,
   clearAllData,
   addIssueLog,
   updateIssueLog,
@@ -440,6 +441,26 @@ export function useVOStore() {
     addToInvoicePrep(ids)
   }
 
+  const bulkReplaceVOs = async (voList, options = {}) => {
+    const { suppressLoadingToggle = false } = options
+    if (!suppressLoadingToggle) loading.value = true
+    error.value = null
+    try {
+      const updatedVOs = await bulkPutVOs(voList)
+      if (updatedVOs.length > 0) {
+        const updatedMap = new Map(updatedVOs.map(vo => [vo.id, vo]))
+        vos.value = vos.value.map(vo => updatedMap.get(vo.id) || vo)
+      }
+      return updatedVOs
+    } catch (err) {
+      error.value = err.message
+      console.error('Error bulk updating VOs:', err)
+      throw err
+    } finally {
+      if (!suppressLoadingToggle) loading.value = false
+    }
+  }
+
   const addToInvoicePrep = (ids) => {
     const eligible = ids.filter(id => {
       const vo = vos.value.find(v => v.id === id)
@@ -622,6 +643,7 @@ export function useVOStore() {
     updateFilters,
     clearFilters,
     bulkUpdateInvoiceStatus,
+    bulkReplaceVOs,
     addToInvoicePrep,
     removeFromInvoicePrep,
     clearInvoicePrep,

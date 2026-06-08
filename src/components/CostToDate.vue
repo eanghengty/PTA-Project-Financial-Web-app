@@ -111,7 +111,7 @@
     </div>
 
     <!-- Import progress banner -->
-    <div v-if="importing" class="flex items-start gap-3 px-4 py-3 rounded-xl border bg-violet-50 border-violet-200">
+    <div v-if="false && importing" class="flex items-start gap-3 px-4 py-3 rounded-xl border bg-violet-50 border-violet-200">
       <svg class="w-4 h-4 mt-0.5 shrink-0 text-violet-600 animate-spin" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-30" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
         <path class="opacity-90" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z"></path>
@@ -127,6 +127,56 @@
         :class="cancelRequested ? 'border-gray-300 text-gray-400 cursor-not-allowed' : 'border-violet-300 text-violet-700 hover:bg-violet-100'">
         {{ cancelRequested ? 'Cancelling...' : 'Cancel' }}
       </button>
+    </div>
+
+    <div v-if="importing" class="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-sm p-4">
+      <div class="w-full max-w-md rounded-2xl border border-violet-200 bg-white shadow-2xl">
+        <div class="px-6 py-5 border-b border-violet-100">
+          <div class="flex items-start gap-3">
+            <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-violet-100">
+              <svg class="w-5 h-5 text-violet-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-30" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                <path class="opacity-90" fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z"></path>
+              </svg>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-violet-800">{{ cancelRequested ? 'Cancelling import and rolling back...' : 'Importing costs...' }}</p>
+              <p class="mt-1 text-xs text-violet-600">Background actions are paused until the import finishes.</p>
+            </div>
+          </div>
+        </div>
+        <div class="px-6 py-5 space-y-3">
+          <div class="grid grid-cols-3 gap-3 text-center">
+            <div class="rounded-xl bg-violet-50 px-3 py-2">
+              <p class="text-[11px] font-semibold uppercase tracking-wider text-violet-500">Rows</p>
+              <p class="mt-1 text-sm font-bold text-violet-800">{{ progress.processedRows }} / {{ progress.totalRows }}</p>
+            </div>
+            <div class="rounded-xl bg-blue-50 px-3 py-2">
+              <p class="text-[11px] font-semibold uppercase tracking-wider text-blue-500">Matched VOs</p>
+              <p class="mt-1 text-sm font-bold text-blue-800">{{ progress.matchedVOs }}</p>
+            </div>
+            <div class="rounded-xl bg-emerald-50 px-3 py-2">
+              <p class="text-[11px] font-semibold uppercase tracking-wider text-emerald-500">Applied</p>
+              <p class="mt-1 text-sm font-bold text-emerald-800">{{ progress.appliedVOs }}</p>
+            </div>
+          </div>
+          <div class="h-2 overflow-hidden rounded-full bg-violet-100">
+            <div
+              class="h-full rounded-full bg-violet-600 transition-all duration-200"
+              :style="{ width: `${progress.totalRows > 0 ? Math.min(100, Math.round((progress.processedRows / progress.totalRows) * 100)) : 0}%` }"
+            />
+          </div>
+          <div class="flex justify-end">
+            <button
+              @click="requestCancelImport"
+              :disabled="cancelRequested"
+              class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold border transition"
+              :class="cancelRequested ? 'border-gray-300 text-gray-400 cursor-not-allowed' : 'border-violet-300 text-violet-700 hover:bg-violet-50'">
+              {{ cancelRequested ? 'Cancelling...' : 'Cancel' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Import result banner -->
@@ -403,6 +453,10 @@ async function yieldToUI() {
   await new Promise(resolve => setTimeout(resolve, 0))
 }
 
+function normalizeLookupKey(value) {
+  return String(value || '').trim().toLowerCase()
+}
+
 // ── Download import template ──
 function downloadTemplate() {
   // Pre-fill with existing job data so user can just fill in costs
@@ -459,10 +513,10 @@ async function handleImport(e) {
     const importContext = {
       rows: [],
       originalCosts: new Map(),
-      touchedVOIds: new Set(),
+      pendingVOUpdates: new Map(),
       warnings: [],
       skipped: 0,
-      updated: 0,
+      appliedIds: new Set(),
     }
 
     // Phase 1: parse and build execution plan
@@ -497,6 +551,30 @@ async function handleImport(e) {
       return undefined
     }
 
+    const allVOs = store.vos.value || []
+    const vosByJobNumber = new Map()
+    const vosBySiteId = new Map()
+    const vosBySiteName = new Map()
+
+    for (const vo of allVOs) {
+      const jobKey = normalizeLookupKey(vo.jobNumber)
+      const siteIdKey = normalizeLookupKey(vo.siteId)
+      const siteNameKey = normalizeLookupKey(vo.siteName)
+
+      if (jobKey) {
+        if (!vosByJobNumber.has(jobKey)) vosByJobNumber.set(jobKey, [])
+        vosByJobNumber.get(jobKey).push(vo)
+      }
+      if (siteIdKey) {
+        if (!vosBySiteId.has(siteIdKey)) vosBySiteId.set(siteIdKey, [])
+        vosBySiteId.get(siteIdKey).push(vo)
+      }
+      if (siteNameKey) {
+        if (!vosBySiteName.has(siteNameKey)) vosBySiteName.set(siteNameKey, [])
+        vosBySiteName.get(siteNameKey).push(vo)
+      }
+    }
+
     for (let i = 0; i < rows.length; i++) {
       if (cancelRequested.value) break
       const row = rows[i]
@@ -511,12 +589,13 @@ async function handleImport(e) {
 
       let matched = []
       if (jobNumber) {
-        matched = store.vos.value.filter(vo => vo.jobNumber?.trim() === jobNumber)
+        matched = vosByJobNumber.get(normalizeLookupKey(jobNumber)) || []
       } else if (siteId || siteName) {
-        matched = store.vos.value.filter(vo =>
-          (siteId && vo.siteId?.trim().toLowerCase() === siteId.toLowerCase()) ||
-          (siteName && vo.siteName?.trim().toLowerCase() === siteName.toLowerCase())
-        )
+        const combined = new Map()
+        const siteIdMatches = siteId ? (vosBySiteId.get(normalizeLookupKey(siteId)) || []) : []
+        const siteNameMatches = siteName ? (vosBySiteName.get(normalizeLookupKey(siteName)) || []) : []
+        for (const vo of [...siteIdMatches, ...siteNameMatches]) combined.set(vo.id, vo)
+        matched = [...combined.values()]
       }
 
       if (matched.length === 0) {
@@ -538,7 +617,7 @@ async function handleImport(e) {
       if (i % 20 === 0) await yieldToUI()
     }
 
-    // Phase 2: apply updates with cancel checkpoints
+    // Phase 2: build final VO updates in memory
     for (let i = 0; i < importContext.rows.length; i++) {
       if (cancelRequested.value) break
       const rowPlan = importContext.rows[i]
@@ -550,37 +629,22 @@ async function handleImport(e) {
             thirdPartyCost: vo.thirdPartyCost || 0,
           })
         }
-        importContext.touchedVOIds.add(vo.id)
-        await store.editVO(
-          vo.id,
-          { ...vo, labourCost: rowPlan.labourPer, thirdPartyCost: rowPlan.thirdPartyPer },
-          { suppressActivityLog: true, suppressLoadingToggle: true }
-        )
-        importContext.updated++
-        progress.value.appliedVOs = importContext.updated
+        const baseVO = importContext.pendingVOUpdates.get(vo.id) || vo
+        importContext.pendingVOUpdates.set(vo.id, {
+          ...baseVO,
+          labourCost: rowPlan.labourPer,
+          thirdPartyCost: rowPlan.thirdPartyPer,
+        })
       }
-      await yieldToUI()
+      progress.value.appliedVOs = importContext.pendingVOUpdates.size
+      if (i % 20 === 0) await yieldToUI()
     }
 
     if (cancelRequested.value) {
-      let reverted = 0
-      for (const voId of importContext.touchedVOIds) {
-        const snapshot = importContext.originalCosts.get(voId)
-        const current = store.vos.value.find(v => v.id === voId)
-        if (!snapshot || !current) continue
-        await store.editVO(
-          voId,
-          { ...current, labourCost: snapshot.labourCost, thirdPartyCost: snapshot.thirdPartyCost },
-          { suppressActivityLog: true, suppressLoadingToggle: true }
-        )
-        reverted++
-        if (reverted % 25 === 0) await yieldToUI()
-      }
-
       importResult.value = {
         type: 'error',
         title: 'Canceled - rolled back',
-        message: `Import canceled after ${progress.value.processedRows} row${progress.value.processedRows !== 1 ? 's' : ''}. ${reverted} VO${reverted !== 1 ? 's were' : ' was'} reverted.`,
+        message: `Import canceled after ${progress.value.processedRows} row${progress.value.processedRows !== 1 ? 's' : ''}. No cost changes were saved.`,
         warnings: importContext.warnings.slice(0, 10),
       }
       store.addCostImportSummaryLog({
@@ -588,14 +652,65 @@ async function handleImport(e) {
         filename: file.name,
         rowsTotal: progress.value.totalRows,
         rowsProcessed: progress.value.processedRows,
-        updatedCount: importContext.updated,
-        revertedCount: reverted,
-        message: `Canceled by user. Rolled back ${reverted} VO updates.`,
+        updatedCount: 0,
+        revertedCount: 0,
+        message: 'Canceled by user before cost changes were saved.',
       })
       return
     }
 
-    const updated = importContext.updated
+    // Phase 3: persist final updates in chunks
+    const updatesToApply = [...importContext.pendingVOUpdates.values()]
+    const CHUNK_SIZE = 150
+
+    for (let i = 0; i < updatesToApply.length; i += CHUNK_SIZE) {
+      if (cancelRequested.value) break
+      const chunk = updatesToApply.slice(i, i + CHUNK_SIZE)
+      const appliedChunk = await store.bulkReplaceVOs(chunk, { suppressLoadingToggle: true })
+      appliedChunk.forEach(vo => importContext.appliedIds.add(vo.id))
+      progress.value.appliedVOs = importContext.appliedIds.size
+      await yieldToUI()
+    }
+
+    if (cancelRequested.value) {
+      const rollbackVOs = [...importContext.appliedIds]
+        .map((voId) => {
+          const current = store.vos.value.find(v => v.id === voId)
+          const snapshot = importContext.originalCosts.get(voId)
+          if (!current || !snapshot) return null
+          return {
+            ...current,
+            labourCost: snapshot.labourCost,
+            thirdPartyCost: snapshot.thirdPartyCost,
+          }
+        })
+        .filter(Boolean)
+
+      for (let i = 0; i < rollbackVOs.length; i += CHUNK_SIZE) {
+        const rollbackChunk = rollbackVOs.slice(i, i + CHUNK_SIZE)
+        await store.bulkReplaceVOs(rollbackChunk, { suppressLoadingToggle: true })
+        await yieldToUI()
+      }
+
+      importResult.value = {
+        type: 'error',
+        title: 'Canceled - rolled back',
+        message: `Import canceled after ${progress.value.processedRows} row${progress.value.processedRows !== 1 ? 's' : ''}. ${importContext.appliedIds.size} VO${importContext.appliedIds.size !== 1 ? 's were' : ' was'} reverted.`,
+        warnings: importContext.warnings.slice(0, 10),
+      }
+      store.addCostImportSummaryLog({
+        status: 'canceled_rolled_back',
+        filename: file.name,
+        rowsTotal: progress.value.totalRows,
+        rowsProcessed: progress.value.processedRows,
+        updatedCount: importContext.appliedIds.size,
+        revertedCount: importContext.appliedIds.size,
+        message: `Canceled by user. Rolled back ${importContext.appliedIds.size} VO updates.`,
+      })
+      return
+    }
+
+    const updated = importContext.appliedIds.size
     const skipped = importContext.skipped
     const warnings = importContext.warnings
 
